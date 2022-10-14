@@ -1,0 +1,41 @@
+name: Hexo Deploy
+
+on:
+  push:
+    branches:
+      - sc
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    if: github.event.repository.owner.id == github.event.sender.id
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v2
+        with:
+          ref: sc
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: "16.17.1"
+
+      - name: Setup Hexo
+        env:
+          ACTION_DEPLOY_KEY: ${{ secrets.HEXO_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$ACTION_DEPLOY_KEY" > ~/.ssh/id_rsa
+          chmod 700 ~/.ssh
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          git config --global user.email "620710+mouxie@users.noreply.github.com"
+          git config --global user.name "mouxie"
+          npm install hexo-cli yarn -g
+          yarn
+
+      - name: Deploy
+        run: |
+          hexo clean
+          hexo deploy
