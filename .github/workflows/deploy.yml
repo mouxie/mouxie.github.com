@@ -1,8 +1,9 @@
 name: Hexo Deploy
 
 on:
-  label:
-    types: [created, edited]
+  push:
+    branches:
+      - sc
 
 jobs:
   build:
