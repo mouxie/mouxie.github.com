@@ -1,7 +1,7 @@
 ---
 title: 解决 root@github.com Permission denied (publickey)
 date: 2022-10-16 20:20:20
-permalink: fixed-root-github-com-Permission-denied-publickey
+permalink: fixed-root-github-com-Permission-denied-publickey.html
 ---
 执行 `git` 命令 `git pull` 或 `git push` 时遇到以下错误
 ```
