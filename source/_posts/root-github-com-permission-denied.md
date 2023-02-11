@@ -2,7 +2,7 @@
 title: 解决 root@github.com Permission denied (publickey)
 date: 2022-10-16 20:20:20
 description: "执行 `git` 命令 `git pull` 或 `git push` 时遇到以下错误 root@github.com Permission denied (publickey)"
-tag: "root,git,Permission denied,github"
+keywords: "root,git,Permission denied,github"
 permalink: fixed-root-github-com-Permission-denied-publickey.html
 ---
 在执行 `git` 命令 `git pull` 或者 `git push` 的时候遇到以下错误：
