@@ -6,6 +6,8 @@ keywords: "root,git,Permission denied,github"
 tags: 
  - git
  - github
+categories:
+ - Git
 permalink: fixed-root-github-com-Permission-denied-publickey.html
 ---
 在执行 `git` 命令 `git pull` 或者 `git push` 的时候遇到以下错误：
