@@ -66,6 +66,7 @@ error: failed to push some refs to 'https://xxx.com/gitlab/user/testgithubflow.g
 ```
 
 ## 7.2 如果是github且账号开启了email隐私保护（email privacy enabled），在git push操作时可能会遇到以下问题，
+![image](https://raw.githubusercontent.com/mouxie/mouxie.github.com/images/git-revert-rollback-to-previous-commit/github%20email%20privacy%20restrictions.png)
 ```
 $ git push -f origin master
 Total 0 (delta 0), reused 0 (delta 0), pack-reused 0
