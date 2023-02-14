@@ -48,9 +48,9 @@ navbar:
         Tags: /tags
         About: /about
     links:
-        Download on GitHub:
+        Find me on GitHub:
             icon: fab fa-github
-            url: https://github.com/ppoffice/hexo-theme-icarus
+            url: https://github.com/mouxie
 footer:
     links:
         Creative Commons:
@@ -123,11 +123,11 @@ widgets:
         avatar: https://butterfly.js.org/img/avatar.png
         avatar_rounded: false
         gravatar: 
-        follow_link: https://github.com/ppoffice
+        follow_link: https://github.com/mouxie
         social_links:
             Github:
                 icon: fab fa-github
-                url: https://github.com/ppoffice
+                url: https://github.com/mouxie
             Facebook:
                 icon: fab fa-facebook
                 url: https://facebook.com
