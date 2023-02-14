@@ -120,7 +120,7 @@ widgets:
         author: Your name
         author_title: Your title
         location: Your location
-        avatar: 
+        avatar: https://butterfly.js.org/img/avatar.png
         avatar_rounded: false
         gravatar: 
         follow_link: https://github.com/ppoffice
@@ -151,7 +151,6 @@ widgets:
         type: links
         links:
             Hexo: https://hexo.io
-            Bulma: https://bulma.io
     -
         position: left
         type: categories
