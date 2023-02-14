@@ -24,6 +24,7 @@ permalink: git-revert-rollback-to-previous-commit.html
 
 # 3. 参数 Rest type 选择 Hard
 在弹出的对话框内， 在 Rest type 区域选项内选择第三个参数 
+<!-- more -->
 ```
 Hard: Reset working tree and index (discard all local changes)
 ```
