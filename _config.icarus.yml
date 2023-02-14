@@ -1,8 +1,8 @@
 version: 5.1.0
 variant: default
-logo: /img/logo.svg
+logo: /img/icons8-bash.svg
 head:
-    favicon: /img/favicon.svg
+    favicon: /img/icons8-face-generator.svg
     manifest:
         name: 
         short_name: 
