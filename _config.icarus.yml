@@ -174,8 +174,8 @@ widgets:
     -
         position: left
         type: adsense
-        client_id: ''
-        slot_id: ''
+        client_id: 'ca-pub-0722470740475547'
+        slot_id: '3772225449'
     -
         position: left
         type: followit
