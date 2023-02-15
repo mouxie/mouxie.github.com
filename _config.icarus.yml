@@ -117,10 +117,10 @@ widgets:
     -
         position: left
         type: profile
-        author: Your name
-        author_title: Your title
-        location: Your location
-        avatar: https://butterfly.js.org/img/avatar.png
+        author: Yan Mouxie
+        author_title: Staff Software Engineer
+        location: Earth, Solar System
+        avatar: /img/avatar.png
         avatar_rounded: false
         gravatar: 
         follow_link: https://github.com/mouxie
