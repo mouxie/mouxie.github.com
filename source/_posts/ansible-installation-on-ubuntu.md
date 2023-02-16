@@ -18,6 +18,8 @@ permalink: how-to-install-red-hat-ansible-on-ubuntu.html
 $ sudo apt-add-repository ppa:ansible/ansible
 ```
 
+Then, press [ENTER] to proceed, output likes below screenshoot shows:
+
 ![Ansible1](https://raw.githubusercontent.com/mouxie/mouxie.github.com/images/Ansible-1-how-to-install-red-hat-ansible-on-ubuntu/Ansible1.png)
 
 # 2.Run the update command before installing to update existing packages
