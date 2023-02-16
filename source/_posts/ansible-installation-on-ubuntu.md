@@ -25,6 +25,7 @@ $ sudo apt-add-repository ppa:ansible/ansible
 ```
 $ sudo apt-get update
 ```
+<!-- more -->
 
 ![Ansible2](https://raw.githubusercontent.com/mouxie/mouxie.github.com/images/Ansible-1-how-to-install-red-hat-ansible-on-ubuntu/Ansible2.png)
 
