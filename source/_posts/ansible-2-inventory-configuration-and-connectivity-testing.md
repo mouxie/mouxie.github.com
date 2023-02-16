@@ -26,6 +26,7 @@ server2 ansible_host=192.168.1.101 ansible_ssh_user=test_user ansible_ssh_pass=p
 
 # 2. verify the inventory
 
+<!-- more -->
 ```
 ansible-inventory --list -y
 ```
