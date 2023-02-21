@@ -1,5 +1,5 @@
 ---
-title: "Ansible(2) - Ansible inventory configuration and connectivity testing Ansible配置主机和连接测试教程.md"
+title: "Ansible(2) - Ansible inventory configuration and connectivity testing Ansible配置主机和连接测试教程"
 date: "2023-02-12 11:57:21"
 description: "Ansible inventory configuration and connectivity testing Ansible配置主机和连接测试教程"
 keywords: "Ansible,inventory,configuration,connectivity,配置,主机,连接,教程"
