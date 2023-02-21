@@ -20,7 +20,7 @@ Please make sure you have the correct access rights
 and the repository exists.
 ```
 ## 解决方法:
-
+<!-- more -->
 使用环境变量 `GIT_SSH_COMMAND` 来修改ssh的user用户为 git,并指定登录密钥（私钥）的位置
 ```
 export GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa -l git"
