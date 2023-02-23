@@ -9,6 +9,7 @@ tags:
 categories:
  - Git
 permalink: git-revert-rollback-to-previous-commit.html
+toc: true
 ---
 在日常使用git版本控制器的过程中，难免会出现不小心push推送提交到远程服务器仓库中，这时就需要`后悔药`来回退到上一次提交的版本或者指定的版本。
 本文使用Git的GUI界面管理工具 TortoiseGit 为例，并在步骤6提供git命令行回退历史版本参考示例，
