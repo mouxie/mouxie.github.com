@@ -69,6 +69,10 @@ source ~/.bashrc
 ```
 git config core.sshCommand "ssh -i /root/.ssh/id_rsa -l git"
 ```
+或者直接打开文件进行修改，在 [core] 区域加入以下内容:
+```
+sshCommand = "ssh -i /root/.ssh/id_rsa -l git"
+```
 接着就可以正常使用git pull等命令了。
 默认会写入当前使用仓库的 Git 目录中的 config 文件（即 .git/config）
 如果需要写入全局设置或系统设置，需要加上选项 `--global` 或者 `--system` 选项，例如：
