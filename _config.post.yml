@@ -1,4 +1,4 @@
-idebar:
+sidebar:
     left:
         sticky: true
 widgets:
