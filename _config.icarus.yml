@@ -99,15 +99,9 @@ donates:
         type: patreon
         url: ''
     -
-        type: paypal
-        business: ''
-        currency_code: USD
-    -
         type: wechat
         qrcode: ''
-share:
-    type: sharethis
-    install_url: ''
+
 sidebar:
     left:
         sticky: false
