@@ -101,5 +101,11 @@ git remote set-url origin git@github.com:xxx/xxx.github.com.git
 若需要为github指定不同的ssh登录私钥文件，则可以添加或修改服务器文件`~/.ssh/config`，加入以下内容
 ```
 Host github.com
-  IdentityFile ~/.ssh/github_rsa
+    Hostname github.com
+    IdentityFile ~/.ssh/id_rsa.github
+    IdentitiesOnly yes # see NOTES below
 ```
+
+`Note`:
+
+The `IdentitiesOnly yes` is required to prevent the SSH default behavior of sending the identity file matching the default filename for each protocol. If you have a file named `~/.ssh/id_rsa` that will get tried BEFORE your `~/.ssh/id_rsa.github` without this option.
