@@ -6,6 +6,6 @@ widgets:
         type: toc
         position: left
         # 是否显示目录项目的序号
-        index: true
+        index: false
         collapsed: false
         depth: 4
