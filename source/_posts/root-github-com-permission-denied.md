@@ -75,7 +75,7 @@ git config core.sshCommand "ssh -i /root/.ssh/id_rsa -l git"
 git config --global core.sshCommand "ssh -i /root/.ssh/id_rsa -l git"
 ```
 
-### 方法三：修改远程源
+### 方法三：修改git项目远程源remote.origin.url 的值
 首先查看当前git项目的配置 remote.origin.url 的值，使用以下命令找到：
 ```
 git config --show-origin remote.origin.url
