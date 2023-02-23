@@ -9,6 +9,7 @@ tags:
 categories:
  - Git
 permalink: fixed-root-github-com-Permission-denied-publickey.html
+toc: true
 ---
 在日常使用git版本控制器的过程中，经常会遇到一些错误，特别是在直接使用git命令行操作，而不是使用Git图形界面（比如TortoiseGit或IDE自带的Git版本控制插件）时。
 例如在执行 `git` 命令 `git pull` 或者 `git push` 操作的时候遇到了以下错误：
