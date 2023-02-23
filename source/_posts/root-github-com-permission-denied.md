@@ -84,10 +84,16 @@ git config --show-origin remote.origin.url
 ```
 file:.git/config        github.com:mouxie/mouxie.github.com.git
 ```
-则可以看出remote.origin.url的值在缺少了最前面的少了用户名和@，比如：git@
+则可以看出在git配置文件.git/config中，配置项remote.origin.url的值在最前面缺少了用户名和@，比如：git@
 通过运行以下命令来修改：
 ```
 git remote set-url origin git@github.com:xxx/xxx.github.com.git
 ```
 记得修改命令中xxx为真实的git repo地址。
-接着就可以正常使用git pull等命令了。
+接着就可以正常使用git pull等命令了。默认会自动使用私钥文件`/root/.ssh/id_rsa`来操作
+
+若需要为github指定不同的ssh登录私钥文件，则可以添加或修改服务器文件`~/.ssh/config`，加入以下内容
+```
+Host github.com
+  IdentityFile ~/.ssh/github_rsa
+```
