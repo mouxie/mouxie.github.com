@@ -82,9 +82,11 @@ article:
 search:
     type: insight
     index_pages: true
-comment:
-    type: disqus
-    shortname: ''
+
+#comment:
+#    type: disqus
+#    shortname: ''
+
 donates:
     -
         type: afdian
