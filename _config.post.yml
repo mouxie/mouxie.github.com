@@ -1,3 +1,6 @@
+idebar:
+    left:
+        sticky: true
 widgets:
     -
         type: toc
