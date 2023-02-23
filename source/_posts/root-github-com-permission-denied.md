@@ -26,6 +26,7 @@ and the repository exists.
 ## 解决方法:
 <!-- more -->
 ### 方法一：设置GIT_SSH_COMMAND变量
+------
 自 Git 版本2.3.0起，可以使用环境变量 `GIT_SSH_COMMAND` 来修改ssh的user用户名为 git,并指定登录密钥（私钥）的位置，不需要修改git config 配置文件。
 ```
 export GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa -l git"
@@ -64,6 +65,7 @@ source ~/.bashrc
 ```
 
 ### 方法二：git配置core.sshCommand
+------
 自 git 版本 2.10+ (released 02/09/2016, 2016Q3) 起，也可以使用git config 设置 core.sshCommand 来指定ssh命令的内容，
 可以执行下面的`git config`命令：
 ```
@@ -82,6 +84,7 @@ git config --global core.sshCommand "ssh -i /root/.ssh/id_rsa -l git"
 ```
 
 ### 方法三：修改git项目远程源remote.origin.url 的值
+------
 首先查看当前git项目的配置 remote.origin.url 的值，使用以下命令找到：
 ```
 git config --show-origin remote.origin.url
@@ -106,6 +109,6 @@ Host github.com
     IdentitiesOnly yes # see NOTES below
 ```
 
-`Note`:
+**Note:**
 
-The `IdentitiesOnly yes` is required to prevent the SSH default behavior of sending the identity file matching the default filename for each protocol. If you have a file named `~/.ssh/id_rsa` that will get tried BEFORE your `~/.ssh/id_rsa.github` without this option.
+> The `IdentitiesOnly yes` is required to prevent the SSH default behavior of sending the identity file matching the default filename for each protocol. If you have a file named `~/.ssh/id_rsa` that will get tried BEFORE your `~/.ssh/id_rsa.github` without this option.
