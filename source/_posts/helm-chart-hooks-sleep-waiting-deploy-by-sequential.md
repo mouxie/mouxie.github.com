@@ -1,5 +1,5 @@
 ---
-title: "Helm Charts hooks资源按照先后顺序创建，延迟执行或暂停等待几秒再执行"
+title: "Helm Charts hooks钩子让资源按照先后顺序创建，并延迟执行或暂停等待几秒再执行"
 date: "2023-02-26 15:33:12"
 description: ""
 keywords: "helm,charts,helm charts,helm chart,hook-weight,钩子,权重,等待,启动,执行,暂停,延迟,顺序,Kubernetes"
@@ -66,4 +66,7 @@ spec:
   restartPolicy: Never
 ```
 利用Linux的`sleep`命令来延迟**A**的执行，暂停20秒等待**B**完全初始化成功启动，再来启动**A**.
-配置了hook-delete-policy删除政策，再等待暂停20秒后自动删除这个kubernetes pod钩子,　并开始后续操作。
+
+会在启动**A**之前部署一个名为mychart-sleep的Kubernetes的Pod资源。它的使命就是沉睡２０秒.等待**B**完全初始化成功。
+
+因为配置了hook-delete-policy删除政策，所以在等待暂停20秒后会自动删除这个钩子即kubernetes资源pod,　然后开始后续的操作。
