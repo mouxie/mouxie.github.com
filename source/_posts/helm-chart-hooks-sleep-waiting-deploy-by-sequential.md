@@ -21,7 +21,7 @@ permalink: helm-chart-hooks-sleep-waiting-deploy-by-sequential.html
 为了解决这个问题，我们需要使用到helm charts hooks钩子的权重特性来调整安排资源创建的先后启动顺序：
 
 假设微服务 Microservice **A**的启动 依赖于应用**B**， 需要等待**B**先启动起来，才可以启动**A**。
-
+<!-- more -->
 假设A和B都定义在helm charts 应用的templates目录下的deployment.yaml里面，
 
 我们需要给**B**加上hook钩子的`注解` `annotations`，例如：
