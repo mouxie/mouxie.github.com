@@ -70,3 +70,35 @@ spec:
 会在启动**A**之前部署一个名为mychart-sleep的Kubernetes的Pod资源。它的使命就是沉睡２０秒.等待**B**完全初始化成功。
 
 因为配置了hook-delete-policy删除政策，所以在等待暂停20秒后会自动删除这个钩子即kubernetes资源pod,　然后开始后续的操作。
+
+还有另外一种方法，是使用kubernetes的`initContainers`或者containers `lifecycle`功能来实现sleep暂停，
+
+`initContainers`是在主容器（Pod中其他容器）启动之前运行的容器，可以用来预处理、配置、初始化容器等。你可以将需要在主容器启动之前运行的脚本放到initContainers中.
+
+`lifecycle`是容器的生命周期管理机制，可以用来指定容器启动和停止时需要执行的命令。你可以在`lifecycle`中设置`postStart`和`preStop`，从而实现延迟部署或暂停等待几秒再执行的功能。例如，你可以在postStart中设置一个等待几秒钟的sleep命令，从而实现延迟部署的功能
+
+示例如下：
+
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  initContainers:
+  - name: init-container
+    image: busybox
+    command: ['sh', '-c', 'echo "Initializing container..." && sleep 10']
+  containers:
+  - name: main-container
+    image: nginx
+    lifecycle:
+      postStart:
+        exec:
+          command: ["sh", "-c", "sleep 10"]
+      preStop:
+        exec:
+          command: ["nginx", "-s", "quit"]
+```
+使用lifecycle时，并不能完全保证会在容器的entrypoint之前被执行。
+
