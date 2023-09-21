@@ -38,7 +38,8 @@ head:
         publisher_logo: 
         image: 
     meta:
-        - ''
+        - 'property="article:author";content="PPOffice"'
+        - 'name="generator";content="Hexo 4.2.0"'
     rss: 
 navbar:
     menu:
