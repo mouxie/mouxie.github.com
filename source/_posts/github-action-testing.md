@@ -1,6 +1,7 @@
 ---
 title: Test post from GitHub online editor and GitHub Action
 date: 2022-10-15 20:20:20
+updated: "2023-09-20 16:44:10"
 permalink: hexo-automatically-deployed-by-GitHub-Action.html
 ---
 This article was created by github editor, and automatically deployed by GitHub Action. 
