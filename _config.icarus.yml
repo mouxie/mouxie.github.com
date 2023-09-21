@@ -38,7 +38,7 @@ head:
         publisher_logo: 
         image: 
     meta:
-        - 'name="keywords";content="page.keywords"'
+        - ''
     rss: 
 navbar:
     menu:
