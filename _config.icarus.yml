@@ -88,21 +88,21 @@ search:
 #    shortname: ''
 
 donates:
-    -
-        type: afdian
-        url: ''
-    -
-        type: alipay
-        qrcode: ''
-    -
-        type: buymeacoffee
-        url: ''
-    -
-        type: patreon
-        url: ''
+    #-
+        #type: afdian
+        #url: ''
+    #-
+        #type: alipay
+        #qrcode: ''
+    #-
+        #type: buymeacoffee
+        #url: ''
+    #-
+        #type: patreon
+        #url: ''
     -
         type: wechat
-        qrcode: ''
+        qrcode: 'https://raw.githubusercontent.com/mouxie/mouxie.github.com/images/zansang.png'
 
 sidebar:
     left:
@@ -172,12 +172,12 @@ widgets:
         type: adsense
         client_id: 'ca-pub-0722470740475547'
         slot_id: '3772225449'
-    -
-        position: left
-        type: followit
-        description: 
-        action_url: ''
-        verification_code: ''
+    #-
+        #position: left
+        #type: followit
+        #description: 
+        #action_url: ''
+        #verification_code: ''
 plugins:
     animejs: true
     back_to_top: true
