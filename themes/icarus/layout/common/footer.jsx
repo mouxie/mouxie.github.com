@@ -36,6 +36,20 @@ class Footer extends Component {
                         <p class="is-size-7">
                             <span dangerouslySetInnerHTML={{ __html: `&copy; ${siteYear} ${author || siteTitle}` }}></span>
                             &nbsp;&nbsp;Powered by <a href="https://yanmouxie.com/" target="_blank" rel="noopener">me</a>
+
+                            <script type="text/javascript">
+                            var sc_project=12924454; 
+                            var sc_invisible=0; 
+                            var sc_security="99db152e"; 
+                            var scJsHost = "https://";
+                            document.write("<sc"+"ript type='text/javascript' src='" + scJsHost+
+                            "statcounter.com/counter/counter.js'></"+"script>");
+                            </script>
+                            <noscript><div class="statcounter"><a title="Web Analytics"
+                            href="https://statcounter.com/" target="_blank"><img class="statcounter"
+                            src="https://c.statcounter.com/12924454/0/99db152e/0/" alt="Web Analytics"
+                            referrerPolicy="no-referrer-when-downgrade"></a></div></noscript>
+
                             {showVisitorCounter ? <br /> : null}
                             {showVisitorCounter ? <span id="busuanzi_container_site_uv"
                                 dangerouslySetInnerHTML={{ __html: visitorCounterTitle }}></span> : null}
