@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><meta name="keywords" content="helm,charts,helm charts,helm chart,hook-weight,钩子,权重,等待,启动,执行,暂停,延迟,顺序,Kubernetes"><title>Helm Charts hooks钩子让资源按照先后顺序创建，并延迟执行或暂停等待几秒再执行 - Yan Mouxie</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Yan Mouxie"><meta name="msapplication-TileImage" content="/img/icons8-face-generator.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Yan Mouxie"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="在使用Helm Charts部署应用到Kubernetes Cluster集群中时，可能需要等待一些依赖项先行启动起来，后续应用部署才不至于启动出错。 比如在安装时在加载其他chart之前加载配置映射或密钥。  比如部署的微服务应用需要等待数据库初始化操作成功，才可以启动时。如果这时候应用在数据库初始化还未成功完成时之前便开始执行启动操作时，大概率是会有问题发生的。 为了解决这个问题，我们需要使用"><meta property="og:type" content="blog"><meta property="og:title" content="Helm Charts hooks钩子让资源按照先后顺序创建，并延迟执行或暂停等待几秒再执行"><meta property="og:url" content="https://yanmouxie.com/helm-chart-hooks-sleep-waiting-deploy-by-sequential.html"><meta property="og:site_name" content="Yan Mouxie"><meta property="og:description" content="在使用Helm Charts部署应用到Kubernetes Cluster集群中时，可能需要等待一些依赖项先行启动起来，后续应用部署才不至于启动出错。 比如在安装时在加载其他chart之前加载配置映射或密钥。  比如部署的微服务应用需要等待数据库初始化操作成功，才可以启动时。如果这时候应用在数据库初始化还未成功完成时之前便开始执行启动操作时，大概率是会有问题发生的。 为了解决这个问题，我们需要使用"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://yanmouxie.com/img/og_image.png"><meta property="article:published_time" content="2023-02-26T07:33:12.000Z"><meta property="article:modified_time" content="2023-09-20T08:44:10.000Z"><meta property="article:author" content="Yan Mouxie"><meta property="article:tag" content="Helm"><meta property="article:tag" content="Helm-charts"><meta property="article:tag" content="Kubernetes"><meta property="article:tag" content="K8s"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://yanmouxie.com/img/og_image.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://yanmouxie.com/helm-chart-hooks-sleep-waiting-deploy-by-sequential.html"},"headline":"Helm Charts hooks钩子让资源按照先后顺序创建，并延迟执行或暂停等待几秒再执行","image":["https://yanmouxie.com/img/og_image.png"],"datePublished":"2023-02-26T07:33:12.000Z","dateModified":"2023-09-20T08:44:10.000Z","author":{"@type":"Person","name":"Yan Mouxie"},"publisher":{"@type":"Organization","name":"Yan Mouxie","logo":{"@type":"ImageObject","url":"https://yanmouxie.com/img/icons8-bash.svg"}},"description":"在使用Helm Charts部署应用到Kubernetes Cluster集群中时，可能需要等待一些依赖项先行启动起来，后续应用部署才不至于启动出错。 比如在安装时在加载其他chart之前加载配置映射或密钥。  比如部署的微服务应用需要等待数据库初始化操作成功，才可以启动时。如果这时候应用在数据库初始化还未成功完成时之前便开始执行启动操作时，大概率是会有问题发生的。 为了解决这个问题，我们需要使用"}</script><link rel="canonical" href="https://yanmouxie.com/helm-chart-hooks-sleep-waiting-deploy-by-sequential.html"><link rel="icon" href="/img/icons8-face-generator.svg"><link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.0.0/css/all.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/css/justifiedGallery.min.css"><script src="https://www.googletagmanager.com/gtag/js?id=G-RSKFNKW01Y" async></script><script>window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+    
+        gtag('config', 'G-RSKFNKW01Y');</script><!--!--><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
+  (function () {
+      function switchTab() {
+          if (!location.hash) {
+            return;
+          }
+
+          const id = '#' + CSS.escape(location.hash.substring(1));
+          const $tabMenu = document.querySelector(`.tabs a[href="${id}"]`);
+          if (!$tabMenu) {
+            return;
+          }
+
+          const $tabMenuContainer = $tabMenu.parentElement.parentElement;
+          Array.from($tabMenuContainer.children).forEach($menu => $menu.classList.remove('is-active'));
+          Array.from($tabMenuContainer.querySelectorAll('a'))
+              .map($menu => document.getElementById($menu.getAttribute("href").substring(1)))
+              .forEach($content => $content.classList.add('is-hidden'));
+
+          if ($tabMenu) {
+              $tabMenu.parentElement.classList.add('is-active');
+          }
+          const $activeTab = document.querySelector(id);
+          if ($activeTab) {
+              $activeTab.classList.remove('is-hidden');
+          }
+      }
+      switchTab();
+      window.addEventListener('hashchange', switchTab, false);
+  })();
+  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 6.3.0"></head><body class="is-1-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/img/icons8-bash.svg" alt="Yan Mouxie" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Archives</a><a class="navbar-item" href="/categories">Categories</a><a class="navbar-item" href="/tags">Tags</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Find me on GitHub" href="https://github.com/mouxie"><i class="fab fa-github"></i></a><a class="navbar-item search" title="Search" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-12"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item">Posted&nbsp;<time dateTime="2023-02-26T07:33:12.000Z" title="2/26/2023, 7:33:12 AM">2023-02-26</time></span><span class="level-item"><a class="link-muted" href="/categories/Kubernetes/">Kubernetes</a></span><span class="level-item">6 minutes read (About 948 words)</span></div></div><h1 class="title is-3 is-size-4-mobile">Helm Charts hooks钩子让资源按照先后顺序创建，并延迟执行或暂停等待几秒再执行</h1><div class="content"><p>在使用Helm Charts部署应用到Kubernetes Cluster集群中时，可能需要等待一些依赖项先行启动起来，后续应用部署才不至于启动出错。</p>
+<p>比如在安装时在加载其他chart之前加载配置映射或密钥。 </p>
+<p>比如部署的微服务应用需要等待数据库初始化操作成功，才可以启动时。如果这时候应用在数据库初始化还未成功完成时之前便开始执行启动操作时，大概率是会有问题发生的。</p>
+<p>为了解决这个问题，我们需要使用到helm charts hooks钩子的权重特性来调整安排资源创建的先后启动顺序：</p>
+<p>假设微服务 Microservice <strong>A</strong>的启动 依赖于应用<strong>B</strong>， 需要等待<strong>B</strong>先启动起来，才可以启动<strong>A</strong>。</p>
+<span id="more"></span>
+<p>假设A和B都定义在helm charts 应用的templates目录下的deployment.yaml里面，</p>
+<p>我们需要给<strong>B</strong>加上hook钩子的<code>注解</code> <code>annotations</code>，例如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: v1</span><br><span class="line">kind: Pod</span><br><span class="line">metadata:</span><br><span class="line">  name: &quot;&#123;&#123; include &quot;mychart.fullname&quot; . &#125;&#125;-app-B&quot;</span><br><span class="line">  labels:</span><br><span class="line">    &#123;&#123;- include &quot;mychart.labels&quot; . | nindent 4 &#125;&#125;</span><br><span class="line">  annotations:</span><br><span class="line">    &quot;helm.sh/hook&quot;: pre-install</span><br><span class="line">    &quot;helm.sh/hook-weight&quot;: &quot;-5&quot;</span><br></pre></td></tr></table></figure>
+<p>那么这时应用<strong>B</strong>就会比<strong>A</strong>先行启动，因为Ｂ会在<code>pre-install</code>阶段先启动,并且它的hook-weight权重指定为<code>-5</code>,<br>(假如还有其他应用指定了hook-weight权重，假如hook-weight为0还有10，那么执行顺序为-5,0,10)</p>
+<p>但是如果这时<strong>A</strong>只是间隔几秒便开始启动，并未等待<strong>B</strong>完全启动初始化成功，那么指定hook-weight权重执行顺序也没用。</p>
+<p>这时需要在<strong>B</strong>之后，并且在<strong>A</strong>之前再加一个等待暂停的hook钩子,并指定hook-weight权重数字大于-5，小于0,　比如<code>-4</code>.来延迟<strong>A</strong>的启动操作。</p>
+<p>在helm charts 应用的templates目录下创建一个新的文件，文件名为<code>hook-sleep-20s.yaml</code></p>
+<p>加入如下内容：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: v1</span><br><span class="line">kind: Pod</span><br><span class="line">metadata:</span><br><span class="line">  name: &quot;&#123;&#123; include &quot;mychart.fullname&quot; . &#125;&#125;-sleep&quot;</span><br><span class="line">  labels:</span><br><span class="line">    &#123;&#123;- include &quot;mychart.labels&quot; . | nindent 4 &#125;&#125;</span><br><span class="line">  annotations:</span><br><span class="line">    &quot;helm.sh/hook&quot;: pre-install</span><br><span class="line">    &quot;helm.sh/hook-weight&quot;: &quot;-4&quot;</span><br><span class="line">    &quot;helm.sh/hook-delete-policy&quot;: before-hook-creation,hook-succeeded</span><br><span class="line">spec:</span><br><span class="line">  containers:</span><br><span class="line">    - name: sleep</span><br><span class="line">      image: busybox</span><br><span class="line">      command: [&#x27;sleep&#x27;]</span><br><span class="line">      args: [&#x27;20&#x27;]</span><br><span class="line">  restartPolicy: Never</span><br></pre></td></tr></table></figure>
+<p>利用Linux的<code>sleep</code>命令来延迟<strong>A</strong>的执行，暂停20秒等待<strong>B</strong>完全初始化成功启动，再来启动<strong>A</strong>.</p>
+<p>会在启动<strong>A</strong>之前部署一个名为mychart-sleep的Kubernetes的Pod资源。它的使命就是沉睡２０秒.等待<strong>B</strong>完全初始化成功。</p>
+<p>因为配置了hook-delete-policy删除政策，所以在等待暂停20秒后会自动删除这个钩子即kubernetes资源pod,　然后开始后续的操作。</p>
+<p>还有另外一种方法，是使用kubernetes的<code>initContainers</code>或者containers <code>lifecycle</code>功能来实现sleep暂停，</p>
+<p><code>initContainers</code>是在主容器（Pod中其他容器）启动之前运行的容器，可以用来预处理、配置、初始化容器等。你可以将需要在主容器启动之前运行的脚本放到initContainers中.</p>
+<p><code>lifecycle</code>是容器的生命周期管理机制，可以用来指定容器启动和停止时需要执行的命令。你可以在<code>lifecycle</code>中设置<code>postStart</code>和<code>preStop</code>，从而实现延迟部署或暂停等待几秒再执行的功能。例如，你可以在postStart中设置一个等待几秒钟的sleep命令，从而实现延迟部署的功能</p>
+<p>示例如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: v1</span><br><span class="line">kind: Pod</span><br><span class="line">metadata:</span><br><span class="line">  name: my-pod</span><br><span class="line">spec:</span><br><span class="line">  initContainers:</span><br><span class="line">  - name: init-container</span><br><span class="line">    image: busybox</span><br><span class="line">    command: [&#x27;sh&#x27;, &#x27;-c&#x27;, &#x27;echo &quot;Initializing container...&quot; &amp;&amp; sleep 10&#x27;]</span><br><span class="line">  containers:</span><br><span class="line">  - name: main-container</span><br><span class="line">    image: nginx</span><br><span class="line">    lifecycle:</span><br><span class="line">      postStart:</span><br><span class="line">        exec:</span><br><span class="line">          command: [&quot;sh&quot;, &quot;-c&quot;, &quot;sleep 10&quot;]</span><br><span class="line">      preStop:</span><br><span class="line">        exec:</span><br><span class="line">          command: [&quot;nginx&quot;, &quot;-s&quot;, &quot;quit&quot;]</span><br></pre></td></tr></table></figure>
+<p>使用lifecycle时，并不能完全保证会在容器的entrypoint之前被执行。</p>
+</div><div class="article-licensing box"><div class="licensing-title"><p>Helm Charts hooks钩子让资源按照先后顺序创建，并延迟执行或暂停等待几秒再执行</p><p><a href="https://yanmouxie.com/helm-chart-hooks-sleep-waiting-deploy-by-sequential.html">https://yanmouxie.com/helm-chart-hooks-sleep-waiting-deploy-by-sequential.html</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>Author</h6><p>Yan Mouxie</p></div></div><div class="level-item is-narrow"><div><h6>Posted on</h6><p>2023-02-26</p></div></div><div class="level-item is-narrow"><div><h6>Updated on</h6><p>2023-09-20</p></div></div><div class="level-item is-narrow"><div><h6>Licensed under</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/Helm/">Helm</a><a class="link-muted mr-2" rel="tag" href="/tags/Helm-charts/">Helm-charts</a><a class="link-muted mr-2" rel="tag" href="/tags/Kubernetes/">Kubernetes</a><a class="link-muted mr-2" rel="tag" href="/tags/K8s/">K8s</a></div><!--!--></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">Like this article? Support the author with</h3><div class="buttons is-centered"><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>Wechat</span><span class="qrcode"><img src="https://raw.githubusercontent.com/mouxie/mouxie.github.com/images/zansang.jpg" alt="Wechat"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/ansible-2-inventory-configuration-and-connectivity-testing.html"><span class="level-item">Ansible(2) - Ansible inventory configuration and connectivity testing Ansible配置主机和连接测试教程</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><!--!--></div><div class="column column-left  order-1 is-sticky"><!--!--></div><!--!--></div></div></section><footer class="footer"><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/"><img src="/img/icons8-bash.svg" alt="Yan Mouxie" height="28"></a><p class="is-size-7"><span>&copy; 2023 Yan Mouxie</span>  Powered by <a href="https://yanmouxie.com/" target="_blank" rel="noopener">me</a></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Find me on GitHub" href="https://github.com/mouxie"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" defer></script><script>moment.locale("en");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="Back to top" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "This website uses cookies to improve your experience.",
+          dismiss: "Got it!",
+          allow: "Allow cookies",
+          deny: "Decline",
+          link: "Learn more",
+          policy: "Cookie Policy",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="Type something..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"Type something...","untitled":"(Untitled)","posts":"Posts","pages":"Pages","categories":"Categories","tags":"Tags"});
+        });</script></body></html>

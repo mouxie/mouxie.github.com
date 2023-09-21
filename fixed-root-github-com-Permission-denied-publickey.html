@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><meta name="keywords" content="root,git,Permission denied,github,操作,错误"><title>解决 root@github.com Permission denied (publickey) - Yan Mouxie</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="Yan Mouxie"><meta name="msapplication-TileImage" content="/img/icons8-face-generator.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Yan Mouxie"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="执行 &amp;#96;git&amp;#96; 命令 &amp;#96;git pull&amp;#96; 或 &amp;#96;git push&amp;#96; 时遇到以下错误 root@github.com Permission denied (publickey)"><meta property="og:type" content="blog"><meta property="og:title" content="解决 root@github.com Permission denied (publickey)"><meta property="og:url" content="https://yanmouxie.com/fixed-root-github-com-Permission-denied-publickey.html"><meta property="og:site_name" content="Yan Mouxie"><meta property="og:description" content="执行 &amp;#96;git&amp;#96; 命令 &amp;#96;git pull&amp;#96; 或 &amp;#96;git push&amp;#96; 时遇到以下错误 root@github.com Permission denied (publickey)"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://yanmouxie.com/img/og_image.png"><meta property="article:published_time" content="2022-10-16T12:20:20.000Z"><meta property="article:modified_time" content="2023-09-20T08:44:10.000Z"><meta property="article:author" content="Yan Mouxie"><meta property="article:tag" content="git"><meta property="article:tag" content="github"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://yanmouxie.com/img/og_image.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://yanmouxie.com/fixed-root-github-com-Permission-denied-publickey.html"},"headline":"解决 root@github.com Permission denied (publickey)","image":["https://yanmouxie.com/img/og_image.png"],"datePublished":"2022-10-16T12:20:20.000Z","dateModified":"2023-09-20T08:44:10.000Z","author":{"@type":"Person","name":"Yan Mouxie"},"publisher":{"@type":"Organization","name":"Yan Mouxie","logo":{"@type":"ImageObject","url":"https://yanmouxie.com/img/icons8-bash.svg"}},"description":"执行 &#96;git&#96; 命令 &#96;git pull&#96; 或 &#96;git push&#96; 时遇到以下错误 root@github.com Permission denied (publickey)"}</script><link rel="canonical" href="https://yanmouxie.com/fixed-root-github-com-Permission-denied-publickey.html"><link rel="icon" href="/img/icons8-face-generator.svg"><link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.0.0/css/all.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/css/justifiedGallery.min.css"><script src="https://www.googletagmanager.com/gtag/js?id=G-RSKFNKW01Y" async></script><script>window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+    
+        gtag('config', 'G-RSKFNKW01Y');</script><!--!--><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
+  (function () {
+      function switchTab() {
+          if (!location.hash) {
+            return;
+          }
+
+          const id = '#' + CSS.escape(location.hash.substring(1));
+          const $tabMenu = document.querySelector(`.tabs a[href="${id}"]`);
+          if (!$tabMenu) {
+            return;
+          }
+
+          const $tabMenuContainer = $tabMenu.parentElement.parentElement;
+          Array.from($tabMenuContainer.children).forEach($menu => $menu.classList.remove('is-active'));
+          Array.from($tabMenuContainer.querySelectorAll('a'))
+              .map($menu => document.getElementById($menu.getAttribute("href").substring(1)))
+              .forEach($content => $content.classList.add('is-hidden'));
+
+          if ($tabMenu) {
+              $tabMenu.parentElement.classList.add('is-active');
+          }
+          const $activeTab = document.querySelector(id);
+          if ($activeTab) {
+              $activeTab.classList.remove('is-hidden');
+          }
+      }
+      switchTab();
+      window.addEventListener('hashchange', switchTab, false);
+  })();
+  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 6.3.0"></head><body class="is-2-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/img/icons8-bash.svg" alt="Yan Mouxie" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Archives</a><a class="navbar-item" href="/categories">Categories</a><a class="navbar-item" href="/tags">Tags</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Find me on GitHub" href="https://github.com/mouxie"><i class="fab fa-github"></i></a><a class="navbar-item is-hidden-tablet catalogue" title="Catalogue" href="javascript:;"><i class="fas fa-list-ul"></i></a><a class="navbar-item search" title="Search" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-8-tablet is-8-desktop is-8-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item">Posted&nbsp;<time dateTime="2022-10-16T12:20:20.000Z" title="10/16/2022, 12:20:20 PM">2022-10-16</time></span><span class="level-item"><a class="link-muted" href="/categories/Git/">Git</a></span><span class="level-item">7 minutes read (About 1072 words)</span></div></div><h1 class="title is-3 is-size-4-mobile">解决 root@github.com Permission denied (publickey)</h1><div class="content"><p>在日常使用git版本控制器的过程中，经常会遇到一些错误，特别是在直接使用git命令行操作，而不是使用Git图形界面（比如TortoiseGit或IDE自带的Git版本控制插件）时。<br>例如在执行 <code>git</code> 命令 <code>git pull</code> 或者 <code>git push</code> 操作的时候遇到了以下错误：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">root@github.com: Permission denied (publickey).</span><br><span class="line">fatal: Could not read from remote repository.</span><br><span class="line"></span><br><span class="line">Please make sure you have the correct access rights</span><br><span class="line">and the repository exists.</span><br></pre></td></tr></table></figure>
+<h2 id="错误原因分析"><a href="#错误原因分析" class="headerlink" title="错误原因分析"></a>错误原因分析</h2><p>从输出的output错误信息，该操作使用了root用户名去ssh登录github.com, 并提供了错误的验证登录所需要的证书。而正常应该是使用git这个用户名去登录操作。所以引起错误的原因应该是Git的配置信息缺少了git用户名。所以默认使用root这个用户名去尝试操作，才会保Permission denied的错误。那么接下来就可以按下面几种方法来解决这个 <code>root@github.com Permission denied (publickey)</code> 问题。</p>
+<h2 id="解决方法"><a href="#解决方法" class="headerlink" title="解决方法:"></a>解决方法:</h2><span id="more"></span>
+<h3 id="方法一：设置GIT-SSH-COMMAND变量"><a href="#方法一：设置GIT-SSH-COMMAND变量" class="headerlink" title="方法一：设置GIT_SSH_COMMAND变量"></a>方法一：设置GIT_SSH_COMMAND变量</h3><hr>
+<p>自 Git 版本2.3.0起，可以使用环境变量 <code>GIT_SSH_COMMAND</code> 来修改ssh的user用户名为 git,并指定登录密钥（私钥）的位置，不需要修改git config 配置文件。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">export GIT_SSH_COMMAND=&quot;ssh -i /root/.ssh/id_rsa -l git&quot;</span><br></pre></td></tr></table></figure>
+<p>接着就可以正常使用git pull等命令了。<br>当然， export这个环境变量 <code>GIT_SSH_COMMAND</code>是临时设置，需要将其写入永久的系统环境变量中</p>
+<h4 id="永久设置GIT-SSH-COMMAND变量"><a href="#永久设置GIT-SSH-COMMAND变量" class="headerlink" title="永久设置GIT_SSH_COMMAND变量"></a>永久设置GIT_SSH_COMMAND变量</h4><h5 id="1、修改profile文件："><a href="#1、修改profile文件：" class="headerlink" title="1、修改profile文件："></a>1、修改profile文件：</h5><p>修改文件 <code>/etc/profile</code>（此操作对所有用户都是有效的）</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vi /etc/profile</span><br></pre></td></tr></table></figure>
+<p>在里面加入以下内容:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">export GIT_SSH_COMMAND=&quot;ssh -i /root/.ssh/id_rsa -l git&quot;</span><br></pre></td></tr></table></figure>
+<p>保存修改后，再运行以下命令使生效：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">source /etc/profile</span><br></pre></td></tr></table></figure>
+
+<h5 id="2、修改-bashrc文件："><a href="#2、修改-bashrc文件：" class="headerlink" title="2、修改.bashrc文件："></a>2、修改.bashrc文件：</h5><p>修改文件 <code>~/.bashrc</code>（每个用户目录下都有，使用命令 ls -a ~ 查看用户目录文件列表，此操作对单独用户有效）</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vi ~/.bashrc</span><br></pre></td></tr></table></figure>
+<p>在里面加入以下内容：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">export GIT_SSH_COMMAND=&quot;ssh -i /root/.ssh/id_rsa -l git&quot;</span><br></pre></td></tr></table></figure>
+<p>保存修改后，再运行以下命令使生效：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">source ~/.bashrc</span><br></pre></td></tr></table></figure>
+
+<h3 id="方法二：git配置core-sshCommand"><a href="#方法二：git配置core-sshCommand" class="headerlink" title="方法二：git配置core.sshCommand"></a>方法二：git配置core.sshCommand</h3><hr>
+<p>自 git 版本 2.10+ (released 02&#x2F;09&#x2F;2016, 2016Q3) 起，也可以使用git config 设置 core.sshCommand 来指定ssh命令的内容，<br>可以执行下面的<code>git config</code>命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git config core.sshCommand &quot;ssh -i /root/.ssh/id_rsa -l git&quot;</span><br></pre></td></tr></table></figure>
+<p>接着就可以正常使用git pull等命令了。<br>默认会写入当前使用仓库的 Git 目录中的 config 文件（即 .git&#x2F;config）<br>或者不执行上面命令，直接打开.git&#x2F;config文件进行修改，在 [core] 区域加入以下内容也是可以的:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sshCommand = &quot;ssh -i /root/.ssh/id_rsa -l git&quot;</span><br></pre></td></tr></table></figure>
+
+<p>如果需要写入全局设置或系统设置，需要加上选项 <code>--global</code> 或者 <code>--system</code> 选项，例如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git config --global core.sshCommand &quot;ssh -i /root/.ssh/id_rsa -l git&quot;</span><br></pre></td></tr></table></figure>
+
+<h3 id="方法三：修改git项目远程源remote-origin-url-的值"><a href="#方法三：修改git项目远程源remote-origin-url-的值" class="headerlink" title="方法三：修改git项目远程源remote.origin.url 的值"></a>方法三：修改git项目远程源remote.origin.url 的值</h3><hr>
+<p>首先查看当前git项目的配置 remote.origin.url 的值，使用以下命令找到：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git config --show-origin remote.origin.url</span><br></pre></td></tr></table></figure>
+<p>假如执行输出结果显示为如下内容</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">file:.git/config        github.com:mouxie/mouxie.github.com.git</span><br></pre></td></tr></table></figure>
+<p>则可以看出在git配置文件.git&#x2F;config中，配置项remote.origin.url的值在最前面缺少了用户名和@，比如：git@<br>通过运行以下命令来修改：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git remote set-url origin git@github.com:xxx/xxx.github.com.git</span><br></pre></td></tr></table></figure>
+<p>记得修改命令中xxx为真实的git repo地址。<br>接着就可以正常使用git pull等命令了。默认会自动使用私钥文件<code>/root/.ssh/id_rsa</code>来操作</p>
+<p>若需要为github指定不同的ssh登录私钥文件，则可以添加或修改服务器文件<code>~/.ssh/config</code>，加入以下内容</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Host github.com</span><br><span class="line">    Hostname github.com</span><br><span class="line">    IdentityFile ~/.ssh/id_rsa.github</span><br><span class="line">    IdentitiesOnly yes # see NOTES below</span><br></pre></td></tr></table></figure>
+
+<p><strong>Note:</strong></p>
+<blockquote>
+<p>The <code>IdentitiesOnly yes</code> is required to prevent the SSH default behavior of sending the identity file matching the default filename for each protocol. If you have a file named <code>~/.ssh/id_rsa</code> that will get tried BEFORE your <code>~/.ssh/id_rsa.github</code> without this option.</p>
+</blockquote>
+</div><div class="article-licensing box"><div class="licensing-title"><p>解决 root@github.com Permission denied (publickey)</p><p><a href="https://yanmouxie.com/fixed-root-github-com-Permission-denied-publickey.html">https://yanmouxie.com/fixed-root-github-com-Permission-denied-publickey.html</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>Author</h6><p>Yan Mouxie</p></div></div><div class="level-item is-narrow"><div><h6>Posted on</h6><p>2022-10-16</p></div></div><div class="level-item is-narrow"><div><h6>Updated on</h6><p>2023-09-20</p></div></div><div class="level-item is-narrow"><div><h6>Licensed under</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/git/">git</a><a class="link-muted mr-2" rel="tag" href="/tags/github/">github</a></div><!--!--></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">Like this article? Support the author with</h3><div class="buttons is-centered"><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>Wechat</span><span class="qrcode"><img src="https://raw.githubusercontent.com/mouxie/mouxie.github.com/images/zansang.jpg" alt="Wechat"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-start"><a class="article-nav-prev level level-item link-muted" href="/git-revert-rollback-to-previous-commit.html"><i class="level-item fas fa-chevron-left"></i><span class="level-item">GIT如何回退到某个历史提交版本</span></a></div><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/hexo-automatically-deployed-by-GitHub-Action.html"><span class="level-item">Test post from GitHub online editor and GitHub Action</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><!--!--></div><div class="column column-left is-4-tablet is-4-desktop is-4-widescreen  order-1 is-sticky"><div class="card widget" id="toc" data-type="toc"><div class="card-content"><div class="menu"><h3 class="menu-label">Catalogue</h3><ul class="menu-list"><li><a class="level is-mobile" href="#错误原因分析"><span class="level-left"><span class="level-item">错误原因分析</span></span></a></li><li><a class="level is-mobile" href="#解决方法"><span class="level-left"><span class="level-item">解决方法:</span></span></a><ul class="menu-list"><li><a class="level is-mobile" href="#方法一：设置GIT-SSH-COMMAND变量"><span class="level-left"><span class="level-item">方法一：设置GIT_SSH_COMMAND变量</span></span></a><ul class="menu-list"><li><a class="level is-mobile" href="#永久设置GIT-SSH-COMMAND变量"><span class="level-left"><span class="level-item">永久设置GIT_SSH_COMMAND变量</span></span></a><ul class="menu-list"><li><a class="level is-mobile" href="#1、修改profile文件："><span class="level-left"><span class="level-item">1、修改profile文件：</span></span></a></li><li><a class="level is-mobile" href="#2、修改-bashrc文件："><span class="level-left"><span class="level-item">2、修改.bashrc文件：</span></span></a></li></ul></li></ul></li><li><a class="level is-mobile" href="#方法二：git配置core-sshCommand"><span class="level-left"><span class="level-item">方法二：git配置core.sshCommand</span></span></a></li><li><a class="level is-mobile" href="#方法三：修改git项目远程源remote-origin-url-的值"><span class="level-left"><span class="level-item">方法三：修改git项目远程源remote.origin.url 的值</span></span></a></li></ul></li></ul></div></div><script src="/js/toc.js" defer></script></div></div><!--!--></div></div></section><footer class="footer"><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/"><img src="/img/icons8-bash.svg" alt="Yan Mouxie" height="28"></a><p class="is-size-7"><span>&copy; 2023 Yan Mouxie</span>  Powered by <a href="https://yanmouxie.com/" target="_blank" rel="noopener">me</a></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Find me on GitHub" href="https://github.com/mouxie"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" defer></script><script>moment.locale("en");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="Back to top" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "This website uses cookies to improve your experience.",
+          dismiss: "Got it!",
+          allow: "Allow cookies",
+          deny: "Decline",
+          link: "Learn more",
+          policy: "Cookie Policy",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="Type something..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"Type something...","untitled":"(Untitled)","posts":"Posts","pages":"Pages","categories":"Categories","tags":"Tags"});
+        });</script></body></html>
