@@ -46,7 +46,7 @@ navbar:
         Archives: /archives
         Categories: /categories
         Tags: /tags
-        About: /about
+        #About: /about
     links:
         Find me on GitHub:
             icon: fab fa-github
@@ -102,7 +102,7 @@ donates:
         #url: ''
     -
         type: wechat
-        qrcode: 'https://raw.githubusercontent.com/mouxie/mouxie.github.com/images/zansang.png'
+        qrcode: 'https://raw.githubusercontent.com/mouxie/mouxie.github.com/images/zansang.jpg'
 
 sidebar:
     left:
