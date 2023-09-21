@@ -1,6 +1,7 @@
 ---
 title: "Ansible(1) - How to install Red Hat Ansible on ubuntu, 如何在Ubuntu上安装red hat ansible"
 date: "2023-02-12 11:47:21"
+updated: "2023-09-20 16:44:10"
 description: "How to install Red Hat Ansible on ubuntu, 如何在Ubuntu上安装red hat ansible安装教程"
 keywords: "Ansible,ubuntu,install,installation,Red hat,安装,教程"
 tags: 
@@ -10,6 +11,7 @@ tags:
 categories:
  - Ansible
 permalink: how-to-install-red-hat-ansible-on-ubuntu.html
+toc: true
 ---
 
 # 1.add Ansible repository to your system 添加Ansible仓库到系统
