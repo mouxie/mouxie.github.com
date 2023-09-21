@@ -2,6 +2,7 @@
 title: GIT如何回退到某个历史提交版本
 subtitle: how to rollback git repository to a previous commit,certain commit,specify commit
 date: 2022-11-12 12:47:21
+updated: "2023-09-20 16:44:10"
 description: "GIT如何回退到某个历史提交版本,how to rollback git repository to a previous commit,certain commit,specify commit"
 keywords: "git,回退,历史,版本"
 tags: 
