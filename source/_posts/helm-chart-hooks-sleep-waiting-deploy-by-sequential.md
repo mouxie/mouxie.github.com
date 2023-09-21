@@ -1,6 +1,7 @@
 ---
 title: "Helm Charts hooks钩子让资源按照先后顺序创建，并延迟执行或暂停等待几秒再执行"
 date: "2023-02-26 15:33:12"
+updated: "2023-09-20 16:44:10"
 description: ""
 keywords: "helm,charts,helm charts,helm chart,hook-weight,钩子,权重,等待,启动,执行,暂停,延迟,顺序,Kubernetes"
 tags: 
