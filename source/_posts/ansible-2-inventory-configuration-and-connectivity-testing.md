@@ -1,6 +1,7 @@
 ---
 title: "Ansible(2) - Ansible inventory configuration and connectivity testing Ansible配置主机和连接测试教程"
 date: "2023-02-12 11:57:21"
+updated: "2023-09-20 16:44:10"
 description: "Ansible inventory configuration and connectivity testing Ansible配置主机和连接测试教程"
 keywords: "Ansible,inventory,configuration,connectivity,配置,主机,连接,教程"
 tags: 
@@ -9,6 +10,7 @@ tags:
 categories:
  - Ansible
 permalink: ansible-2-inventory-configuration-and-connectivity-testing.html
+toc: true
 ---
 # 1. open the inventory file with your favorite editor and modify it
 
