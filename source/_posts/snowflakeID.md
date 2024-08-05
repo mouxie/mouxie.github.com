@@ -8,11 +8,11 @@ tags:
  - snowflake
  - 算法
  - UUID
-categories:
  - Kubernetes
+categories:
  - Java
 permalink: snowflake-id-for-kubernetes-handle-clock-backwards.html
-toc: true
+toc: false
 ---
 最近准备上马Kubernetes的项目，之前已经把传统单机部署的Java应用程序，改为微服务Microservice架构。
 相同的微服务跑在多个不同的容器内，需要为每条业务数据(transaction)分配唯一的ID，并且需要保证在各自容器跑的微服务生成的ID不会出现重复。
@@ -27,7 +27,7 @@ Snowflake是由twitter开源的分布式ID生成算法。(当然Twitter现在已
 SnowflakeID是一个64位的Long类型数字，对于bit的分配如下:
 ```
 +----------------------------------------------------------------------------------------------+
-|    标识位    |     41位时间戳    |    10位机器号     |    4位时钟回拨掩码   |     8位序列号      |
+|    标识位    |     41位时间戳     |    10位机器号     |    4位时钟回拨掩码   |     8位序列号      |
 +----------------------------------------------------------------------------------------------+
 | 1 Bit Unused | 41 Bit Timestamp | 10 Bit Worker ID | 4 Bit Sequence Mask | 8 Bit Sequence ID |
 +----------------------------------------------------------------------------------------------+
