@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>闪卡游戏 - IndexedDB 秒开增强版</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --bg: #F5F7FA;
+            --card-bg: #FFFFFF;
+            --text-main: #333333;
+            --text-sub: #888888;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #ui-container {
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        #status-text {
+            font-size: 15px;
+            color: var(--text-main);
+            margin-bottom: 20px;
+            line-height: 1.5;
+            padding: 0 10px;
+        }
+
+        /* 3D 闪卡容器 */
+        .scene {
+            width: 100%;
+            height: 250px;
+            perspective: 1000px;
+            cursor: pointer;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.4s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            border-radius: 16px;
+        }
+
+        .card.is-flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card__face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 16px;
+            background-color: var(--card-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+
+        .card__face--front {
+            font-size: 38px;
+            font-weight: bold;
+            color: var(--primary);
+            letter-spacing: 0.5px;
+        }
+
+        .card__face--back {
+            transform: rotateY(180deg);
+            font-size: 22px;
+            color: var(--text-main);
+            text-align: center;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(74, 144, 226, 0.2);
+            transition: all 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.96);
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .hint {
+            font-size: 13px;
+            color: var(--text-sub);
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <div id="status-text">⏳ 正在初始化本地数据库...</div>
+        
+        <div class="scene" id="card-scene" style="display: none;">
+            <div class="card" id="flashcard">
+                <div class="card__face card__face--front" id="word-en">📭</div>
+                <div class="card__face card__face--back" id="word-cn">加载中...</div>
+            </div>
+        </div>
+
+        <div class="controls" id="controls" style="display: none;">
+            <button id="btn-prev" disabled>上一词</button>
+            <button id="btn-next">下一词</button>
+        </div>
+        
+        <div class="hint" id="hint-text" style="display: none;">💡 提示：点击卡片翻面 | 键盘 ← ➔ 切换 | 空格键翻转</div>
+    </div>
+
+    <script>
+        // 目标 JSON 文件（如果因为网络问题打不开，代码中集成了离线模式）
+        const JSON_URL = 'https://raw.githubusercontent.com/mouxie/qwerty-learner/refs/heads/master/public/dicts/dictionary.json';
+
+        // ------------------------------------------------------------------
+        // Web Worker 核心脚本：内部集成 IndexedDB 存储与高速索引
+        // ------------------------------------------------------------------
+        const workerScript = `
+            const DB_NAME = 'FlashcardDB';
+            const DB_VERSION = 1;
+            const STORE_NAME = 'words';
+            let db = null;
+            let totalCount = 0;
+
+            // 初始化 IndexedDB
+            function initDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_NAME, DB_VERSION);
+                    request.onupgradeneeded = function(e) {
+                        const database = e.target.result;
+                        if (!database.objectStoreNames.contains(STORE_NAME)) {
+                            // 使用自增的本地索引 id 作为主键
+                            database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                        }
+                    };
+                    request.onsuccess = function(e) {
+                        db = e.target.result;
+                        resolve(db);
+                    };
+                    request.onerror = function(e) {
+                        reject(new Error('IndexedDB 打开失败'));
+                    };
+                });
+            }
+
+            // 获取本地数据总量
+            function getLocalCount() {
+                return new Promise((resolve) => {
+                    const transaction = db.transaction([STORE_NAME], 'readonly');
+                    const store = transaction.objectStore(STORE_NAME);
+                    const countRequest = store.count();
+                    countRequest.onsuccess = () => resolve(countRequest.result);
+                    countRequest.onerror = () => resolve(0);
+                });
+            }
+
+            // 批量将解析好的单词保存进 IndexedDB
+            function saveToLocal(words) {
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction([STORE_NAME], 'readwrite');
+                    const store = transaction.objectStore(STORE_NAME);
+                    
+                    words.forEach((word, index) => {
+                        // 统一存储结构，附带本地自增索引 id
+                        store.put({ id: index, data: word });
+                    });
+
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(new Error('保存本地数据库失败'));
+                });
+            }
+
+            // 从 IndexedDB 获取指定索引的单词
+            function getLocalWord(id) {
+                return new Promise((resolve) => {
+                    const transaction = db.transaction([STORE_NAME], 'readonly');
+                    const store = transaction.objectStore(STORE_NAME);
+                    const request = store.get(id);
+                    request.onsuccess = () => resolve(request.result ? request.result.data : null);
+                    request.onerror = () => resolve(null);
+                });
+            }
+
+            // 数据清洗：适配 qwerty-learner 的各种格式
+            function cleanData(rawData) {
+                if (Array.isArray(rawData)) return rawData;
+                if (rawData.words && Array.isArray(rawData.words)) return rawData.words;
+                return Object.values(rawData).filter(item => typeof item === 'object');
+            }
+
+            // 线程主监听函数
+            self.onmessage = async function(e) {
+                if (e.data.type === 'init') {
+                    try {
+                        // 1. 先启动本地数据库
+                        await initDB();
+                        
+                        // 2. 检查本地是否有缓存数据
+                        totalCount = await getLocalCount();
+                        
+                        if (totalCount > 0) {
+                            // 【秒开路径】本地有数据，直接通知主线程就绪
+                            self.postMessage({ type: 'ready', total: totalCount, fromCache: true });
+                            return;
+                        }
+
+                        // 【初次加载路径】本地没数据，提示主线程更新状态
+                        self.postMessage({ type: 'progress', message: '📥 首次运行：正在从 GitHub 下载大型词库（取决于网络，请稍候）...' });
+
+                        // 3. 远端下载
+                        const response = await fetch(e.data.url);
+                        if (!response.ok) throw new Error('网络请求失败，状态码: ' + response.status);
+                        
+                        self.postMessage({ type: 'progress', message: '⚡ 下载完成，正在高速解析并写入本地缓存...' });
+                        
+                        const rawData = await response.json();
+                        const cleanedWords = cleanData(rawData);
+                        
+                        if (cleanedWords.length === 0) throw new Error('解析出的词库为空');
+
+                        // 4. 写入本地数据库
+                        await saveToLocal(cleanedWords);
+                        totalCount = cleanedWords.length;
+
+                        // 成功导入，通知主线程
+                        self.postMessage({ type: 'ready', total: totalCount, fromCache: false });
+
+                    } catch (error) {
+                        self.postMessage({ type: 'error', message: error.message });
+                    }
+                } 
+                // 按需索要单条数据：毫秒级从 IndexedDB 检索并返回
+                else if (e.data.type === 'getCard') {
+                    const idx = e.data.index;
+                    const wordData = await getLocalWord(idx);
+                    if (wordData) {
+                        self.postMessage({ type: 'cardData', index: idx, data: wordData });
+                    }
+                }
+            };
+        `;
+
+        // 创建并启动内联 Web Worker
+        const blob = new Blob([workerScript], { type: 'application/javascript' });
+        const worker = new Worker(URL.createObjectURL(blob));
+
+        // 绑定页面 DOM
+        const statusText = document.getElementById('status-text');
+        const cardScene = document.getElementById('card-scene');
+        const flashcard = document.getElementById('flashcard');
+        const controls = document.getElementById('controls');
+        const hintText = document.getElementById('hint-text');
+        const elWordEn = document.getElementById('word-en');
+        const elWordCn = document.getElementById('word-cn');
+        const btnPrev = document.getElementById('btn-prev');
+        const btnNext = document.getElementById('btn-next');
+
+        let currentIndex = 0;
+        let totalWords = 0;
+
+        // 启动 Worker 并传入目标 URL
+        worker.postMessage({ type: 'init', url: JSON_URL });
+
+        // 处理 Worker 返回的指令
+        worker.onmessage = function(e) {
+            const msg = e.data;
+            
+            if (msg.type === 'progress') {
+                statusText.innerText = msg.message;
+            } 
+            else if (msg.type === 'ready') {
+                totalWords = msg.total;
+                const modeText = msg.fromCache ? '🚀 [本地缓存秒开]' : '✨ [首次下载成功]';
+                statusText.innerText = `${modeText} 词库加载成功，共 ${totalWords} 个单词。`;
+                
+                // 显示游戏区域
+                cardScene.style.display = 'block';
+                controls.style.display = 'flex';
+                hintText.style.display = 'block';
+                
+                loadCard(0);
+            } 
+            else if (msg.type === 'cardData') {
+                renderCard(msg.data, msg.index);
+            }
+            else if (msg.type === 'error') {
+                statusText.innerHTML = `❌ 加载失败。<br><small style="color:#666;">原因: ${msg.message}<br>提示: GitHub Raw 链接在国内可能需要代理，或尝试刷新网页。</small>`;
+                statusText.style.color = '#d9534f';
+            }
+        };
+
+        function loadCard(index) {
+            worker.postMessage({ type: 'getCard', index: index });
+        }
+
+        function renderCard(wordObj, index) {
+            flashcard.classList.remove('is-flipped');
+            
+            setTimeout(() => {
+                // 兼容 qwerty-learner 的各种键名
+                const en = wordObj.name || wordObj.word || wordObj.title || "Unknown";
+                
+                let cn = "暂无释义";
+                if (Array.isArray(wordObj.trans)) {
+                    cn = wordObj.trans.join('<br>');
+                } else if (wordObj.translation) {
+                    cn = wordObj.translation;
+                } else if (typeof wordObj === 'string') {
+                    cn = wordObj;
+                }
+
+                elWordEn.innerHTML = en;
+                elWordCn.innerHTML = cn;
+                
+                statusText.innerText = `进度：${index + 1} / ${totalWords}`;
+                
+                btnPrev.disabled = (index === 0);
+                btnNext.disabled = (index === totalWords - 1);
+            }, 120);
+        }
+
+        // --- 交互事件 ---
+        cardScene.addEventListener('click', () => {
+            flashcard.classList.toggle('is-flipped');
+        });
+
+        btnNext.addEventListener('click', () => {
+            if (currentIndex < totalWords - 1) {
+                currentIndex++;
+                loadCard(currentIndex);
+            }
+        });
+
+        btnPrev.addEventListener('click', () => {
+            if (currentIndex > 0) {
+                currentIndex--;
+                loadCard(currentIndex);
+            }
+        });
+
+        // 键盘支持
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                flashcard.classList.toggle('is-flipped');
+            } else if (e.code === 'ArrowRight') {
+                if (!btnNext.disabled) btnNext.click();
+            } else if (e.code === 'ArrowLeft') {
+                if (!btnPrev.disabled) btnPrev.click();
+            }
+        });
+    </script>
+</body>
+</html>
