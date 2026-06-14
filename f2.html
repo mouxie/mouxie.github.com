@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>闪卡游戏 - 错词本强化版</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --accent: #E24A4A;
+            --success: #2EA44F;
+            --bg: #F5F7FA;
+            --card-bg: #FFFFFF;
+            --text-main: #333333;
+            --text-sub: #888888;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #ui-container {
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* 顶部控制栏 */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        select {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            background-color: white;
+            cursor: pointer;
+            outline: none;
+        }
+
+        #status-text {
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.5;
+        }
+
+        /* 3D 闪卡容器 */
+        .scene {
+            width: 100%;
+            height: 250px;
+            perspective: 1000px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.4s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            border-radius: 16px;
+        }
+
+        .card.is-flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card__face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 16px;
+            background-color: var(--card-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+
+        .card__face--front {
+            font-size: 38px;
+            font-weight: bold;
+            color: var(--primary);
+            letter-spacing: 0.5px;
+        }
+
+        .card__face--back {
+            transform: rotateY(180deg);
+            font-size: 22px;
+            color: var(--text-main);
+            text-align: center;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+
+        /* 功能控制区域 */
+        .action-bar {
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        .btn-action {
+            width: 100%;
+            padding: 10px;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        /* 动态按钮样式 */
+        .btn-add-wrong {
+            background-color: #ffeaea;
+            color: var(--accent);
+            border: 1px solid #ffcccc;
+        }
+        .btn-add-wrong:hover { background-color: #ffd1d1; }
+
+        .btn-remove-wrong {
+            background-color: #e6f4ea;
+            color: var(--success);
+            border: 1px solid #ceead6;
+        }
+        .btn-remove-wrong:hover { background-color: #d2e9d6; }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .btn-nav {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(74, 144, 226, 0.2);
+            transition: all 0.2s;
+        }
+
+        .btn-nav:active { transform: scale(0.96); }
+        .btn-nav:disabled {
+            background-color: #cccccc;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .hint {
+            font-size: 13px;
+            color: var(--text-sub);
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <div class="top-bar" id="top-bar" style="display: none;">
+            <select id="mode-select">
+                <option value="all">📚 全部词库</option>
+                <option value="wrong">❌ 我的错词本 (0)</option>
+            </select>
+            <div id="status-text">⏳ 正在初始化...</div>
+        </div>
+
+        <div id="init-status-text">⏳ 正在初始化本地数据库...</div>
+        
+        <div class="scene" id="card-scene" style="display: none;">
+            <div class="card" id="flashcard">
+                <div class="card__face card__face--front" id="word-en">📭</div>
+                <div class="card__face card__face--back" id="word-cn">加载中...</div>
+            </div>
+        </div>
+
+        <div class="action-bar" id="action-bar" style="display: none;">
+            <button id="btn-toggle-wrong" class="btn-action btn-add-wrong">✨ 加强 (标记为错词)</button>
+        </div>
+
+        <div class="controls" id="controls" style="display: none;">
+            <button id="btn-prev" class="btn-nav" disabled>上一词</button>
+            <button id="btn-next" class="btn-nav">下一词</button>
+        </div>
+        
+        <div class="hint" id="hint-text" style="display: none;">💡 提示：点击卡片翻面 | 键盘 ← ➔ 切换 | 空格键翻转</div>
+    </div>
+
+    <script>
+        const JSON_URL = 'https://raw.githubusercontent.com/mouxie/qwerty-learner/refs/heads/master/public/dicts/dictionary.json';
+
+        // ------------------------------------------------------------------
+        // Web Worker 核心脚本：支持全量词库与独立错词本逻辑
+        // ------------------------------------------------------------------
+        const workerScript = `
+            const DB_NAME = 'FlashcardDB';
+            const DB_VERSION = 2; // 升级版本号以触发库表更新
+            const STORE_ALL = 'words';
+            const STORE_WRONG = 'wrong_words';
+            let db = null;
+            
+            let currentMode = 'all'; // 'all' 或 'wrong'
+            let wrongWordIdsSet = new Set(); // 缓存错词的原始名字，方便判断状态
+            let wrongWordsList = []; // 存储当前错词本的临时映射关系
+
+            function initDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_NAME, DB_VERSION);
+                    request.onupgradeneeded = function(e) {
+                        const database = e.target.result;
+                        if (!database.objectStoreNames.contains(STORE_ALL)) {
+                            database.createObjectStore(STORE_ALL, { keyPath: 'id' });
+                        }
+                        // 新建错词表仓库，以单词名称(name/word)为主键，防止重复加入
+                        if (!database.objectStoreNames.contains(STORE_WRONG)) {
+                            database.createObjectStore(STORE_WRONG, { keyPath: 'wordKey' });
+                        }
+                    };
+                    request.onsuccess = function(e) {
+                        db = e.target.result;
+                        resolve(db);
+                    };
+                    request.onerror = function() { reject(new Error('IndexedDB 打开失败')); };
+                });
+            }
+
+            function getCount(storeName) {
+                return new Promise((resolve) => {
+                    const transaction = db.transaction([storeName], 'readonly');
+                    const store = transaction.objectStore(storeName);
+                    const req = store.count();
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(0);
+                });
+            }
+
+            // 加载所有的错词键名进内存 Set，方便主线程秒判“是否为错词”
+            function cacheWrongWordsKeys() {
+                return new Promise((resolve) => {
+                    wrongWordIdsSet.clear();
+                    wrongWordsList = [];
+                    const transaction = db.transaction([STORE_WRONG], 'readonly');
+                    const store = transaction.objectStore(STORE_WRONG);
+                    const req = store.openCursor();
+                    req.onsuccess = function(event) {
+                        const cursor = event.target.result;
+                        if (cursor) {
+                            wrongWordIdsSet.add(cursor.key);
+                            wrongWordsList.push(cursor.value.data); // 顺便缓存错词全量数据
+                            cursor.continue();
+                        } else {
+                            resolve();
+                        }
+                    };
+                    req.onerror = () => resolve();
+                });
+            }
+
+            function saveToLocal(words) {
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction([STORE_ALL], 'readwrite');
+                    const store = transaction.objectStore(STORE_ALL);
+                    words.forEach((word, index) => { store.put({ id: index, data: word }); });
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(new Error('写入大词库失败'));
+                });
+            }
+
+            // 获取唯一标识单词的 Key
+            function getWordKey(wordObj) {
+                return wordObj.name || wordObj.word || wordObj.title;
+            }
+
+            self.onmessage = async function(e) {
+                const msg = e.data;
+
+                if (msg.type === 'init') {
+                    try {
+                        await initDB();
+                        await cacheWrongWordsKeys();
+                        
+                        let totalAll = await getCount(STORE_ALL);
+                        
+                        if (totalAll > 0) {
+                            self.postMessage({ type: 'ready', totalAll, totalWrong: wrongWordIdsSet.size, fromCache: true });
+                            return;
+                        }
+
+                        self.postMessage({ type: 'progress', message: '📥 首次运行：正在从 GitHub 下载大型词库...' });
+                        const response = await fetch(msg.url);
+                        if (!response.ok) throw new Error('网络请求失败');
+                        
+                        self.postMessage({ type: 'progress', message: '⚡ 下载完成，正在写入本地缓存...' });
+                        const rawData = await response.json();
+                        
+                        // 清洗数据
+                        let cleaned = Array.isArray(rawData) ? rawData : (rawData.words && Array.isArray(rawData.words) ? rawData.words : Object.values(rawData).filter(i => typeof i === 'object'));
+                        
+                        await saveToLocal(cleaned);
+                        totalAll = cleaned.length;
+                        
+                        self.postMessage({ type: 'ready', totalAll, totalWrong: wrongWordIdsSet.size, fromCache: false });
+                    } catch (error) {
+                        self.postMessage({ type: 'error', message: error.message });
+                    }
+                }
+
+                // 切换模式 ('all' 或 'wrong')
+                else if (msg.type === 'switchMode') {
+                    currentMode = msg.mode;
+                    if (currentMode === 'wrong') {
+                        await cacheWrongWordsKeys(); // 刷新最新的错词列表
+                    }
+                    const total = currentMode === 'all' ? await getCount(STORE_ALL) : wrongWordsList.length;
+                    self.postMessage({ type: 'modeSwitched', total, mode: currentMode });
+                }
+
+                // 按需索要卡片数据
+                else if (msg.type === 'getCard') {
+                    const idx = msg.index;
+                    let wordData = null;
+
+                    if (currentMode === 'all') {
+                        const transaction = db.transaction([STORE_ALL], 'readonly');
+                        const store = transaction.objectStore(STORE_ALL);
+                        const req = store.get(idx);
+                        wordData = await new Promise(r => { req.onsuccess = () => r(req.result ? req.result.data : null); });
+                    } else {
+                        wordData = wrongWordsList[idx] || null;
+                    }
+
+                    if (wordData) {
+                        const key = getWordKey(wordData);
+                        const isWrong = wrongWordIdsSet.has(key);
+                        self.postMessage({ type: 'cardData', index: idx, data: wordData, isWrong });
+                    }
+                }
+
+                // 添加到错词本
+                else if (msg.type === 'addToWrong') {
+                    const wordData = msg.data;
+                    const key = getWordKey(wordData);
+                    
+                    const transaction = db.transaction([STORE_WRONG], 'readwrite');
+                    const store = transaction.objectStore(STORE_WRONG);
+                    store.put({ wordKey: key, data: wordData });
+                    
+                    transaction.oncomplete = async () => {
+                        await cacheWrongWordsKeys();
+                        self.postMessage({ type: 'wrongUpdated', totalWrong: wrongWordIdsSet.size, isWrong: true, currentMode });
+                    };
+                }
+
+                // 从错词本中移除
+                else if (msg.type === 'removeFromWrong') {
+                    const wordData = msg.data;
+                    const key = getWordKey(wordData);
+                    
+                    const transaction = db.transaction([STORE_WRONG], 'readwrite');
+                    const store = transaction.objectStore(STORE_WRONG);
+                    store.delete(key);
+                    
+                    transaction.oncomplete = async () => {
+                        await cacheWrongWordsKeys();
+                        self.postMessage({ type: 'wrongUpdated', totalWrong: wrongWordIdsSet.size, isWrong: false, currentMode });
+                    };
+                }
+            };
+        `;
+
+        // 启动 Worker
+        const blob = new Blob([workerScript], { type: 'application/javascript' });
+        const worker = new Worker(URL.createObjectURL(blob));
+
+        // 绑定 DOM
+        const topBar = document.getElementById('top-bar');
+        const initStatusText = document.getElementById('init-status-text');
+        const statusText = document.getElementById('status-text');
+        const modeSelect = document.getElementById('mode-select');
+        const cardScene = document.getElementById('card-scene');
+        const flashcard = document.getElementById('flashcard');
+        const actionBar = document.getElementById('action-bar');
+        const controls = document.getElementById('controls');
+        const hintText = document.getElementById('hint-text');
+        
+        const elWordEn = document.getElementById('word-en');
+        const elWordCn = document.getElementById('word-cn');
+        const btnPrev = document.getElementById('btn-prev');
+        const btnNext = document.getElementById('btn-next');
+        const btnToggleWrong = document.getElementById('btn-toggle-wrong');
+
+        // 全局动态状态
+        let currentIndex = 0;
+        let totalWords = 0;
+        let currentWordData = null; // 缓存当前卡片的原始数据
+        let currentCardIsWrong = false;
+
+        // 初始化
+        worker.postMessage({ type: 'init', url: JSON_URL });
+
+        // 监听后台指令
+        worker.onmessage = function(e) {
+            const msg = e.data;
+            
+            if (msg.type === 'progress') {
+                initStatusText.innerText = msg.message;
+            } 
+            else if (msg.type === 'ready') {
+                initStatusText.style.display = 'none';
+                topBar.style.display = 'flex';
+                cardScene.style.display = 'block';
+                actionBar.style.display = 'block';
+                controls.style.display = 'flex';
+                hintText.style.display = 'block';
+                
+                updateWrongCountUI(msg.totalWrong);
+                totalWords = msg.totalAll;
+                loadCard(0);
+            }
+            else if (msg.type === 'modeSwitched') {
+                totalWords = msg.total;
+                currentIndex = 0; // 切换模式后从第1个开始
+                if (totalWords === 0) {
+                    renderEmptyState();
+                } else {
+                    loadCard(0);
+                }
+            }
+            else if (msg.type === 'cardData') {
+                renderCard(msg.data, msg.index, msg.isWrong);
+            }
+            else if (msg.type === 'wrongUpdated') {
+                updateWrongCountUI(msg.totalWrong);
+                updateWrongButtonUI(msg.isWrong);
+                
+                // 特殊处理：如果在错词本模式下移出了当前词，需要刷新页面或跳转
+                if (msg.currentMode === 'wrong' && !msg.isWrong) {
+                    worker.postMessage({ type: 'switchMode', mode: 'wrong' });
+                }
+            }
+            else if (msg.type === 'error') {
+                initStatusText.innerText = '❌ 加载失败: ' + msg.message;
+                initStatusText.style.color = 'red';
+            }
+        };
+
+        function loadCard(index) {
+            worker.postMessage({ type: 'getCard', index: index });
+        }
+
+        // 渲染单张卡片
+        function renderCard(wordObj, index, isWrong) {
+            currentWordData = wordObj;
+            currentCardIsWrong = isWrong;
+            
+            flashcard.classList.remove('is-flipped');
+            updateWrongButtonUI(isWrong);
+            
+            setTimeout(() => {
+                const en = wordObj.name || wordObj.word || wordObj.title || "Unknown";
+                let cn = "暂无释义";
+                if (Array.isArray(wordObj.trans)) cn = wordObj.trans.join('<br>');
+                else if (wordObj.translation) cn = wordObj.translation;
+                else if (typeof wordObj === 'string') cn = wordObj;
+
+                elWordEn.innerHTML = en;
+                elWordCn.innerHTML = cn;
+                
+                statusText.innerText = `${index + 1} / ${totalWords}`;
+                btnPrev.disabled = (index === 0);
+                btnNext.disabled = (index === totalWords - 1);
+                btnToggleWrong.disabled = false;
+            }, 120);
+        }
+
+        // 处理错词本为空时的极端情况
+        function renderEmptyState() {
+            currentWordData = null;
+            elWordEn.innerHTML = "📭 空空如也";
+            elWordCn.innerHTML = "当前错词本内没有单词<br>去全部词库中加点错词吧！";
+            statusText.innerText = "0 / 0";
+            btnPrev.disabled = true;
+            btnNext.disabled = true;
+            btnToggleWrong.disabled = true;
+        }
+
+        // 更新顶部下拉菜单中的错词数量提示
+        function updateWrongCountUI(count) {
+            modeSelect.options[1].text = `❌ 我的错词本 (${count})`;
+        }
+
+        // 根据状态动态改变“加强/已掌握”按钮外观
+        function updateWrongButtonUI(isWrong) {
+            currentCardIsWrong = isWrong;
+            if (isWrong) {
+                btnToggleWrong.className = "btn-action btn-remove-wrong";
+                btnToggleWrong.innerText = "✅ 已掌握 (从错词本移出)";
+            } else {
+                btnToggleWrong.className = "btn-action btn-add-wrong";
+                btnToggleWrong.innerText = "✨ 加强 (加入错词本)";
+            }
+        }
+
+        // --- 交互事件绑定 ---
+
+        // 切换下拉菜单模式（全量词库 vs 错词本）
+        modeSelect.addEventListener('change', (e) => {
+            worker.postMessage({ type: 'switchMode', mode: e.target.value });
+        });
+
+        // 错词状态切换（点击加强按钮）
+        btnToggleWrong.addEventListener('click', () => {
+            if (!currentWordData) return;
+            if (currentCardIsWrong) {
+                worker.postMessage({ type: 'removeFromWrong', data: currentWordData });
+            } else {
+                worker.postMessage({ type: 'addToWrong', data: currentWordData });
+            }
+        });
+
+        cardScene.addEventListener('click', () => {
+            if(currentWordData) flashcard.classList.toggle('is-flipped');
+        });
+
+        btnNext.addEventListener('click', () => {
+            if (currentIndex < totalWords - 1) {
+                currentIndex++;
+                loadCard(currentIndex);
+            }
+        });
+
+        btnPrev.addEventListener('click', () => {
+            if (currentIndex > 0) {
+                currentIndex--;
+                loadCard(currentIndex);
+            }
+        });
+
+        // 快捷键支持
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if(currentWordData) flashcard.classList.toggle('is-flipped');
+            } else if (e.code === 'ArrowRight') {
+                if (!btnNext.disabled) btnNext.click();
+            } else if (e.code === 'ArrowLeft') {
+                if (!btnPrev.disabled) btnPrev.click();
+            } else if (e.code === 'Enter') {
+                // 回车键也可以快速标记错词/移出
+                if (!btnToggleWrong.disabled) btnToggleWrong.click();
+            }
+        });
+    </script>
+</body>
+</html>
