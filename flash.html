@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>极速记忆闪卡 - 防卡顿版</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --bg: #F5F7FA;
+            --card-bg: #FFFFFF;
+            --text-main: #333333;
+            --text-sub: #888888;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #ui-container {
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        /* 状态提示信息 */
+        #status-text {
+            font-size: 14px;
+            color: var(--text-sub);
+            margin-bottom: 20px;
+            height: 20px;
+        }
+
+        /* 闪卡 3D 容器 */
+        .scene {
+            width: 100%;
+            height: 250px;
+            perspective: 1000px; /* 提供 3D 透视效果 */
+            cursor: pointer;
+            margin-bottom: 30px;
+        }
+
+        /* 闪卡本体 */
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d; /* 保持 3D 结构 */
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            border-radius: 16px;
+        }
+
+        .card.is-flipped {
+            transform: rotateY(180deg);
+        }
+
+        /* 闪卡的正面和背面通用样式 */
+        .card__face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden; /* Safari 兼容 */
+            backface-visibility: hidden;
+            border-radius: 16px;
+            background-color: var(--card-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* 正面：英文单词 */
+        .card__face--front {
+            font-size: 36px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        /* 背面：中文释义，需要先翻转 180 度 */
+        .card__face--back {
+            transform: rotateY(180deg);
+            font-size: 24px;
+            color: var(--text-main);
+            text-align: center;
+            overflow-y: auto;
+        }
+
+        /* 控制按钮区域 */
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .hint {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <div id="status-text">🚀 正在后台多线程解析词库，请稍候...</div>
+        
+        <div class="scene" id="card-scene" style="display: none;">
+            <div class="card" id="flashcard">
+                <div class="card__face card__face--front" id="word-en">Loading...</div>
+                <div class="card__face card__face--back" id="word-cn">加载中...</div>
+            </div>
+        </div>
+
+        <div class="controls" id="controls" style="display: none;">
+            <button id="btn-prev" disabled>上一词</button>
+            <button id="btn-next">下一词</button>
+        </div>
+        
+        <div class="hint" id="hint-text" style="display: none;">点击卡片进行翻转查看释义</div>
+    </div>
+
+    <script>
+        // 目标 JSON 文件地址
+        const JSON_URL = 'https://raw.githubusercontent.com/mouxie/qwerty-learner/refs/heads/master/public/dicts/dictionary.json';
+
+        // ----------------------------------------------------
+        // 核心技术：利用 Blob 构建内联 Web Worker (后台线程)
+        // 这样就不需要外部单独创建一个 worker.js 文件了
+        // ----------------------------------------------------
+        const workerScript = `
+            let dictionaryData = [];
+
+            self.onmessage = async function(e) {
+                if (e.data.type === 'init') {
+                    try {
+                        // 1. 在后台线程发起网络请求
+                        const response = await fetch(e.data.url);
+                        if (!response.ok) throw new Error('网络请求失败');
+                        
+                        // 2. 在后台线程解析巨大的 JSON 文件，主线程绝不会卡顿！
+                        const rawData = await response.json();
+                        
+                        // 3. 兼容处理：确保我们拿到的是一个数组
+                        // (因为不确定 JSON 具体嵌套格式，做一下智能提取)
+                        if (Array.isArray(rawData)) {
+                            dictionaryData = rawData;
+                        } else if (rawData.words && Array.isArray(rawData.words)) {
+                            dictionaryData = rawData.words;
+                        } else {
+                            // 兜底策略
+                            dictionaryData = Object.values(rawData).filter(item => typeof item === 'object');
+                        }
+
+                        // 通知主线程准备就绪
+                        self.postMessage({ 
+                            type: 'ready', 
+                            total: dictionaryData.length 
+                        });
+
+                    } catch (error) {
+                        self.postMessage({ type: 'error', message: error.message });
+                    }
+                } 
+                // 处理主线程索要单个单词的请求
+                else if (e.data.type === 'getCard') {
+                    const idx = e.data.index;
+                    if (idx >= 0 && idx < dictionaryData.length) {
+                        self.postMessage({
+                            type: 'cardData',
+                            index: idx,
+                            data: dictionaryData[idx]
+                        });
+                    }
+                }
+            };
+        `;
+
+        // 启动后台线程
+        const blob = new Blob([workerScript], { type: 'application/javascript' });
+        const worker = new Worker(URL.createObjectURL(blob));
+
+        // UI 元素
+        const statusText = document.getElementById('status-text');
+        const cardScene = document.getElementById('card-scene');
+        const flashcard = document.getElementById('flashcard');
+        const controls = document.getElementById('controls');
+        const hintText = document.getElementById('hint-text');
+        
+        const elWordEn = document.getElementById('word-en');
+        const elWordCn = document.getElementById('word-cn');
+        
+        const btnPrev = document.getElementById('btn-prev');
+        const btnNext = document.getElementById('btn-next');
+
+        // 状态变量
+        let currentIndex = 0;
+        let totalWords = 0;
+
+        // 发送初始化指令给 Worker 去下载 JSON
+        worker.postMessage({ type: 'init', url: JSON_URL });
+
+        // 监听 Worker 传回主线程的消息
+        worker.onmessage = function(e) {
+            const msg = e.data;
+            
+            if (msg.type === 'ready') {
+                totalWords = msg.total;
+                statusText.innerText = \`解析完成！共加载 \${totalWords} 个内容。\`;
+                
+                // 显示 UI 界面
+                cardScene.style.display = 'block';
+                controls.style.display = 'flex';
+                hintText.style.display = 'block';
+                
+                // 请求第一张卡片
+                loadCard(0);
+            } 
+            else if (msg.type === 'cardData') {
+                renderCard(msg.data, msg.index);
+            }
+            else if (msg.type === 'error') {
+                statusText.innerText = '加载失败: ' + msg.message + ' (可能是网络或者跨域问题)';
+                statusText.style.color = 'red';
+            }
+        };
+
+        // 向 Worker 索要指定索引的单词
+        function loadCard(index) {
+            worker.postMessage({ type: 'getCard', index: index });
+        }
+
+        // 渲染从 Worker 拿到的单词数据
+        function renderCard(wordObj, index) {
+            // 重置为正面（如果不加延时直接翻，体验不好，所以先强制转回正面）
+            flashcard.classList.remove('is-flipped');
+            
+            // 等待翻转动画结束或直接更新文本
+            setTimeout(() => {
+                // 兼容 qwerty-learner 的 JSON 字段 (name / trans) 
+                // 或常见词典库的字段 (word / translation)
+                const en = wordObj.name || wordObj.word || wordObj.title || "未知单词";
+                
+                let cn = "暂无释义";
+                if (Array.isArray(wordObj.trans)) {
+                    cn = wordObj.trans.join('<br>');
+                } else if (wordObj.translation) {
+                    cn = wordObj.translation;
+                } else if (typeof wordObj === 'string') {
+                    // 如果整个是个字符串
+                    cn = wordObj; 
+                } else {
+                    cn = JSON.stringify(wordObj); // 终极兜底显示
+                }
+
+                elWordEn.innerHTML = en;
+                elWordCn.innerHTML = cn;
+                
+                // 更新顶部进度
+                statusText.innerText = \`当前进度：\${index + 1} / \${totalWords}\`;
+                
+                // 更新按钮状态
+                btnPrev.disabled = (index === 0);
+                btnNext.disabled = (index === totalWords - 1);
+            }, 150); // 略微延时以保证翻页手感
+        }
+
+        // --- 交互事件绑定 ---
+        
+        // 点击卡片翻转
+        cardScene.addEventListener('click', () => {
+            flashcard.classList.toggle('is-flipped');
+        });
+
+        // 下一个
+        btnNext.addEventListener('click', () => {
+            if (currentIndex < totalWords - 1) {
+                currentIndex++;
+                loadCard(currentIndex);
+            }
+        });
+
+        // 上一个
+        btnPrev.addEventListener('click', () => {
+            if (currentIndex > 0) {
+                currentIndex--;
+                loadCard(currentIndex);
+            }
+        });
+
+        // 绑定键盘快捷键操作 (空格翻转，左右方向键切词)
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                flashcard.classList.toggle('is-flipped');
+            } else if (e.code === 'ArrowRight') {
+                if (!btnNext.disabled) btnNext.click();
+            } else if (e.code === 'ArrowLeft') {
+                if (!btnPrev.disabled) btnPrev.click();
+            }
+        });
+    </script>
+</body>
+</html>
