@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>闪卡游戏 - 词表分组精简版</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --accent: #E24A4A;
+            --success: #2EA44F;
+            --bg: #F5F7FA;
+            --card-bg: #FFFFFF;
+            --text-main: #333333;
+            --text-sub: #888888;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #ui-container {
+            text-align: center;
+            width: 100%;
+            max-width: 420px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* 顶部控制栏 */
+        .top-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+            margin-bottom: 15px;
+            background: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        select {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 13px;
+            background-color: white;
+            cursor: pointer;
+            outline: none;
+            max-width: 60%;
+        }
+
+        #status-text {
+            font-size: 14px;
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        /* 3D 闪卡容器 */
+        .scene {
+            width: 100%;
+            height: 240px;
+            perspective: 1000px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.4s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            border-radius: 16px;
+        }
+
+        .card.is-flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card__face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 16px;
+            background-color: var(--card-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+
+        .card__face--front {
+            font-size: 36px;
+            font-weight: bold;
+            color: var(--primary);
+            letter-spacing: 0.5px;
+        }
+
+        .card__face--back {
+            transform: rotateY(180deg);
+            font-size: 20px;
+            color: var(--text-main);
+            text-align: center;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+
+        /* 功能控制区域 */
+        .action-bar {
+            margin-bottom: 15px;
+            width: 100%;
+        }
+
+        .btn-action {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-add-wrong {
+            background-color: #ffeaea;
+            color: var(--accent);
+            border: 1px solid #ffcccc;
+        }
+        .btn-add-wrong:hover { background-color: #ffd1d1; }
+
+        .btn-remove-wrong {
+            background-color: #e6f4ea;
+            color: var(--success);
+            border: 1px solid #ceead6;
+        }
+        .btn-remove-wrong:hover { background-color: #d2e9d6; }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .btn-nav {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(74, 144, 226, 0.2);
+            transition: all 0.2s;
+        }
+
+        .btn-nav:active { transform: scale(0.96); }
+        .btn-nav:disabled {
+            background-color: #cccccc;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .hint {
+            font-size: 12px;
+            color: var(--text-sub);
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <div class="top-bar" id="top-bar" style="display: none;">
+            <div class="control-row">
+                <select id="mode-select">
+                    <option value="all">📚 全部词库</option>
+                    <option value="wrong">❌ 我的错词本 (0)</option>
+                </select>
+                <div id="status-text">⏳ 加载中...</div>
+            </div>
+            
+            <div class="control-row">
+                <div>
+                    <span style="font-size: 12px; color: #555;">每组:</span>
+                    <select id="size-select">
+                        <option value="10">10 个</option>
+                        <option value="20" selected>20 个</option>
+                        <option value="50">50 个</option>
+                        <option value="100">100 个</option>
+                    </select>
+                </div>
+                <div>
+                    <span style="font-size: 12px; color: #555;">选择组别:</span>
+                    <select id="group-select">
+                        <option value="0">第 1 组</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div id="init-status-text">⏳ 正在初始化本地数据库...</div>
+        
+        <div class="scene" id="card-scene" style="display: none;">
+            <div class="card" id="flashcard">
+                <div class="card__face card__face--front" id="word-en">📭</div>
+                <div class="card__face card__face--back" id="word-cn">加载中...</div>
+            </div>
+        </div>
+
+        <div class="action-bar" id="action-bar" style="display: none;">
+            <button id="btn-toggle-wrong" class="btn-action btn-add-wrong">✨ 加强 (标记为错词)</button>
+        </div>
+
+        <div class="controls" id="controls" style="display: none;">
+            <button id="btn-prev" class="btn-nav" disabled>上一词</button>
+            <button id="btn-next" class="btn-nav">下一词</button>
+        </div>
+        
+        <div class="hint" id="hint-text" style="display: none;">💡 提示：点击卡片翻面 | 键盘 ← ➔ 切换 | 空格键翻转 | 回车标记错词</div>
+    </div>
+
+    <script>
+        const JSON_URL = 'https://raw.githubusercontent.com/mouxie/qwerty-learner/refs/heads/master/public/dicts/dictionary.json';
+
+        // ------------------------------------------------------------------
+        // Web Worker 核心脚本：支持全量、错词、动态分组切片
+        // ------------------------------------------------------------------
+        const workerScript = `
+            const DB_NAME = 'FlashcardDB';
+            const DB_VERSION = 2;
+            const STORE_ALL = 'words';
+            const STORE_WRONG = 'wrong_words';
+            let db = null;
+            
+            let currentMode = 'all'; 
+            let wrongWordIdsSet = new Set(); 
+            let wrongWordsList = []; 
+
+            // 当前分组状态
+            let pageSize = 20;
+            let currentGroupIdx = 0;
+            let currentGroupWords = []; // 缓存在当前页面/当前组中的核心单词数组
+
+            function initDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_NAME, DB_VERSION);
+                    request.onsuccess = function(e) { db = e.target.result; resolve(db); };
+                    request.onerror = function() { reject(new Error('IndexedDB 打开失败')); };
+                });
+            }
+
+            function getCount(storeName) {
+                return new Promise((resolve) => {
+                    const transaction = db.transaction([storeName], 'readonly');
+                    const store = transaction.objectStore(storeName);
+                    const req = store.count();
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(0);
+                });
+            }
+
+            function cacheWrongWordsKeys() {
+                return new Promise((resolve) => {
+                    wrongWordIdsSet.clear();
+                    wrongWordsList = [];
+                    const transaction = db.transaction([STORE_WRONG], 'readonly');
+                    const store = transaction.objectStore(STORE_WRONG);
+                    const req = store.openCursor();
+                    req.onsuccess = function(event) {
+                        const cursor = event.target.result;
+                        if (cursor) {
+                            wrongWordIdsSet.add(cursor.key);
+                            wrongWordsList.push(cursor.value.data);
+                            cursor.continue();
+                        } else { resolve(); }
+                    };
+                    req.onerror = () => resolve();
+                });
+            }
+
+            // 根据当前的分组参数（Size 和 Group Index），从本地数据库按需切片加载词汇
+            async function loadCurrentGroupData() {
+                currentGroupWords = [];
+                const offset = currentGroupIdx * pageSize;
+
+                if (currentMode === 'all') {
+                    // 利用 IDB 的 ID 范围进行区间极速查询，避免全量读入
+                    return new Promise((resolve) => {
+                        const transaction = db.transaction([STORE_ALL], 'readonly');
+                        const store = transaction.objectStore(STORE_ALL);
+                        
+                        // 查询范围：[offset, offset + pageSize - 1]
+                        const range = IDBKeyRange.bound(offset, offset + pageSize - 1);
+                        const req = store.openCursor(range);
+                        
+                        req.onsuccess = function(e) {
+                            const cursor = e.target.result;
+                            if (cursor) {
+                                currentGroupWords.push(cursor.value.data);
+                                cursor.continue();
+                            } else { resolve(); }
+                        };
+                        req.onerror = () => resolve();
+                    });
+                } else {
+                    // 错词本模式：直接对缓存的错词数组做纯前端切片
+                    currentGroupWords = wrongWordsList.slice(offset, offset + pageSize);
+                }
+            }
+
+            function getWordKey(wordObj) {
+                return wordObj.name || wordObj.word || wordObj.title;
+            }
+
+            self.onmessage = async function(e) {
+                const msg = e.data;
+
+                if (msg.type === 'init') {
+                    try {
+                        await initDB();
+                        await cacheWrongWordsKeys();
+                        let totalAll = await getCount(STORE_ALL);
+                        
+                        if (totalAll > 0) {
+                            self.postMessage({ type: 'ready', totalAll, totalWrong: wrongWordIdsSet.size });
+                            return;
+                        }
+                        // 如果没有数据则进行下载（此处略去冗长逻辑，与上版相同）
+                        self.postMessage({ type: 'error', message: '检测到本地数据库未建立，请重新运行上一步生成的代码进行初次下载。' });
+                    } catch (error) { self.postMessage({ type: 'error', message: error.message }); }
+                }
+
+                // 核心控制：触发分组和模式更新
+                else if (msg.type === 'updateFilter') {
+                    currentMode = msg.mode;
+                    pageSize = parseInt(msg.pageSize);
+                    currentGroupIdx = parseInt(msg.groupIdx);
+
+                    if (currentMode === 'wrong') {
+                        await cacheWrongWordsKeys();
+                    }
+
+                    const totalCount = currentMode === 'all' ? await getCount(STORE_ALL) : wrongWordsList.length;
+                    
+                    // 加载属于当前分组切片的数据
+                    await loadCurrentGroupData();
+
+                    self.postMessage({ 
+                        type: 'filterApplied', 
+                        totalCount: totalCount,
+                        groupWordsCount: currentGroupWords.length
+                    });
+                }
+
+                // 获取当前分组内部指定相对索引的卡片
+                else if (msg.type === 'getCard') {
+                    const idx = msg.index; // 相对当前组的 0, 1, 2...
+                    const wordData = currentGroupWords[idx];
+
+                    if (wordData) {
+                        const key = getWordKey(wordData);
+                        const isWrong = wrongWordIdsSet.has(key);
+                        // 绝对序号：用于显示在进度条中
+                        const absoluteIndex = (currentGroupIdx * pageSize) + idx + 1;
+                        self.postMessage({ type: 'cardData', index: idx, absoluteIndex, data: wordData, isWrong });
+                    }
+                }
+
+                else if (msg.type === 'addToWrong') {
+                    const wordData = msg.data;
+                    const key = getWordKey(wordData);
+                    const transaction = db.transaction([STORE_WRONG], 'readwrite');
+                    transaction.objectStore(STORE_WRONG).put({ wordKey: key, data: wordData });
+                    transaction.oncomplete = async () => {
+                        await cacheWrongWordsKeys();
+                        self.postMessage({ type: 'wrongUpdated', totalWrong: wrongWordIdsSet.size, isWrong: true });
+                    };
+                }
+
+                else if (msg.type === 'removeFromWrong') {
+                    const wordData = msg.data;
+                    const key = getWordKey(wordData);
+                    const transaction = db.transaction([STORE_WRONG], 'readwrite');
+                    transaction.objectStore(STORE_WRONG).delete(key);
+                    transaction.oncomplete = async () => {
+                        await cacheWrongWordsKeys();
+                        self.postMessage({ type: 'wrongUpdated', totalWrong: wrongWordIdsSet.size, isWrong: false });
+                    };
+                }
+            };
+        `;
+
+        // 启动 Worker
+        const blob = new Blob([workerScript], { type: 'application/javascript' });
+        const worker = new Worker(URL.createObjectURL(blob));
+
+        // 绑定 DOM
+        const topBar = document.getElementById('top-bar');
+        const initStatusText = document.getElementById('init-status-text');
+        const statusText = document.getElementById('status-text');
+        const modeSelect = document.getElementById('mode-select');
+        const sizeSelect = document.getElementById('size-select');
+        const groupSelect = document.getElementById('group-select');
+        
+        const cardScene = document.getElementById('card-scene');
+        const flashcard = document.getElementById('flashcard');
+        const actionBar = document.getElementById('action-bar');
+        const controls = document.getElementById('controls');
+        const hintText = document.getElementById('hint-text');
+        
+        const elWordEn = document.getElementById('word-en');
+        const elWordCn = document.getElementById('word-cn');
+        const btnPrev = document.getElementById('btn-prev');
+        const btnNext = document.getElementById('btn-next');
+        const btnToggleWrong = document.getElementById('btn-toggle-wrong');
+
+        // 前端本地状态
+        let currentRelativeIndex = 0; // 相对当前分组内部的指针 (0 ~ pageSize-1)
+        let totalWordsInGroup = 0;    // 当前分组内拥有的实际单词数
+        let currentWordData = null;
+        let currentCardIsWrong = false;
+
+        // 初始化
+        worker.postMessage({ type: 'init', url: JSON_URL });
+
+        worker.onmessage = function(e) {
+            const msg = e.data;
+            
+            if (msg.type === 'ready') {
+                initStatusText.style.display = 'none';
+                topBar.style.display = 'flex';
+                cardScene.style.display = 'block';
+                actionBar.style.display = 'block';
+                controls.style.display = 'flex';
+                hintText.style.display = 'block';
+                
+                updateWrongCountUI(msg.totalWrong);
+                // 首次构建分组下拉单
+                rebuildGroupOptions(msg.totalAll, 20);
+                applyFilters();
+            }
+            else if (msg.type === 'filterApplied') {
+                totalWordsInGroup = msg.groupWordsCount;
+                updateWrongCountUI(currentMode() === 'wrong' ? msg.totalCount : null);
+                
+                currentRelativeIndex = 0; // 切换分组或模式后，回到新分组的第一个词
+                if (totalWordsInGroup === 0) {
+                    renderEmptyState();
+                } else {
+                    loadCard(0);
+                }
+            }
+            else if (msg.type === 'cardData') {
+                renderCard(msg.data, msg.index, msg.absoluteIndex, msg.isWrong);
+            }
+            else if (msg.type === 'wrongUpdated') {
+                updateWrongCountUI(msg.totalWrong);
+                updateWrongButtonUI(msg.isWrong);
+                
+                // 如果在错词本模式下清空了当前词，需要重新刷分组
+                if (currentMode() === 'wrong') {
+                    // 重新计算并保持在当前组或者安全回退
+                    const oldSize = sizeSelect.value;
+                    rebuildGroupOptions(msg.totalWrong, oldSize);
+                    applyFilters(groupSelect.value); 
+                }
+            }
+            else if (msg.type === 'error') {
+                initStatusText.innerText = '⚠️ ' + msg.message;
+                initStatusText.style.color = '#d9534f';
+            }
+        };
+
+        // 快捷获取当前设置的辅助函数
+        function currentMode() { return modeSelect.value; }
+        function currentSize() { return parseInt(sizeSelect.value); }
+
+        // 核心联动：当前端改变了 模式、组大小、组别 时，统一向后台请求数据
+        function applyFilters(targetGroupIdx = 0) {
+            worker.postMessage({
+                type: 'updateFilter',
+                mode: currentMode(),
+                pageSize: currentSize(),
+                groupIdx: targetGroupIdx
+            });
+        }
+
+        // 根据总单词数和组大小，动态重新生成“选择分组”下拉菜单的内容
+        function rebuildGroupOptions(totalCount, pageSize) {
+            const currentSelectedValue = groupSelect.value; // 暂存，尽量保持原选择
+            groupSelect.innerHTML = '';
+            
+            const totalGroups = Math.ceil(totalCount / pageSize);
+            
+            if (totalGroups === 0) {
+                groupSelect.innerHTML = '<option value="0">无数据</option>';
+                return;
+            }
+
+            for (let i = 0; i < totalGroups; i++) {
+                const start = i * pageSize + 1;
+                const end = Math.min((i + 1) * pageSize, totalCount);
+                const option = document.createElement('option');
+                option.value = i;
+                option.text = `第 ${i + 1} 组 (${start}-${end})`;
+                groupSelect.appendChild(option);
+            }
+
+            // 恢复之前的选择（如果依然在范围内）
+            if (currentSelectedValue < totalGroups) {
+                groupSelect.value = currentSelectedValue;
+            }
+        }
+
+        function loadCard(relativeIndex) {
+            worker.postMessage({ type: 'getCard', index: relativeIndex });
+        }
+
+        function renderCard(wordObj, relativeIndex, absoluteIndex, isWrong) {
+            currentWordData = wordObj;
+            currentCardIsWrong = isWrong;
+            
+            flashcard.classList.remove('is-flipped');
+            updateWrongButtonUI(isWrong);
+            
+            setTimeout(() => {
+                const en = wordObj.name || wordObj.word || wordObj.title || "Unknown";
+                let cn = "暂无释义";
+                if (Array.isArray(wordObj.trans)) cn = wordObj.trans.join('<br>');
+                else if (wordObj.translation) cn = wordObj.translation;
+                else if (typeof wordObj === 'string') cn = wordObj;
+
+                elWordEn.innerHTML = en;
+                elWordCn.innerHTML = cn;
+                
+                // 显示：当前组内进度 (全库绝对总进度)
+                statusText.innerText = `组内: ${relativeIndex + 1}/${totalWordsInGroup} (总第${absoluteIndex}词)`;
+                
+                btnPrev.disabled = (relativeIndex === 0);
+                btnNext.disabled = (relativeIndex === totalWordsInGroup - 1);
+                btnToggleWrong.disabled = false;
+            }, 120);
+        }
+
+        function renderEmptyState() {
+            currentWordData = null;
+            elWordEn.innerHTML = "📭 分组空空";
+            elWordCn.innerHTML = "当前选择的分组内没有数据。";
+            statusText.innerText = "0 / 0";
+            btnPrev.disabled = true;
+            btnNext.disabled = true;
+            btnToggleWrong.disabled = true;
+        }
+
+        function updateWrongCountUI(count) {
+            if (count !== null) {
+                modeSelect.options[1].text = `❌ 我的错词本 (${count})`;
+            }
+        }
+
+        function updateWrongButtonUI(isWrong) {
+            currentCardIsWrong = isWrong;
+            if (isWrong) {
+                btnToggleWrong.className = "btn-action btn-remove-wrong";
+                btnToggleWrong.innerText = "✅ 已掌握 (从错词本移出)";
+            } else {
+                btnToggleWrong.className = "btn-action btn-add-wrong";
+                btnToggleWrong.innerText = "✨ 加强 (加入错词本)";
+            }
+        }
+
+        // --- 核心下拉框联动监听 ---
+
+        // 1. 切换模式（全部 vs 错词）
+        modeSelect.addEventListener('change', () => {
+            // 先通过后台获取当前的最新总量，用以重新生成组别
+            // 这里走一个巧办法：先发请求让 Worker 计算该模式的总数
+            const dummyHandler = (e) => {
+                if (e.data.type === 'ready' || e.data.type === 'wrongUpdated') {
+                    const count = currentMode() === 'all' ? e.data.totalAll : e.data.totalWrong;
+                    rebuildGroupOptions(count, currentSize());
+                    applyFilters(0);
+                    window.removeEventListener('message', dummyHandler);
+                }
+            };
+            // 触发一次数据的重新计算并重置回第 0 组
+            applyFilters(0);
+        });
+
+        // 2. 切换每组大小 (10, 20, 50, 100)
+        sizeSelect.addEventListener('change', (e) => {
+            const newSize = parseInt(e.target.value);
+            // 重新计算需要显示多少组，并回弹到第 1 组
+            const mockTotal = currentMode() === 'all' ? 100000 : parseInt(modeSelect.options[1].text.match(/\d+/)[0]); 
+            // 实际全量由后台支持，前端此处配合刷新
+            const activeSelect = currentMode();
+            
+            // 为了精准获得当前模式总数重新排列分组：
+            const transaction = indexedDB.open('FlashcardDB');
+            transaction.onsuccess = (event) => {
+                const db = event.target.result;
+                const storeName = activeSelect === 'all' ? 'words' : 'wrong_words';
+                const countReq = db.transaction([storeName], 'readonly').objectStore(storeName).count();
+                countReq.onsuccess = () => {
+                    rebuildGroupOptions(countReq.result, newSize);
+                    applyFilters(0);
+                }
+            };
+        });
+
+        // 3. 切换具体组别
+        groupSelect.addEventListener('change', (e) => {
+            applyFilters(e.target.value);
+        });
+
+        // --- 按钮与按键交互 ---
+        btnToggleWrong.addEventListener('click', () => {
+            if (!currentWordData) return;
+            if (currentCardIsWrong) {
+                worker.postMessage({ type: 'removeFromWrong', data: currentWordData });
+            } else {
+                worker.postMessage({ type: 'addToWrong', data: currentWordData });
+            }
+        });
+
+        cardScene.addEventListener('click', () => { if(currentWordData) flashcard.classList.toggle('is-flipped'); });
+        btnNext.addEventListener('click', () => { if (currentRelativeIndex < totalWordsInGroup - 1) { currentRelativeIndex++; loadCard(currentRelativeIndex); } });
+        btnPrev.addEventListener('click', () => { if (currentRelativeIndex > 0) { currentRelativeIndex--; loadCard(currentRelativeIndex); } });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') { e.preventDefault(); if(currentWordData) flashcard.classList.toggle('is-flipped'); }
+            else if (e.code === 'ArrowRight') { if (!btnNext.disabled) btnNext.click(); }
+            else if (e.code === 'ArrowLeft') { if (!btnPrev.disabled) btnPrev.click(); }
+            else if (e.code === 'Enter') { if (!btnToggleWrong.disabled) btnToggleWrong.click(); }
+        });
+    </script>
+</body>
+</html>
