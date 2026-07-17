@@ -347,6 +347,50 @@
                 });
             }
 
+            function normalizeDictionaryList(raw) {
+                if (Array.isArray(raw)) return raw;
+                if (raw && Array.isArray(raw.words)) return raw.words;
+                if (raw && Array.isArray(raw.data)) return raw.data;
+                if (raw && typeof raw === 'object') {
+                    return Object.values(raw).filter((item) => typeof item === 'object' || typeof item === 'string');
+                }
+                return [];
+            }
+
+            function normalizeWordItem(item) {
+                if (typeof item === 'string') return { word: item, translation: '' };
+                if (item && typeof item === 'object') return item;
+                return null;
+            }
+
+            async function seedAllWordsFromUrl(url) {
+                if (!url) throw new Error('词库地址缺失，无法初始化数据');
+                if (!db || !db.objectStoreNames.contains(STORE_ALL)) throw new Error('词库表不存在，无法导入');
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('词库下载失败: HTTP ' + response.status);
+
+                const payload = await response.json();
+                const list = normalizeDictionaryList(payload)
+                    .map(normalizeWordItem)
+                    .filter(Boolean);
+
+                if (list.length === 0) throw new Error('词库文件为空或格式不支持');
+
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction([STORE_ALL], 'readwrite');
+                    const store = tx.objectStore(STORE_ALL);
+                    for (let i = 0; i < list.length; i++) {
+                        store.put({ id: i, data: list[i] });
+                    }
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(new Error('词库写入失败'));
+                    tx.onabort = () => reject(new Error('词库写入被中止'));
+                });
+
+                return list.length;
+            }
+
             function getCount(storeName) {
                 return new Promise((resolve) => {
                     if (!db || !db.objectStoreNames.contains(storeName)) {
@@ -424,11 +468,14 @@
                         await initDB();
                         await cacheWrongWordsKeys();
                         let totalAll = await getCount(STORE_ALL);
-                        if (totalAll > 0) {
-                            self.postMessage({ type: 'ready', totalAll, totalWrong: wrongWordIdsSet.size });
-                            return;
+                        if (totalAll === 0) {
+                            await seedAllWordsFromUrl(msg.url);
+                            totalAll = await getCount(STORE_ALL);
                         }
-                        self.postMessage({ type: 'error', message: '检测到本地数据库为空，请运行包含数据导入的版本。' });
+                        if (totalAll <= 0) {
+                            throw new Error('词库导入失败，请检查网络后重试');
+                        }
+                        self.postMessage({ type: 'ready', totalAll, totalWrong: wrongWordIdsSet.size });
                     } catch (error) { self.postMessage({ type: 'error', message: error.message }); }
                 }
 
