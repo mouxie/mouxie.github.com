@@ -378,6 +378,10 @@
                     <input type="checkbox" id="audio-switch" checked>
                     🔊 自动播放读音
                 </label>
+                <label class="switch-label">
+                    <input type="checkbox" id="key-sound-switch" checked>
+                    ⌨️ 键盘打字音效
+                </label>
             </div>
         </div>
 
@@ -405,7 +409,7 @@
             <div class="input-area">
                 <input type="text" id="answer-input" placeholder="在这里输入..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                 <div class="hint-row">
-                    <span id="key-hints">输入单词后按回车提交 | Ctrl+Z 清除 | Shift 下一词 | ←/→ 切换</span>
+                    <span id="key-hints">听写输对自动跳转下一题 | Ctrl+Z 清除 | Shift 下一词 | ←/→ 切换</span>
                     <button id="btn-clear" type="button">清除 (Ctrl+Z)</button>
                     <button id="btn-prev-word" type="button">◀ 上一词</button>
                     <button id="btn-next-word" type="button">下一词 ▶</button>
@@ -594,6 +598,59 @@ function getWordPhonetic(wordObj) {
 }
 
 // ============================================================
+// 键盘打字音效（Web Audio 合成，零外部资源）
+// ============================================================
+let audioCtx = null; // 全局共享的 AudioContext
+
+function ensureAudioCtx() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {}); // 首次按键的用户手势内即可恢复
+    }
+    return audioCtx;
+}
+
+// 模拟机械键盘敲击声：高频噪声咔哒 + 低频键帽冲击
+function playKeyClick() {
+    try {
+        const ctx = ensureAudioCtx();
+        const now = ctx.currentTime;
+        const dur = 0.035;
+
+        // 1) 白噪声层（高频咔哒感）
+        const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 2200;
+        bp.Q.value = 0.8;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.22, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        src.connect(bp).connect(g).connect(ctx.destination);
+        src.start(now);
+        src.stop(now + dur);
+
+        // 2) 低频层（键帽下压的闷响）
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.exponentialRampToValueAtTime(90, now + dur);
+        const og = ctx.createGain();
+        og.gain.setValueAtTime(0.12, now);
+        og.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc.connect(og).connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + dur);
+    } catch (e) { /* 音频不可用时静默 */ }
+}
+
+// ============================================================
 // 发音（优先播放本地缓存，未命中时下载并缓存到 IndexedDB）
 // ============================================================
 let currentAudio = null; // 当前播放实例（用于快速打断上一题发音）
@@ -657,6 +714,7 @@ const els = {
     modeSelect: document.getElementById('mode-select'),
     countSelect: document.getElementById('count-select'),
     audioSwitch: document.getElementById('audio-switch'),
+    keySoundSwitch: document.getElementById('key-sound-switch'),
     roundText: document.getElementById('round-text'),
     scoreText: document.getElementById('score-text'),
     progressFill: document.getElementById('progress-fill'),
@@ -743,7 +801,18 @@ function bindEvents() {
     els.countSelect.addEventListener('change', () => {
         if (!isFinished) startSession();
     });
-    els.answerInput.addEventListener('input', renderCharFeedback);
+    els.answerInput.addEventListener('input', (e) => {
+        renderCharFeedback();
+        // 输对即自动跳转下一题（无需回车）
+        // 排除：IME 组合输入中、闪答展示期、已结束
+        if (e.isComposing || isFinished) return;
+        if (!els.resultPanel.classList.contains('hidden')) return;
+        const input = els.answerInput.value.trim();
+        if (input.length === currentWord.length &&
+            input.toLowerCase() === currentWord.toLowerCase()) {
+            correctAnswer();
+        }
+    });
     els.btnClear.addEventListener('click', clearInput);
     els.btnPrevWord.addEventListener('click', goPrevWord);
     els.btnNextWord.addEventListener('click', goNextWord);
@@ -1077,6 +1146,10 @@ function showHome() {
 // 键盘事件
 // ============================================================
 els.answerInput.addEventListener('keydown', (e) => {
+    // 键盘打字音效：仅普通字符键（字母/数字/空格等），排除修饰键与功能键
+    if (e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (els.keySoundSwitch && els.keySoundSwitch.checked) playKeyClick();
+    }
     if (e.key === 'Enter') {
         e.preventDefault();
         submitAnswer();
