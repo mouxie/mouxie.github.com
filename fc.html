@@ -317,6 +317,30 @@
         const JSON_URL = 'https://raw.githubusercontent.com/mouxie/qwerty-learner/refs/heads/master/public/dicts/dictionary.json';
 
         // ------------------------------------------------------------------
+        // 学习进度持久化（localStorage）
+        // ------------------------------------------------------------------
+        const PROGRESS_KEY = 'flashcard_progress_v1';
+
+        function loadProgress() {
+            try {
+                const raw = localStorage.getItem(PROGRESS_KEY);
+                return raw ? JSON.parse(raw) : null;
+            } catch (e) { return null; }
+        }
+
+        function saveProgress() {
+            try {
+                const state = {
+                    mode: currentMode(),
+                    pageSize: currentSize(),
+                    groupIdx: parseInt(groupSelect.value) || 0,
+                    wordIndex: currentRelativeIndex
+                };
+                localStorage.setItem(PROGRESS_KEY, JSON.stringify(state));
+            } catch (e) { /* 忽略写入失败（如隐私模式） */ }
+        }
+
+        // ------------------------------------------------------------------
         // Web Worker 后台数据库核心代码
         // ------------------------------------------------------------------
         const workerScript = `
@@ -571,6 +595,7 @@
         let currentWordString = "";     
         let currentWordData = null;
         let currentCardIsWrong = false;
+        let pendingWordIndex = null;   // 首次加载时待恢复的组内单词索引
 
         // 初始化
         worker.postMessage({ type: 'init', url: JSON_URL });
@@ -585,15 +610,36 @@
                 controls.style.display = 'flex';
                 hintText.style.display = 'block';
                 
+                // 恢复上次浏览进度（模式 / 每组数量 / 组别 / 组内单词索引）
+                const saved = loadProgress();
+                if (saved) {
+                    if (saved.mode === 'all' || saved.mode === 'wrong') modeSelect.value = saved.mode;
+                    const sizeOptions = Array.from(sizeSelect.options).map(o => o.value);
+                    if (sizeOptions.includes(String(saved.pageSize))) sizeSelect.value = String(saved.pageSize);
+                }
+
                 updateWrongCountUI(msg.totalWrong);
-                rebuildGroupOptions(msg.totalAll, 20);
-                applyFilters();
+                rebuildGroupOptions(msg.totalAll, currentSize());
+
+                if (saved) {
+                    const maxGroup = Math.max(groupSelect.options.length - 1, 0);
+                    groupSelect.value = String(Math.min(parseInt(saved.groupIdx) || 0, maxGroup));
+                    pendingWordIndex = Math.max(parseInt(saved.wordIndex) || 0, 0);
+                }
+                applyFilters(groupSelect.value);
             }
             else if (msg.type === 'filterApplied') {
                 totalWordsInGroup = msg.groupWordsCount;
                 updateWrongCountUI(currentMode() === 'wrong' ? msg.totalCount : null);
-                currentRelativeIndex = 0;
-                if (totalWordsInGroup === 0) renderEmptyState(); else loadCard(0);
+                if (pendingWordIndex !== null) {
+                    // 首次加载：跳到上次记录的单词索引（越界时自动钳制到组内最后一张）
+                    currentRelativeIndex = Math.min(pendingWordIndex, Math.max(totalWordsInGroup - 1, 0));
+                    pendingWordIndex = null;
+                } else {
+                    currentRelativeIndex = 0;
+                }
+                if (totalWordsInGroup === 0) renderEmptyState(); else loadCard(currentRelativeIndex);
+                saveProgress(); // 同步持久化当前分组与单词索引
             }
             else if (msg.type === 'cardData') {
                 renderCard(msg.data, msg.index, msg.absoluteIndex, msg.isWrong);
@@ -749,8 +795,10 @@
             setTimeout(() => {
                 const name = currentMode() === 'all' ? 'words' : 'wrong_words';
                 getStoreCountSafe(name, (count) => {
+                    groupSelect.value = '0';
                     rebuildGroupOptions(count, currentSize());
                     applyFilters(0);
+                    saveProgress();
                 });
             }, 80);
         });
@@ -761,10 +809,14 @@
             getStoreCountSafe(storeName, (count) => {
                 rebuildGroupOptions(count, newSize);
                 applyFilters(0);
+                saveProgress();
             });
         });
 
-        groupSelect.addEventListener('change', (e) => { applyFilters(e.target.value); });
+        groupSelect.addEventListener('change', (e) => {
+            applyFilters(e.target.value);
+            saveProgress();
+        });
 
         btnToggleWrong.addEventListener('click', () => {
             if (!currentWordData) return;
@@ -777,8 +829,8 @@
         });
 
         cardScene.addEventListener('click', () => { if(currentWordData) flashcard.classList.toggle('is-flipped'); });
-        btnNext.addEventListener('click', () => { if (currentRelativeIndex < totalWordsInGroup - 1) { currentRelativeIndex++; loadCard(currentRelativeIndex); } });
-        btnPrev.addEventListener('click', () => { if (currentRelativeIndex > 0) { currentRelativeIndex--; loadCard(currentRelativeIndex); } });
+        btnNext.addEventListener('click', () => { if (currentRelativeIndex < totalWordsInGroup - 1) { currentRelativeIndex++; loadCard(currentRelativeIndex); saveProgress(); } });
+        btnPrev.addEventListener('click', () => { if (currentRelativeIndex > 0) { currentRelativeIndex--; loadCard(currentRelativeIndex); saveProgress(); } });
 
         // 键盘快捷键
         document.addEventListener('keydown', (e) => {
