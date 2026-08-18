@@ -152,6 +152,28 @@
             color: var(--text-sub);
             margin-top: 6px;
         }
+        .question-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+        .trans-reveal {
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: #fffbea;
+            border: 1px solid #f0e0b8;
+            border-radius: 8px;
+            font-size: 15px;
+            color: var(--text-main);
+            line-height: 1.7;
+            word-break: break-all;
+        }
 
         .char-list {
             display: flex;
@@ -319,7 +341,7 @@
     <!-- 标题 -->
     <div class="header">
         <h1>⌨️ 错词打字练习</h1>
-        <p>读取「闪卡游戏 fc.html」的错词本 (IndexedDB: FlashcardDB / wrong_words)，通过打字巩固错词</p>
+        <p>读取「闪卡游戏 fc.html」的错词本，听读音、看音标，拼写巩固错词 (IndexedDB: FlashcardDB / wrong_words)</p>
     </div>
 
     <!-- 状态区：初始化中 / 无错词 / 错误 -->
@@ -335,8 +357,8 @@
                 <div class="settings-row">
                     <label>模式
                         <select id="mode-select">
-                            <option value="translate" selected>🀄 看释义，拼单词</option>
-                            <option value="copy">📝 照词跟打 (显示拼音/单词)</option>
+                            <option value="dictation" selected>🎧 听写模式 (听读音拼词)</option>
+                            <option value="copy">📝 照词跟打</option>
                         </select>
                     </label>
                     <label>每局单词数
@@ -350,7 +372,7 @@
                 </div>
                 <label class="switch-label">
                     <input type="checkbox" id="audio-switch" checked>
-                    🔊 答对自动发音
+                    🔊 自动播放读音
                 </label>
             </div>
         </div>
@@ -369,6 +391,11 @@
             <div class="question" id="question-area">
                 <div class="word" id="word-display">—</div>
                 <div class="prompt" id="prompt-text"></div>
+                <div class="question-actions">
+                    <button id="btn-replay" class="btn btn-primary btn-sm hidden">🔊 重听发音</button>
+                    <button id="btn-toggle-trans" class="btn btn-plain btn-sm hidden">👁 查看释义</button>
+                </div>
+                <div class="trans-reveal hidden" id="trans-reveal"></div>
             </div>
             <div class="char-list" id="char-list"></div>
             <div class="input-area">
@@ -477,6 +504,9 @@ function getWordTrans(wordObj) {
     if (typeof wordObj === 'string') return '';
     return '';
 }
+function getWordPhonetic(wordObj) {
+    return wordObj.phonetic || wordObj.phonetics || '';
+}
 
 // ============================================================
 // 发音
@@ -502,6 +532,9 @@ const els = {
     progressFill: document.getElementById('progress-fill'),
     wordDisplay: document.getElementById('word-display'),
     promptText: document.getElementById('prompt-text'),
+    btnReplay: document.getElementById('btn-replay'),
+    btnToggleTrans: document.getElementById('btn-toggle-trans'),
+    transReveal: document.getElementById('trans-reveal'),
     charList: document.getElementById('char-list'),
     answerInput: document.getElementById('answer-input'),
     btnClear: document.getElementById('btn-clear'),
@@ -526,7 +559,8 @@ let sessionWords = [];    // 本局抽取的单词（已打乱）
 let sessionIndex = 0;     // 当前题号
 let currentWord = '';     // 当前题的正确答案
 let currentTrans = '';    // 当前题的释义
-let currentMode = 'translate'; // 当前的模式 (translate / copy)
+let currentPhonetic = ''; // 当前题的音标
+let currentMode = 'dictation'; // 当前的模式 (dictation / copy)
 let stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
 let retryWords = [];      // 本次答错的单词（用于再练）
 let isFinished = false;
@@ -573,6 +607,8 @@ function bindEvents() {
     els.answerInput.addEventListener('input', renderCharFeedback);
     els.btnClear.addEventListener('click', clearInput);
     els.btnSkip.addEventListener('click', () => { if (!isFinished) wrongAnswer(true); });
+    els.btnReplay.addEventListener('click', () => { if (currentWord) playWordAudio(currentWord); });
+    els.btnToggleTrans.addEventListener('click', toggleTransReveal);
     els.btnAgain.addEventListener('click', () => {
         if (retryWords.length > 0) {
             sessionWords = shuffle(retryWords.slice());
@@ -627,6 +663,7 @@ function renderQuestion() {
     const obj = sessionWords[sessionIndex];
     currentWord = getWordKey(obj);
     currentTrans = getWordTrans(obj);
+    currentPhonetic = getWordPhonetic(obj);
     currentMode = els.modeSelect.value;
 
     // 更新关卡信息
@@ -634,15 +671,23 @@ function renderQuestion() {
     els.scoreText.textContent = `得分 ${stats.correct} (${Math.round((stats.correct / Math.max(stats.total, 1)) * 100)}%)`;
     els.progressFill.style.width = `${(sessionIndex / sessionWords.length) * 100}%`;
 
-    // 题目显示
+    // 重置释义查看状态
+    els.transReveal.classList.add('hidden');
+    els.transReveal.textContent = '';
+    els.btnToggleTrans.textContent = '👁 查看释义';
+
     if (currentMode === 'copy') {
-        // 照词跟打：显示单词，隐藏释义
+        // 照词跟打：显示单词，隐藏音标与释义按钮
         els.wordDisplay.textContent = currentWord;
         els.promptText.textContent = '照着上方单词输入一遍';
+        els.btnReplay.classList.add('hidden');
+        els.btnToggleTrans.classList.add('hidden');
     } else {
-        // 看释义拼单词：显示释义，隐藏单词
-        els.wordDisplay.textContent = currentTrans || '（无释义）';
-        els.promptText.textContent = '根据释义拼出上方单词';
+        // 听写模式：大字显示音标，中文释义默认隐藏，可随时点击查看
+        els.wordDisplay.textContent = currentPhonetic || '（暂无音标）';
+        els.promptText.textContent = '🎧 听读音，拼出单词';
+        els.btnReplay.classList.remove('hidden');
+        els.btnToggleTrans.classList.remove('hidden');
     }
 
     // 清空输入与字符格子
@@ -650,8 +695,8 @@ function renderQuestion() {
     renderCharFeedback();
     els.answerInput.focus();
 
-    // 自动发音：仅在照词模式下自动发音，方便跟打
-    if (currentMode === 'copy' && els.audioSwitch.checked) {
+    // 自动播放读音（听写模式必播，跟打模式也播便于跟读）
+    if (els.audioSwitch.checked) {
         playWordAudio(currentWord);
     }
 }
@@ -687,6 +732,19 @@ function escapeHtml(s) {
 function clearInput() {
     els.answerInput.value = '';
     renderCharFeedback();
+}
+
+// 切换释义显示/隐藏
+function toggleTransReveal() {
+    const isHidden = els.transReveal.classList.contains('hidden');
+    if (isHidden) {
+        els.transReveal.textContent = currentTrans || '（暂无释义）';
+        els.transReveal.classList.remove('hidden');
+        els.btnToggleTrans.textContent = '🙈 隐藏释义';
+    } else {
+        els.transReveal.classList.add('hidden');
+        els.btnToggleTrans.textContent = '👁 查看释义';
+    }
 }
 
 // ============================================================
@@ -730,9 +788,10 @@ function wrongAnswer(skipped) {
 
 function showFlashAnswer(skipped) {
     const obj = sessionWords[sessionIndex];
+    const ph = getWordPhonetic(obj);
     els.resultPanel.classList.remove('hidden');
     els.resultWord.textContent = getWordKey(obj);
-    els.resultTrans.textContent = getWordTrans(obj);
+    els.resultTrans.textContent = (ph ? ph + '　' : '') + getWordTrans(obj);
     els.resultWord.style.color = skipped ? 'var(--text-main)' : 'var(--accent)';
     els.resultWord.textContent = (skipped ? '⏭ 已跳过: ' : '❌ 正确答案: ') + getWordKey(obj);
     els.btnAgain.classList.add('hidden'); // 隐藏再练按钮（回合间）
@@ -805,6 +864,10 @@ function showHome() {
     els.answerInput.value = '';
     els.wordDisplay.textContent = '—';
     els.promptText.textContent = '';
+    els.btnReplay.classList.add('hidden');
+    els.btnToggleTrans.classList.add('hidden');
+    els.transReveal.classList.add('hidden');
+    els.transReveal.textContent = '';
     els.charList.innerHTML = '';
     els.roundText.textContent = '第 0 / 0 题';
     els.scoreText.textContent = '得分 0 (0%)';
