@@ -439,7 +439,7 @@
             <div class="input-area">
                 <input type="text" id="answer-input" placeholder="在这里输入..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                 <div class="hint-row">
-                    <span id="key-hints">听写输对自动跳转下一题 | Ctrl+Z 清除 | Shift 下一词 | ←/→ 切换</span>
+                    <span id="key-hints">听写输对自动跳转下一题 | Ctrl+Z 清除 | Shift 释义 | ←/→ 切换</span>
                     <button id="btn-clear" type="button">清除 (Ctrl+Z)</button>
                     <button id="btn-prev-word" type="button">◀ 上一词</button>
                     <button id="btn-next-word" type="button">下一词 ▶</button>
@@ -1377,11 +1377,11 @@ els.answerInput.addEventListener('keydown', (e) => {
     } else if (e.key === 'Escape' || (e.ctrlKey && e.key.toLowerCase() === 'z')) {
         e.preventDefault();
         clearInput();
-    } else if (e.key === 'Shift') {
-        // 下一词（与按钮一致）
+    } else if (e.key === 'Shift' && !e.repeat) {
+        // 触发查看释义（e.repeat 过滤长按自动重复，避免反复切换闪动）
         if (!isFinished) {
             e.preventDefault();
-            goNextWord();
+            toggleTransReveal();
         }
     }
 });
