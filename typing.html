@@ -365,7 +365,7 @@
     <!-- 标题 -->
     <div class="header">
         <h1>⌨️ 错词打字练习</h1>
-        <p>读取「闪卡游戏 fc.html」的错词本，听读音、看音标，拼写巩固错词 (IndexedDB: FlashcardDB / wrong_words)</p>
+        <p>读取「闪卡游戏 fc.html」的错词本，按错词本顺序分组练习（每组数量/组别与 fc.html 一致），听读音、看音标，拼写巩固错词 (IndexedDB: FlashcardDB / wrong_words)</p>
     </div>
 
     <!-- 状态区：初始化中 / 无错词 / 错误 -->
@@ -388,12 +388,17 @@
                             <option value="copy">📝 照词跟打</option>
                         </select>
                     </label>
-                    <label>每局单词数
-                        <select id="count-select">
-                            <option value="10">10</option>
-                            <option value="20" selected>20</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
+                    <label>每组
+                        <select id="size-select">
+                            <option value="10">10 个</option>
+                            <option value="20" selected>20 个</option>
+                            <option value="50">50 个</option>
+                            <option value="100">100 个</option>
+                        </select>
+                    </label>
+                    <label>选择组别
+                        <select id="group-select">
+                            <option value="0">第 1 组</option>
                         </select>
                     </label>
                 </div>
@@ -713,6 +718,27 @@ function restoreKeyVolume() {
 }
 
 // ============================================================
+// 练习进度持久化（localStorage: typingProgress，恢复每组数量与组别）
+// ============================================================
+const PROGRESS_KEY = 'typing_progress_v1';
+
+function loadProgress() {
+    try {
+        const raw = localStorage.getItem(PROGRESS_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+}
+
+function saveProgress() {
+    try {
+        localStorage.setItem(PROGRESS_KEY, JSON.stringify({
+            pageSize: currentSize(),
+            groupIdx: parseInt(els.groupSelect.value) || 0
+        }));
+    } catch (e) { /* 忽略写入失败（如隐私模式） */ }
+}
+
+// ============================================================
 // 发音（优先播放本地缓存，未命中时下载并缓存到 IndexedDB）
 // ============================================================
 let currentAudio = null; // 当前播放实例（用于快速打断上一题发音）
@@ -792,7 +818,8 @@ const els = {
     statusText: document.getElementById('status-text'),
     gameArea: document.getElementById('game-area'),
     modeSelect: document.getElementById('mode-select'),
-    countSelect: document.getElementById('count-select'),
+    sizeSelect: document.getElementById('size-select'),
+    groupSelect: document.getElementById('group-select'),
     audioSwitch: document.getElementById('audio-switch'),
     keySoundSwitch: document.getElementById('key-sound-switch'),
     keyVolume: document.getElementById('key-volume'),
@@ -841,6 +868,7 @@ let retryWords = [];      // 本次答错的单词（用于再练）
 let sessionResults = [];  // 每题作答状态: null=未作答, true=答对, false=答错
 let flashTimer = null;    // 答错后闪答自动前进的定时器
 let isFinished = false;
+let pendingGroupIdx = null; // 首次开局待恢复的组别（进度持久化，见 rebuildGroupOptions）
 
 // ============================================================
 // 初始化
@@ -865,6 +893,15 @@ async function init() {
         els.totalCount.textContent = wrongWords.length;
         // 恢复上次保存的键盘音效音量
         restoreKeyVolume();
+        // 恢复上次练习进度（每组数量 / 组别）
+        const saved = loadProgress();
+        if (saved) {
+            const sizeOptions = Array.from(els.sizeSelect.options).map(o => o.value);
+            if (sizeOptions.includes(String(saved.pageSize))) {
+                els.sizeSelect.value = String(saved.pageSize);
+            }
+            pendingGroupIdx = Math.max(parseInt(saved.groupIdx) || 0, 0);
+        }
 
         els.statusPanel.classList.add('hidden');
         els.gameArea.classList.remove('hidden');
@@ -884,7 +921,16 @@ function bindEvents() {
         currentMode = els.modeSelect.value;
         if (!isFinished) renderQuestion();
     });
-    els.countSelect.addEventListener('change', () => {
+    els.sizeSelect.addEventListener('change', () => {
+        // 每组数量变化：跳回第 1 组并立即重新开局
+        els.groupSelect.value = '0';
+        rebuildGroupOptions();
+        saveProgress();
+        if (!isFinished) startSession();
+    });
+    els.groupSelect.addEventListener('change', () => {
+        // 切换组别：立即用新分组重新开局
+        saveProgress();
         if (!isFinished) startSession();
     });
     els.answerInput.addEventListener('input', (e) => {
@@ -942,10 +988,41 @@ function shuffle(arr) {
     return a;
 }
 
-// 开始一局：从错词本中随机抽取 count 个单词（不足则全部）
+// 当前每组单词数
+function currentSize() {
+    return parseInt(els.sizeSelect.value) || 20;
+}
+
+// 重建"选择组别"下拉选项（与 fc.html 一致：按每组数量切分错词本顺序）
+function rebuildGroupOptions() {
+    const selected = parseInt(els.groupSelect.value) || 0;
+    const size = currentSize();
+    const totalGroups = Math.max(Math.ceil(wrongWords.length / size), 1);
+    els.groupSelect.innerHTML = '';
+    for (let i = 0; i < totalGroups; i++) {
+        const start = i * size + 1;
+        const end = Math.min((i + 1) * size, wrongWords.length);
+        const option = document.createElement('option');
+        option.value = i;
+        option.text = `第 ${i + 1} 组 (${start}-${end})`;
+        els.groupSelect.appendChild(option);
+    }
+    // 恢复上次组别；越界时自动钳制到最后一组
+    if (pendingGroupIdx !== null) {
+        if (pendingGroupIdx < totalGroups) els.groupSelect.value = String(pendingGroupIdx);
+        pendingGroupIdx = null;
+    } else if (selected < totalGroups) {
+        els.groupSelect.value = String(selected);
+    }
+}
+
+// 开始一局：按"每组数量 + 组别"从错词本顺序中取词（与 fc.html 分组一致）
 function startSession(resetStats = true) {
-    const count = Math.min(parseInt(els.countSelect.value) || 20, wrongWords.length);
-    sessionWords = shuffle(wrongWords).slice(0, count);
+    rebuildGroupOptions(); // 重建组选项并处理待恢复组别/越界钳制
+    const size = currentSize();
+    const groupIdx = parseInt(els.groupSelect.value) || 0;
+    const offset = groupIdx * size;
+    sessionWords = wrongWords.slice(offset, offset + size);
     sessionIndex = 0;
     retryWords = [];
     sessionResults = new Array(sessionWords.length).fill(null);
@@ -961,6 +1038,7 @@ function startSession(resetStats = true) {
     els.retryList.classList.add('hidden');
 
     renderQuestion();
+    saveProgress(); // 同步持久化当前每组数量与组别
 }
 
 // ============================================================
@@ -977,8 +1055,9 @@ function renderQuestion() {
     currentPhonetic = getWordPhonetic(obj);
     currentMode = els.modeSelect.value;
 
-    // 更新关卡信息
-    els.roundText.textContent = `第 ${sessionIndex + 1} / ${sessionWords.length} 题`;
+    // 更新关卡信息（与 fc.html 一致：显示组内第几个 + 总第 N 词）
+    const absoluteIndex = ((parseInt(els.groupSelect.value) || 0) * currentSize()) + sessionIndex + 1;
+    els.roundText.textContent = `组内: ${sessionIndex + 1}/${sessionWords.length} (总第${absoluteIndex}词)`;
     els.scoreText.textContent = `得分 ${stats.correct} (${Math.round((stats.correct / Math.max(stats.total, 1)) * 100)}%)`;
     els.progressFill.style.width = `${(sessionIndex / sessionWords.length) * 100}%`;
 
@@ -1346,7 +1425,8 @@ function finishSession() {
     }
 
     els.progressFill.style.width = '100%';
-    els.roundText.textContent = `第 ${sessionWords.length} / ${sessionWords.length} 题`;
+    const absoluteTotal = ((parseInt(els.groupSelect.value) || 0) * currentSize()) + sessionWords.length;
+    els.roundText.textContent = `组内: ${sessionWords.length}/${sessionWords.length} (总第${absoluteTotal}词)`;
     els.answerInput.focus();
 }
 
@@ -1371,7 +1451,7 @@ function showHome() {
     els.exampleReveal.classList.add('hidden');
     els.exampleReveal.textContent = '';
     els.charList.innerHTML = '';
-    els.roundText.textContent = '第 0 / 0 题';
+    els.roundText.textContent = '组内: 0 / 0';
     els.scoreText.textContent = '得分 0 (0%)';
     els.progressFill.style.width = '0%';
     els.btnPrevWord.disabled = true;
