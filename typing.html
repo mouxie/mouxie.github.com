@@ -382,6 +382,11 @@
                     <input type="checkbox" id="key-sound-switch" checked>
                     ⌨️ 键盘打字音效
                 </label>
+                <label class="switch-label" style="gap:4px;" title="打字音效音量">
+                    <span>音量</span>
+                    <input type="range" id="key-volume" min="0" max="200" value="140" style="width:90px; margin:0;">
+                    <b id="key-volume-label">140%</b>
+                </label>
             </div>
         </div>
 
@@ -613,11 +618,13 @@ function ensureAudioCtx() {
 }
 
 // 模拟机械键盘敲击声：高频噪声咔哒 + 低频键帽冲击
-function playKeyClick() {
+// volume: 音量系数，1 = 100%（默认），范围 0~2（200%），与界面滑块联动
+function playKeyClick(volume = 1) {
     try {
         const ctx = ensureAudioCtx();
         const now = ctx.currentTime;
         const dur = 0.035;
+        const v = Math.max(0, Math.min(2, volume)); // 限制在 0~2
 
         // 1) 白噪声层（高频咔哒感）
         const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate);
@@ -630,7 +637,7 @@ function playKeyClick() {
         bp.frequency.value = 2200;
         bp.Q.value = 0.8;
         const g = ctx.createGain();
-        g.gain.setValueAtTime(0.22, now);
+        g.gain.setValueAtTime(0.45 * v, now);
         g.gain.exponentialRampToValueAtTime(0.001, now + dur);
         src.connect(bp).connect(g).connect(ctx.destination);
         src.start(now);
@@ -642,12 +649,42 @@ function playKeyClick() {
         osc.frequency.setValueAtTime(180, now);
         osc.frequency.exponentialRampToValueAtTime(90, now + dur);
         const og = ctx.createGain();
-        og.gain.setValueAtTime(0.12, now);
+        og.gain.setValueAtTime(0.28 * v, now);
         og.gain.exponentialRampToValueAtTime(0.001, now + dur);
         osc.connect(og).connect(ctx.destination);
         osc.start(now);
         osc.stop(now + dur);
     } catch (e) { /* 音频不可用时静默 */ }
+}
+
+// 读取当前音量滑块值（0~2）
+function getKeyVolume() {
+    const v = parseFloat(els.keyVolume.value);
+    return isNaN(v) ? 1 : v / 100;
+}
+
+// ============================================================
+// 音量持久化（localStorage: typingKeyVolume）
+// ============================================================
+const KEY_VOLUME_STORAGE = 'typingKeyVolume';
+
+function saveKeyVolume() {
+    try {
+        localStorage.setItem(KEY_VOLUME_STORAGE, els.keyVolume.value);
+    } catch (e) { /* localStorage 不可用（如隐私模式）时忽略 */ }
+}
+
+// 初始化时恢复音量滑块值（0~200 百分数，非法值则保持默认）
+function restoreKeyVolume() {
+    try {
+        const v = localStorage.getItem(KEY_VOLUME_STORAGE);
+        if (v === null) return;
+        const n = parseInt(v, 10);
+        if (!isNaN(n) && n >= 0 && n <= 200) {
+            els.keyVolume.value = n;
+            els.keyVolumeLabel.textContent = n + '%';
+        }
+    } catch (e) { /* 忽略 */ }
 }
 
 // ============================================================
@@ -715,6 +752,8 @@ const els = {
     countSelect: document.getElementById('count-select'),
     audioSwitch: document.getElementById('audio-switch'),
     keySoundSwitch: document.getElementById('key-sound-switch'),
+    keyVolume: document.getElementById('key-volume'),
+    keyVolumeLabel: document.getElementById('key-volume-label'),
     roundText: document.getElementById('round-text'),
     scoreText: document.getElementById('score-text'),
     progressFill: document.getElementById('progress-fill'),
@@ -779,6 +818,8 @@ async function init() {
 
         // 显示错词库总单词数
         els.totalCount.textContent = wrongWords.length;
+        // 恢复上次保存的键盘音效音量
+        restoreKeyVolume();
 
         els.statusPanel.classList.add('hidden');
         els.gameArea.classList.remove('hidden');
@@ -839,6 +880,11 @@ function bindEvents() {
             updateAudioCacheBadge();
         }
     });
+    // 音量滑块：拖动时实时更新百分比标签，松开（change）时持久化
+    els.keyVolume.addEventListener('input', () => {
+        els.keyVolumeLabel.textContent = els.keyVolume.value + '%';
+    });
+    els.keyVolume.addEventListener('change', saveKeyVolume);
 }
 
 function shuffle(arr) {
@@ -1146,9 +1192,9 @@ function showHome() {
 // 键盘事件
 // ============================================================
 els.answerInput.addEventListener('keydown', (e) => {
-    // 键盘打字音效：仅普通字符键（字母/数字/空格等），排除修饰键与功能键
+    // 键盘打字音效：仅普通字符键（字母/数字/空格等），排除修饰键与功能键；音量跟随滑块
     if (e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (els.keySoundSwitch && els.keySoundSwitch.checked) playKeyClick();
+        if (els.keySoundSwitch && els.keySoundSwitch.checked) playKeyClick(getKeyVolume());
     }
     if (e.key === 'Enter') {
         e.preventDefault();
