@@ -198,6 +198,7 @@
             transition: all 0.15s;
         }
         .char-item.pending { color: #555; }
+        .char-item.pending-hidden { color: #d9dee6; }
         .char-item.active {
             border-color: var(--primary);
             background: #e8f1fc;
@@ -355,6 +356,9 @@
         <div class="panel">
             <div class="settings">
                 <div class="settings-row">
+                    <span id="total-badge" title="fc.html 错词本中的全部单词数">📚 错词库共 <b id="total-count">--</b> 个单词</span>
+                </div>
+                <div class="settings-row">
                     <label>模式
                         <select id="mode-select">
                             <option value="dictation" selected>🎧 听写模式 (听读音拼词)</option>
@@ -401,9 +405,10 @@
             <div class="input-area">
                 <input type="text" id="answer-input" placeholder="在这里输入..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                 <div class="hint-row">
-                    <span id="key-hints">输入单词后按回车提交 | Ctrl+Z 清除 | Shift 跳过</span>
+                    <span id="key-hints">输入单词后按回车提交 | Ctrl+Z 清除 | Shift 下一词 | ←/→ 切换</span>
                     <button id="btn-clear" type="button">清除 (Ctrl+Z)</button>
-                    <button id="btn-skip" type="button">跳过 (Shift)</button>
+                    <button id="btn-prev-word" type="button">◀ 上一词</button>
+                    <button id="btn-next-word" type="button">下一词 ▶</button>
                 </div>
             </div>
         </div>
@@ -663,7 +668,9 @@ const els = {
     charList: document.getElementById('char-list'),
     answerInput: document.getElementById('answer-input'),
     btnClear: document.getElementById('btn-clear'),
-    btnSkip: document.getElementById('btn-skip'),
+    btnPrevWord: document.getElementById('btn-prev-word'),
+    btnNextWord: document.getElementById('btn-next-word'),
+    totalCount: document.getElementById('total-count'),
     resultPanel: document.getElementById('result-panel'),
     resultWord: document.getElementById('result-word'),
     resultTrans: document.getElementById('result-trans'),
@@ -689,6 +696,8 @@ let currentPhonetic = ''; // 当前题的音标
 let currentMode = 'dictation'; // 当前的模式 (dictation / copy)
 let stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
 let retryWords = [];      // 本次答错的单词（用于再练）
+let sessionResults = [];  // 每题作答状态: null=未作答, true=答对, false=答错
+let flashTimer = null;    // 答错后闪答自动前进的定时器
 let isFinished = false;
 
 // ============================================================
@@ -709,6 +718,9 @@ async function init() {
             els.statusText.classList.add('success');
             return;
         }
+
+        // 显示错词库总单词数
+        els.totalCount.textContent = wrongWords.length;
 
         els.statusPanel.classList.add('hidden');
         els.gameArea.classList.remove('hidden');
@@ -733,7 +745,8 @@ function bindEvents() {
     });
     els.answerInput.addEventListener('input', renderCharFeedback);
     els.btnClear.addEventListener('click', clearInput);
-    els.btnSkip.addEventListener('click', () => { if (!isFinished) wrongAnswer(true); });
+    els.btnPrevWord.addEventListener('click', goPrevWord);
+    els.btnNextWord.addEventListener('click', goNextWord);
     els.btnReplay.addEventListener('click', () => { if (currentWord) playWordAudio(currentWord); });
     els.btnToggleTrans.addEventListener('click', toggleTransReveal);
     els.btnAgain.addEventListener('click', () => {
@@ -774,6 +787,7 @@ function startSession(resetStats = true) {
     sessionWords = shuffle(wrongWords).slice(0, count);
     sessionIndex = 0;
     retryWords = [];
+    sessionResults = new Array(sessionWords.length).fill(null);
     if (resetStats) {
         stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
     }
@@ -793,6 +807,8 @@ function startSession(resetStats = true) {
 // ============================================================
 function renderQuestion() {
     if (sessionIndex >= sessionWords.length) { finishSession(); return; }
+    // 取消可能残留的闪答自动前进定时器（用户已手动导航时不再自动前进）
+    if (flashTimer) { clearTimeout(flashTimer); flashTimer = null; }
 
     const obj = sessionWords[sessionIndex];
     currentWord = getWordKey(obj);
@@ -804,6 +820,10 @@ function renderQuestion() {
     els.roundText.textContent = `第 ${sessionIndex + 1} / ${sessionWords.length} 题`;
     els.scoreText.textContent = `得分 ${stats.correct} (${Math.round((stats.correct / Math.max(stats.total, 1)) * 100)}%)`;
     els.progressFill.style.width = `${(sessionIndex / sessionWords.length) * 100}%`;
+
+    // 上一词/下一词边界（与 fc.html 一致）
+    els.btnPrevWord.disabled = (sessionIndex <= 0);
+    els.btnNextWord.disabled = (sessionIndex >= sessionWords.length - 1);
 
     // 重置释义查看状态
     els.transReveal.classList.add('hidden');
@@ -839,6 +859,8 @@ function renderQuestion() {
 function renderCharFeedback() {
     const input = els.answerInput.value;
     const target = currentWord;
+    // 听写模式：未输入的位置不显示答案字符（默认隐藏，输入到对应位置才显现）
+    const hidePending = (currentMode === 'dictation');
 
     const chars = [];
     const n = Math.max(target.length, input.length);
@@ -846,7 +868,10 @@ function renderCharFeedback() {
         const t = target[i];
         const v = input[i];
         if (v === undefined) {
-            chars.push({ c: t || '', cls: 'pending' });
+            // 待输入：听写模式用淡化占位符隐藏，跟打模式显示目标字符作为参照
+            chars.push(hidePending
+                ? { c: '·', cls: 'pending pending-hidden' }
+                : { c: t || '', cls: 'pending' });
         } else if (t === undefined) {
             chars.push({ c: v, cls: 'wrong' }); // 多输的字符直接标红
         } else if (v === t) {
@@ -891,17 +916,18 @@ function submitAnswer() {
     if (isCorrect) {
         correctAnswer();
     } else {
-        wrongAnswer(false);
+        wrongAnswer();
     }
 }
 
 function correctAnswer() {
+    sessionResults[sessionIndex] = true; // 记录本局作答状态
     stats.total++;
     stats.correct++;
     stats.heat++;
     stats.maxHeat = Math.max(stats.maxHeat, stats.heat);
 
-    // 答对发音（仅当开关打开且当前词未被跳过时）
+    // 答对发音（仅当开关打开时）
     if (els.audioSwitch.checked) playWordAudio(currentWord);
 
     // 进入下一题
@@ -909,35 +935,70 @@ function correctAnswer() {
     renderQuestion();
 }
 
-function wrongAnswer(skipped) {
+function wrongAnswer() {
+    sessionResults[sessionIndex] = false; // 记录本局作答状态
     stats.total++;
     stats.wrong++;
     stats.heat = 0;
+    retryWords.push(sessionWords[sessionIndex]); // 加入错题回顾
 
-    if (!skipped) retryWords.push(sessionWords[sessionIndex]); // 加入错题回顾
-
-    // 显示正确答案（2 秒提示后自动进入下一题，或立即进入）
-    showFlashAnswer(skipped);
+    // 显示正确答案（2 秒提示后自动进入下一题）
+    showFlashAnswer();
 }
 
-function showFlashAnswer(skipped) {
+function showFlashAnswer() {
     const obj = sessionWords[sessionIndex];
     const ph = getWordPhonetic(obj);
     els.resultPanel.classList.remove('hidden');
-    els.resultWord.textContent = getWordKey(obj);
+    els.resultWord.textContent = '❌ 正确答案: ' + getWordKey(obj);
+    els.resultWord.style.color = 'var(--accent)';
     els.resultTrans.textContent = (ph ? ph + '　' : '') + getWordTrans(obj);
-    els.resultWord.style.color = skipped ? 'var(--text-main)' : 'var(--accent)';
-    els.resultWord.textContent = (skipped ? '⏭ 已跳过: ' : '❌ 正确答案: ') + getWordKey(obj);
     els.btnAgain.classList.add('hidden'); // 隐藏再练按钮（回合间）
     els.btnHome.classList.add('hidden');
     els.retryList.classList.add('hidden');
 
-    // 2 秒后自动进入下一题
-    setTimeout(() => {
+    // 2 秒后自动进入下一题（若用户已手动导航则不再前进）
+    const idx = sessionIndex;
+    flashTimer = setTimeout(() => {
         els.resultPanel.classList.add('hidden');
-        sessionIndex++;
-        renderQuestion();
+        if (idx === sessionIndex) {
+            sessionIndex++;
+            renderQuestion();
+        }
     }, 2000);
+}
+
+// ============================================================
+// 上一词 / 下一词 导航（与 fc.html 一致）
+// ============================================================
+function goPrevWord() {
+    if (isFinished || sessionIndex <= 0) return;
+    rollbackQuestionResult(sessionIndex); // 回滚当前题统计（若已作答），允许重练
+    sessionIndex--;
+    renderQuestion();
+}
+
+function goNextWord() {
+    if (isFinished || sessionIndex >= sessionWords.length - 1) return;
+    // 未作答的题直接前进（不计数）；已作答（闪答中）也前进，不重复计数
+    sessionIndex++;
+    renderQuestion();
+}
+
+// 回滚指定题目的作答统计（用于上一词回退后重新练习）
+function rollbackQuestionResult(idx) {
+    const r = sessionResults[idx];
+    if (r === true) {
+        stats.total--;
+        stats.correct--;
+        if (stats.heat > 0) stats.heat = 0; // 连击简单回退
+    } else if (r === false) {
+        stats.total--;
+        stats.wrong--;
+        const wordKey = getWordKey(sessionWords[idx]);
+        retryWords = retryWords.filter(w => getWordKey(w) !== wordKey); // 同步移除错题回顾
+    }
+    sessionResults[idx] = null;
 }
 
 function renderRetryList() {
@@ -957,6 +1018,8 @@ function finishSession() {
     isFinished = true;
     els.answerInput.disabled = true;
     els.answerInput.value = '';
+    els.btnPrevWord.disabled = true;
+    els.btnNextWord.disabled = true;
 
     // 显示统计
     els.statsPanel.classList.remove('hidden');
@@ -1006,6 +1069,8 @@ function showHome() {
     els.roundText.textContent = '第 0 / 0 题';
     els.scoreText.textContent = '得分 0 (0%)';
     els.progressFill.style.width = '0%';
+    els.btnPrevWord.disabled = true;
+    els.btnNextWord.disabled = true;
 }
 
 // ============================================================
@@ -1019,11 +1084,24 @@ els.answerInput.addEventListener('keydown', (e) => {
         e.preventDefault();
         clearInput();
     } else if (e.key === 'Shift') {
-        // 跳过当前题
+        // 下一词（与按钮一致）
         if (!isFinished) {
             e.preventDefault();
-            wrongAnswer(true);
+            goNextWord();
         }
+    }
+});
+
+// 全局：左右方向键 上一词/下一词（与 fc.html 的 ←/→ 一致）
+document.addEventListener('keydown', (e) => {
+    if (isFinished) return;
+    if (e.target === els.answerInput) return;
+    if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        goPrevWord();
+    } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        goNextWord();
     }
 });
 
