@@ -141,6 +141,25 @@
             letter-spacing: 0.5px;
         }
 
+        .card__word {
+            font-size: 36px;
+            font-weight: bold;
+            color: var(--primary);
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+
+        .card__phonetic {
+            margin-top: 14px;
+            font-size: 15px;
+            font-weight: normal;
+            color: var(--text-sub);
+            letter-spacing: 0.5px;
+            text-align: center;
+            max-width: 90%;
+            word-break: break-all;
+        }
+
         .card__face--back {
             transform: rotateY(180deg);
             font-size: 20px;
@@ -287,7 +306,10 @@
         
         <div class="scene" id="card-scene" style="display: none;">
             <div class="card" id="flashcard">
-                <div class="card__face card__face--front" id="word-en">📭</div>
+                <div class="card__face card__face--front">
+                    <div class="card__word" id="word-en">📭</div>
+                    <div class="card__phonetic" id="word-phonetic"></div>
+                </div>
                 <div class="card__face card__face--back" id="word-cn">加载中...</div>
             </div>
         </div>
@@ -357,6 +379,9 @@
             let pageSize = 20;
             let currentGroupIdx = 0;
             let currentGroupWords = [];
+
+            // 全量词库索引：key -> 完整词条数据（含音标），用于错词数据补全
+            let allWordsMap = new Map();
 
             function initDB() {
                 return new Promise((resolve, reject) => {
@@ -433,6 +458,30 @@
                 });
             }
 
+            // 一次性构建 全词库 key -> 完整词条（含音标） 的内存索引，供错词数据补全
+            function buildAllWordsMap() {
+                return new Promise((resolve) => {
+                    allWordsMap.clear();
+                    if (!db || !db.objectStoreNames.contains(STORE_ALL)) {
+                        resolve();
+                        return;
+                    }
+                    const transaction = db.transaction([STORE_ALL], 'readonly');
+                    const store = transaction.objectStore(STORE_ALL);
+                    const req = store.openCursor();
+                    req.onsuccess = function(event) {
+                        const cursor = event.target.result;
+                        if (cursor) {
+                            const data = cursor.value.data;
+                            const key = getWordKey(data);
+                            if (key) allWordsMap.set(key, data);
+                            cursor.continue();
+                        } else { resolve(); }
+                    };
+                    req.onerror = () => resolve();
+                });
+            }
+
             function cacheWrongWordsKeys() {
                 return new Promise((resolve) => {
                     wrongWordIdsSet.clear();
@@ -448,7 +497,8 @@
                         const cursor = event.target.result;
                         if (cursor) {
                             wrongWordIdsSet.add(cursor.key);
-                            wrongWordsList.push(cursor.value.data);
+                            // 优先使用全词库中的完整词条（含音标），旧错词数据无音标时自动补全
+                            wrongWordsList.push(allWordsMap.get(cursor.key) || cursor.value.data);
                             cursor.continue();
                         } else { resolve(); }
                     };
@@ -494,6 +544,7 @@
                 if (msg.type === 'init') {
                     try {
                         await initDB();
+                        await buildAllWordsMap();
                         await cacheWrongWordsKeys();
                         let totalAll = await getCount(STORE_ALL);
                         if (totalAll === 0) {
@@ -535,8 +586,10 @@
                 else if (msg.type === 'addToWrong') {
                     const wordData = msg.data;
                     const key = getWordKey(wordData);
+                    // 连带音标一起存储：从全词库索引取完整词条（含 usphone/ukphone/phonetic），找不到时用传入数据兜底
+                    const storeData = allWordsMap.get(key) || wordData;
                     const transaction = db.transaction([STORE_WRONG], 'readwrite');
-                    transaction.objectStore(STORE_WRONG).put({ wordKey: key, data: wordData });
+                    transaction.objectStore(STORE_WRONG).put({ wordKey: key, data: storeData });
                     transaction.oncomplete = async () => {
                         await cacheWrongWordsKeys();
                         self.postMessage({ type: 'wrongUpdated', totalWrong: wrongWordIdsSet.size, isWrong: true });
@@ -581,6 +634,7 @@
         const hintText = document.getElementById('hint-text');
         
         const elWordEn = document.getElementById('word-en');
+        const elWordPhonetic = document.getElementById('word-phonetic');
         const elWordCn = document.getElementById('word-cn');
         const btnPrev = document.getElementById('btn-prev');
         const btnNext = document.getElementById('btn-next');
@@ -722,7 +776,25 @@
                 else if (wordObj.translation) cn = wordObj.translation;
                 else if (typeof wordObj === 'string') cn = wordObj;
 
-                elWordEn.innerHTML = currentWordString;
+                elWordEn.innerText = currentWordString;
+
+                // 音标展示：优先英/美双音标，其次通用 phonetic 字段
+                const usPhone = wordObj.usphone || '';
+                const ukPhone = wordObj.ukphone || '';
+                let phoneticText = '';
+                if (usPhone && ukPhone && usPhone !== ukPhone) {
+                    phoneticText = `英 [${ukPhone}]  美 [${usPhone}]`;
+                } else {
+                    phoneticText = usPhone || ukPhone || wordObj.phonetic || '';
+                    if (phoneticText) phoneticText = `[${phoneticText}]`;
+                }
+                if (phoneticText) {
+                    elWordPhonetic.innerText = phoneticText;
+                    elWordPhonetic.style.display = 'block';
+                } else {
+                    elWordPhonetic.style.display = 'none';
+                }
+
                 elWordCn.innerHTML = cn;
                 
                 statusText.innerText = `组内: ${relativeIndex + 1}/${totalWordsInGroup} (总第${absoluteIndex}词)`;
@@ -748,7 +820,9 @@
         function renderEmptyState() {
             currentWordData = null;
             currentWordString = "";
-            elWordEn.innerHTML = "📭 分组空空";
+            elWordEn.innerText = "📭 分组空空";
+            elWordPhonetic.innerText = '';
+            elWordPhonetic.style.display = 'none';
             elWordCn.innerHTML = "当前选择的分组内没有数据。";
             statusText.innerText = "0 / 0";
             btnPrev.disabled = true;
