@@ -331,6 +331,10 @@
         </div>
         
         <div class="hint" id="hint-text" style="display: none;">💡 提示：点击卡片翻面 | ➔ 下一词 | ← 上一词 | 空格翻转 | V 键听发音 | 回车标记错词</div>
+
+        <div class="hint" id="audio-cache-bar" style="display: none;">
+            <span id="audio-cache-badge" title="点击清空全部本地语音缓存" style="cursor: pointer; border-bottom: 1px dashed #aaa;">📦 本地语音缓存: 0 个</span>
+        </div>
     </div>
 
     <audio id="global-audio" autoplay></audio>
@@ -367,9 +371,10 @@
         // ------------------------------------------------------------------
         const workerScript = `
             const DB_NAME = 'FlashcardDB';
-            const DB_VERSION = 3;
+            const DB_VERSION = 4; // v4: 新增 audio_cache 表（有道语音本地缓存，与 typing_game.html 共用）
             const STORE_ALL = 'words';
             const STORE_WRONG = 'wrong_words';
+            const STORE_AUDIO = 'audio_cache';
             let db = null;
             
             let currentMode = 'all'; 
@@ -393,6 +398,9 @@
                         }
                         if (!upgradedDb.objectStoreNames.contains(STORE_WRONG)) {
                             upgradedDb.createObjectStore(STORE_WRONG, { keyPath: 'wordKey' });
+                        }
+                        if (!upgradedDb.objectStoreNames.contains(STORE_AUDIO)) {
+                            upgradedDb.createObjectStore(STORE_AUDIO, { keyPath: 'word' });
                         }
                     };
                     request.onsuccess = function(e) { db = e.target.result; resolve(db); };
@@ -455,6 +463,47 @@
                     const req = store.count();
                     req.onsuccess = () => resolve(req.result);
                     req.onerror = () => resolve(0);
+                });
+            }
+
+            // ---------- 有道语音本地缓存（audio_cache 表，key = 单词原文） ----------
+            function getCachedAudio(word) {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(STORE_AUDIO)) { resolve(null); return; }
+                    const req = db.transaction([STORE_AUDIO], 'readonly').objectStore(STORE_AUDIO).get(word);
+                    req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+                    req.onerror = () => resolve(null);
+                });
+            }
+
+            function saveCachedAudio(word, blob) {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(STORE_AUDIO)) { resolve(); return; }
+                    const tx = db.transaction([STORE_AUDIO], 'readwrite');
+                    tx.objectStore(STORE_AUDIO).put({ word: word, blob: blob, ts: Date.now() });
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                    tx.onabort = () => resolve();
+                });
+            }
+
+            function getAudioCacheCount() {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(STORE_AUDIO)) { resolve(0); return; }
+                    const req = db.transaction([STORE_AUDIO], 'readonly').objectStore(STORE_AUDIO).count();
+                    req.onsuccess = () => resolve(req.result || 0);
+                    req.onerror = () => resolve(0);
+                });
+            }
+
+            function clearAudioCache() {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(STORE_AUDIO)) { resolve(); return; }
+                    const tx = db.transaction([STORE_AUDIO], 'readwrite');
+                    tx.objectStore(STORE_AUDIO).clear();
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                    tx.onabort = () => resolve();
                 });
             }
 
@@ -611,6 +660,35 @@
                     await cacheWrongWordsKeys();
                     self.postMessage({ type: 'wrongExportData', data: wrongWordsList });
                 }
+
+                else if (msg.type === 'playAudio') {
+                    // 缓存优先：命中直接返回本地 Blob；未命中则 no-cors 下载并写入缓存
+                    try {
+                        const cachedBlob = await getCachedAudio(msg.word);
+                        if (cachedBlob && cachedBlob.size > 0) {
+                            self.postMessage({ type: 'audioBlob', token: msg.token, blob: cachedBlob });
+                            return;
+                        }
+                        const response = await fetch('https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(msg.word) + '&type=1', { mode: 'no-cors' });
+                        const blob = await response.blob();
+                        if (blob && blob.size > 0) {
+                            await saveCachedAudio(msg.word, blob);
+                            const count = await getAudioCacheCount();
+                            self.postMessage({ type: 'audioBlob', token: msg.token, blob: blob, cacheCount: count });
+                            return;
+                        }
+                    } catch (e) { /* 网络异常，走兜底直链 */ }
+                    self.postMessage({ type: 'audioBlob', token: msg.token, blob: null });
+                }
+
+                else if (msg.type === 'getAudioCacheInfo') {
+                    self.postMessage({ type: 'audioCacheInfo', count: await getAudioCacheCount() });
+                }
+
+                else if (msg.type === 'clearAudioCache') {
+                    await clearAudioCache();
+                    self.postMessage({ type: 'audioCacheInfo', count: await getAudioCacheCount() });
+                }
             };
         `;
 
@@ -642,6 +720,7 @@
         const btnSpeak = document.getElementById('btn-speak');
         const btnExportWrong = document.getElementById('btn-export-wrong');
         const globalAudio = document.getElementById('global-audio');
+        const audioCacheBadge = document.getElementById('audio-cache-badge');
 
         // 前端数据状态指针
         let currentRelativeIndex = 0; 
@@ -650,6 +729,8 @@
         let currentWordData = null;
         let currentCardIsWrong = false;
         let pendingWordIndex = null;   // 首次加载时待恢复的组内单词索引
+        let audioPlayToken = 0;        // 播放令牌：防止快速切词时旧语音晚到覆盖新词
+        let currentAudioBlobUrl = null; // 当前 blob URL（下次播放前释放）
 
         // 初始化
         worker.postMessage({ type: 'init', url: JSON_URL });
@@ -674,6 +755,8 @@
 
                 updateWrongCountUI(msg.totalWrong);
                 rebuildGroupOptions(msg.totalAll, currentSize());
+                document.getElementById('audio-cache-bar').style.display = 'block';
+                worker.postMessage({ type: 'getAudioCacheInfo' });
 
                 if (saved) {
                     const maxGroup = Math.max(groupSelect.options.length - 1, 0);
@@ -714,7 +797,29 @@
             else if (msg.type === 'wrongExportData') {
                 exportWrongWordsAsJSON(msg.data);
             }
+            else if (msg.type === 'audioBlob') {
+                // 令牌不匹配说明用户已切到别的词，丢弃过期音频
+                if (msg.token !== audioPlayToken) return;
+                if (msg.cacheCount !== undefined) updateAudioCacheBadge(msg.cacheCount);
+                if (msg.blob && msg.blob.size > 0) {
+                    if (currentAudioBlobUrl) URL.revokeObjectURL(currentAudioBlobUrl);
+                    currentAudioBlobUrl = URL.createObjectURL(msg.blob);
+                    globalAudio.src = currentAudioBlobUrl;
+                } else {
+                    // 下载失败兜底：直链播放
+                    const fallbackUrl = 'https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(currentWordString) + '&type=1';
+                    if (currentAudioBlobUrl) { URL.revokeObjectURL(currentAudioBlobUrl); currentAudioBlobUrl = null; }
+                    globalAudio.src = fallbackUrl;
+                }
+            }
+            else if (msg.type === 'audioCacheInfo') {
+                updateAudioCacheBadge(msg.count);
+            }
         };
+
+        function updateAudioCacheBadge(count) {
+            if (count !== undefined) audioCacheBadge.innerText = `📦 本地语音缓存: ${count} 个`;
+        }
 
         function exportWrongWordsAsJSON(data) {
             if (!data || data.length === 0) {
@@ -813,8 +918,10 @@
 
         function playAudio() {
             if (!currentWordString || currentWordString === "Unknown") return;
-            const audioUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(currentWordString)}&type=1`;
-            globalAudio.src = audioUrl;
+            const token = ++audioPlayToken;
+            try { globalAudio.pause(); } catch (e) {}
+            // 交给 Worker：优先返回本地缓存 Blob，未命中则下载并缓存
+            worker.postMessage({ type: 'playAudio', word: currentWordString, token });
         }
 
         function renderEmptyState() {
@@ -900,6 +1007,13 @@
 
         btnExportWrong.addEventListener('click', () => {
             worker.postMessage({ type: 'exportWrong' });
+        });
+
+        // 点击页脚缓存角标：清空全部语音缓存
+        audioCacheBadge.addEventListener('click', () => {
+            if (confirm('确定清空全部本地语音缓存吗？之后首次播放需要重新下载。')) {
+                worker.postMessage({ type: 'clearAudioCache' });
+            }
         });
 
         cardScene.addEventListener('click', () => { if(currentWordData) flashcard.classList.toggle('is-flipped'); });
