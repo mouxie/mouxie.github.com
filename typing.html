@@ -890,14 +890,14 @@ function bindEvents() {
     els.answerInput.addEventListener('input', (e) => {
         renderCharFeedback();
         // 输对即自动跳转下一题（无需回车）
-        // 排除：IME 组合输入中、闪答展示期、已结束
+        // IME 组合输入中不判题：组合结束后由 compositionend 兜底触发
         if (e.isComposing || isFinished) return;
-        if (!els.resultPanel.classList.contains('hidden')) return;
-        const input = els.answerInput.value.trim();
-        if (input.length === currentWord.length &&
-            input.toLowerCase() === currentWord.toLowerCase()) {
-            correctAnswer();
-        }
+        tryAutoAdvance();
+    });
+    // 中文输入法等 IME 组合结束时的兜底判题（部分浏览器组合结束后不再触发 input）
+    els.answerInput.addEventListener('compositionend', () => {
+        renderCharFeedback();
+        tryAutoAdvance();
     });
     els.btnClear.addEventListener('click', clearInput);
     els.btnPrevWord.addEventListener('click', goPrevWord);
@@ -1021,7 +1021,21 @@ function renderQuestion() {
     }
 }
 
+// 输对即自动跳转判定（大小写不敏感：iPhone 输入 iphone 仍算正确）
+function tryAutoAdvance() {
+    if (isFinished) return;
+    if (!els.resultPanel.classList.contains('hidden')) return; // 闪答展示期不判题
+    const input = els.answerInput.value.trim();
+    if (input.length === currentWord.length &&
+        input.toLowerCase() === currentWord.toLowerCase()) {
+        correctAnswer();
+    }
+}
+
 // 逐字符反馈：把输入与答案逐字比对，显示绿/红/待输入
+// 第一性原理：胜负判定（大小写不敏感）与视觉反馈必须一致，否则会出现
+// "输入 iphone 却因 i≠I 标红"的误导。匹配判定忽略大小写，且匹配时显示
+// 目标字符（保持单词正确的大小写形状，如 iPhone 显示大写 I），便于学习者顺带记大小写
 function renderCharFeedback() {
     const input = els.answerInput.value;
     const target = currentWord;
@@ -1040,8 +1054,9 @@ function renderCharFeedback() {
                 : { c: t || '', cls: 'pending' });
         } else if (t === undefined) {
             chars.push({ c: v, cls: 'wrong' }); // 多输的字符直接标红
-        } else if (v === t) {
-            chars.push({ c: v, cls: 'correct' });
+        } else if (v.toLowerCase() === t.toLowerCase()) {
+            // 大小写不敏感匹配：显示目标字符，保持正确的大小写形态
+            chars.push({ c: t, cls: 'correct' });
         } else {
             chars.push({ c: v, cls: 'wrong' });
         }
