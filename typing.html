@@ -1074,9 +1074,13 @@ function renderQuestion() {
     els.scoreText.textContent = `得分 ${stats.correct} (${Math.round((stats.correct / Math.max(stats.total, 1)) * 100)}%)`;
     els.progressFill.style.width = `${(sessionIndex / sessionWords.length) * 100}%`;
 
-    // 上一词/下一词边界（与 fc.html 一致）
+    // 上一词/下一词边界
     els.btnPrevWord.disabled = (sessionIndex <= 0);
-    els.btnNextWord.disabled = (sessionIndex >= sessionWords.length - 1);
+    // 下一词：本组最后一个单词时，若还有下一组则允许跳转
+    const isLastWordInGroup = (sessionIndex >= sessionWords.length - 1);
+    const groupIdx = parseInt(els.groupSelect.value) || 0;
+    const hasNextGroup = (groupIdx + 1 < els.groupSelect.options.length);
+    els.btnNextWord.disabled = isLastWordInGroup && !hasNextGroup;
 
     // 重置释义查看状态
     els.transReveal.classList.add('hidden');
@@ -1372,7 +1376,19 @@ function goPrevWord() {
 }
 
 function goNextWord() {
-    if (isFinished || sessionIndex >= sessionWords.length - 1) return;
+    if (isFinished) return;
+    const isLastWordInGroup = (sessionIndex >= sessionWords.length - 1);
+    if (isLastWordInGroup) {
+        // 本组最后一个单词：若还有下一组则跳转
+        const groupIdx = parseInt(els.groupSelect.value) || 0;
+        const hasNextGroup = (groupIdx + 1 < els.groupSelect.options.length);
+        if (!hasNextGroup) return;
+        // 切换到下一组
+        els.groupSelect.value = String(groupIdx + 1);
+        saveProgress();
+        startSession();
+        return;
+    }
     // 未作答的题直接前进（不计数）；已作答（闪答中）也前进，不重复计数
     sessionIndex++;
     renderQuestion();
