@@ -706,31 +706,49 @@ function playAudioSource(src, isBlobUrl) {
     audio.play().catch(() => {});
 }
 
-async function playWordAudio(word) {
+// 播放请求序号（最新请求优先）。语音请求是异步的：IndexedDB 读取 / 网络下载
+// 完成时间不可控，若按"谁先加载完谁播放"处理会出现竞态——较早发出但较晚
+// 完成的请求（如答对发音）会打断并覆盖最新单词的发音。每次请求自增序号，
+// 加载结束后只有仍然是最新请求的一方可以发声，旧请求静默放弃
+// （已下载的音频仍会写入缓存，不浪费）。
+let audioRequestSeq = 0;
+
+function playWordAudio(word) {
     if (!word || word === 'Unknown') return;
+
+    const requestSeq = ++audioRequestSeq; // 本次请求的序号
     const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=1`;
 
-    // 1) 缓存命中：直接播放本地音频，零网络请求
-    const cachedBlob = await getCachedAudio(word);
-    if (cachedBlob && cachedBlob.size > 0) {
-        playAudioSource(URL.createObjectURL(cachedBlob), true);
-        return;
-    }
+    // 加载完成时校验：自己是否仍是"最新的播放请求"，是才允许出声
+    const isLatest = () => requestSeq === audioRequestSeq;
 
-    // 2) 未命中：no-cors 下载（规避有道接口跨域限制），写入缓存后播放
-    try {
-        const response = await fetch(url, { mode: 'no-cors' });
-        const blob = await response.blob();
-        if (blob && blob.size > 0) {
-            saveCachedAudio(word, blob); // 后台写入，不阻塞播放
-            updateAudioCacheBadge();
-            playAudioSource(URL.createObjectURL(blob), true);
+    (async () => {
+        // 1) 缓存命中：直接播放本地音频，零网络请求
+        const cachedBlob = await getCachedAudio(word);
+        if (!isLatest()) return; // 加载期间已被更新的请求取代，整体放弃
+        if (cachedBlob && cachedBlob.size > 0) {
+            playAudioSource(URL.createObjectURL(cachedBlob), true);
             return;
         }
-    } catch (e) { /* 网络异常，走兜底 */ }
 
-    // 3) 兜底：直接播放远程地址（依赖浏览器自身 HTTP 磁盘缓存）
-    playAudioSource(url, false);
+        // 2) 未命中：no-cors 下载（规避有道接口跨域限制），写入缓存后播放
+        try {
+            const response = await fetch(url, { mode: 'no-cors' });
+            const blob = await response.blob();
+            // 无论是否还享有播放权，下载结果都写入缓存，避免重复下载
+            if (blob && blob.size > 0) {
+                saveCachedAudio(word, blob);
+                updateAudioCacheBadge();
+            }
+            if (isLatest() && blob && blob.size > 0) {
+                playAudioSource(URL.createObjectURL(blob), true);
+                return;
+            }
+        } catch (e) { /* 网络异常，走兜底 */ }
+
+        // 3) 兜底：直接播放远程地址（依赖浏览器自身 HTTP 磁盘缓存）
+        if (isLatest()) playAudioSource(url, false);
+    })();
 }
 
 // 更新页脚缓存数量角标
@@ -1042,10 +1060,12 @@ function correctAnswer() {
     stats.heat++;
     stats.maxHeat = Math.max(stats.maxHeat, stats.heat);
 
-    // 答对发音（仅当开关打开时）
-    if (els.audioSwitch.checked) playWordAudio(currentWord);
+    // 注意：此处刻意不播放"答对发音"。紧接着的 renderQuestion() 会请求播放
+    // 下一题的读音；若两段音频异步加载完成顺序错位（答对音较晚完成），旧词
+    // 声音会打断并覆盖新词发音——正是"自动跳转后听到的不是下一个单词"的根因。
+    // 移除后每个时刻至多存在一个播放请求，最终听到的永远是最新单词的发音。
 
-    // 进入下一题
+    // 进入下一题（renderQuestion 中会自动播放下一题的读音）
     sessionIndex++;
     renderQuestion();
 }
