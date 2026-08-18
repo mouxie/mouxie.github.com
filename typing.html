@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>错词打字练习 - 基于闪卡错词本</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --accent: #E24A4A;
+            --success: #2EA44F;
+            --bg: #F5F7FA;
+            --card-bg: #FFFFFF;
+            --text-main: #333333;
+            --text-sub: #888888;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        #app-container {
+            width: 100%;
+            max-width: 720px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* ---------- 顶部标题 ---------- */
+        .header {
+            text-align: center;
+            padding: 10px 0;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: var(--text-main);
+        }
+        .header p {
+            margin: 6px 0 0;
+            font-size: 13px;
+            color: var(--text-sub);
+        }
+
+        /* ---------- 状态卡片 ---------- */
+        .panel {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .status-text {
+            text-align: center;
+            font-size: 14px;
+            color: var(--text-main);
+            padding: 30px 10px;
+            min-height: 60px;
+        }
+        .status-text.error { color: var(--accent); }
+        .status-text.success { color: var(--success); }
+
+        /* ---------- 控制区 ---------- */
+        .settings {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .settings-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        select, input[type="number"] {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 13px;
+            background-color: white;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .switch-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+            color: var(--text-main);
+            font-size: 14px;
+        }
+        .switch-label input { width: 16px; height: 16px; margin: 0; cursor: pointer; }
+
+        /* ---------- 关卡信息 ---------- */
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            color: var(--text-main);
+        }
+        .info-row .rounds { font-weight: 600; }
+        .info-row .score { font-weight: 600; color: var(--primary); }
+
+        .progress-track {
+            margin-top: 8px;
+            height: 8px;
+            background: #e9edf2;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--primary);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        /* ---------- 题目区 ---------- */
+        .question {
+            text-align: center;
+            padding: 24px 16px 12px;
+        }
+        .question .word {
+            font-size: 30px;
+            font-weight: bold;
+            color: var(--primary);
+            letter-spacing: 0.5px;
+            word-break: break-all;
+        }
+        .question .prompt {
+            font-size: 14px;
+            color: var(--text-sub);
+            margin-top: 6px;
+        }
+
+        .char-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 0 16px;
+        }
+        .char-item {
+            min-width: 26px;
+            min-height: 34px;
+            padding: 6px 8px;
+            border-radius: 8px;
+            background: #f1f4f8;
+            border: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-main);
+            transition: all 0.15s;
+        }
+        .char-item.pending { color: #555; }
+        .char-item.active {
+            border-color: var(--primary);
+            background: #e8f1fc;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 6px rgba(74,144,226,0.25);
+        }
+        .char-item.correct {
+            background: #e6f4ea;
+            color: var(--success);
+            border-color: #ceead6;
+        }
+        .char-item.wrong {
+            background: #ffeaea;
+            color: var(--accent);
+            border-color: #ffcccc;
+        }
+
+        /* ---------- 作答区 ---------- */
+        .input-area {
+            text-align: center;
+            padding-bottom: 4px;
+        }
+        .input-area input {
+            width: 100%;
+            max-width: 480px;
+            padding: 12px 16px;
+            font-size: 22px;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            outline: none;
+            text-align: center;
+            letter-spacing: 1px;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+        .input-area input:focus { border-color: var(--primary); }
+
+        .hint-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: var(--text-sub);
+        }
+        .hint-row button {
+            border: 1px solid #ccc;
+            background: #fff;
+            color: #555;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .hint-row button:hover { background: #f0f3f7; }
+
+        /* ---------- 结果区 ---------- */
+        .result {
+            text-align: center;
+        }
+        .result-word {
+            font-size: 26px;
+            font-weight: bold;
+            color: var(--text-main);
+            word-break: break-all;
+        }
+        .result-trans {
+            font-size: 15px;
+            color: var(--text-sub);
+            margin-top: 6px;
+            min-height: 20px;
+        }
+        .result-btns {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .btn {
+            padding: 10px 22px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-danger { background: var(--accent); color: #fff; }
+        .btn-plain { background: #eef0f4; color: #555; }
+
+        /* ---------- 统计区 ---------- */
+        .stats {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            text-align: center;
+            gap: 10px;
+        }
+        .stat-item { min-width: 90px; }
+        .stat-item .num { font-size: 22px; font-weight: bold; color: var(--primary); }
+        .stat-item .label { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+
+        /* ---------- 错词回顾列表 ---------- */
+        .retry-list { margin-top: 14px; text-align: left; }
+        .retry-list h3 { font-size: 14px; margin: 0 0 8px; color: var(--text-main); }
+        .retry-chip {
+            display: inline-block;
+            background: #ffeaea;
+            color: var(--accent);
+            border: 1px solid #ffcccc;
+            border-radius: 20px;
+            padding: 3px 12px;
+            margin: 3px 4px 3px 0;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .retry-chip:hover { background: #ffd6d6; }
+
+        .footer-note {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-sub);
+            padding-bottom: 20px;
+        }
+        .footer-note a { color: var(--primary); cursor: pointer; text-decoration: none; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <!-- 标题 -->
+    <div class="header">
+        <h1>⌨️ 错词打字练习</h1>
+        <p>读取「闪卡游戏 fc.html」的错词本 (IndexedDB: FlashcardDB / wrong_words)，通过打字巩固错词</p>
+    </div>
+
+    <!-- 状态区：初始化中 / 无错词 / 错误 -->
+    <div id="status-panel" class="panel">
+        <div id="status-text" class="status-text">⏳ 正在读取错词本...</div>
+    </div>
+
+    <!-- 主游戏区（初始化完成后显示） -->
+    <div id="game-area" class="hidden">
+        <!-- 设置区 -->
+        <div class="panel">
+            <div class="settings">
+                <div class="settings-row">
+                    <label>模式
+                        <select id="mode-select">
+                            <option value="translate" selected>🀄 看释义，拼单词</option>
+                            <option value="copy">📝 照词跟打 (显示拼音/单词)</option>
+                        </select>
+                    </label>
+                    <label>每局单词数
+                        <select id="count-select">
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </label>
+                </div>
+                <label class="switch-label">
+                    <input type="checkbox" id="audio-switch" checked>
+                    🔊 答对自动发音
+                </label>
+            </div>
+        </div>
+
+        <!-- 关卡信息 -->
+        <div class="panel">
+            <div class="info-row">
+                <span class="rounds" id="round-text">第 0 / 0 题</span>
+                <span class="score" id="score-text">得分 0 (0%)</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+        </div>
+
+        <!-- 题目区 -->
+        <div class="panel">
+            <div class="question" id="question-area">
+                <div class="word" id="word-display">—</div>
+                <div class="prompt" id="prompt-text"></div>
+            </div>
+            <div class="char-list" id="char-list"></div>
+            <div class="input-area">
+                <input type="text" id="answer-input" placeholder="在这里输入..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <div class="hint-row">
+                    <span id="key-hints">输入单词后按回车提交 | Ctrl+Z 清除 | Shift 跳过</span>
+                    <button id="btn-clear" type="button">清除 (Ctrl+Z)</button>
+                    <button id="btn-skip" type="button">跳过 (Shift)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 结果区（隐藏，仅显示四张卡时用） -->
+        <div class="panel result hidden" id="result-panel">
+            <div class="result-word" id="result-word"></div>
+            <div class="result-trans" id="result-trans"></div>
+            <div class="result-btns">
+                <button class="btn btn-primary" id="btn-again">🔁 再练一次</button>
+                <button class="btn btn-plain" id="btn-home">🏠 返回设置</button>
+            </div>
+            <div class="retry-list hidden" id="retry-list"></div>
+        </div>
+
+        <!-- 统计区（隐藏，仅显示结果后） -->
+        <div class="panel stats hidden" id="stats-panel">
+            <div class="stat-item">
+                <div class="num" id="stat-total">0</div>
+                <div class="label">总题数</div>
+            </div>
+            <div class="stat-item">
+                <div class="num" id="stat-correct">0</div>
+                <div class="label">答对</div>
+            </div>
+            <div class="stat-item">
+                <div class="num" id="stat-wrong">0</div>
+                <div class="label">答错/跳过</div>
+            </div>
+            <div class="stat-item">
+                <div class="num" id="stat-accuracy">0%</div>
+                <div class="label">正确率</div>
+            </div>
+            <div class="stat-item">
+                <div class="num" id="stat-heat">0</div>
+                <div class="label">🔥 连击</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-note">
+        数据来源：<a id="link-fc" title="打开闪卡游戏">fc.html 的错词本</a> · 刷新页面可重新读取错词本
+    </div>
+</div>
+
+<script>
+'use strict';
+
+// ============================================================
+// 数据来源：与 fc.html 共用的 IndexedDB (FlashcardDB / wrong_words)
+// ============================================================
+const DB_NAME = 'FlashcardDB';
+const DB_VERSION = 3;
+const STORE_WRONG = 'wrong_words';
+
+// 从 IndexedDB 中读取全部错词
+function loadWrongWordsFromDB() {
+    return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) { reject(new Error('当前浏览器不支持 IndexedDB')); return; }
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onerror = () => reject(new Error('无法打开错词本数据库 (FlashcardDB)'));
+        request.onupgradeneeded = (e) => {
+            // 仅为了能打开数据库，不需要修改结构
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_WRONG)) {
+                // 数据库存在但缺少 wrong_words 表（例如第一次打开），创建空表
+                db.createObjectStore(STORE_WRONG, { keyPath: 'wordKey' });
+            }
+        };
+        request.onsuccess = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_WRONG)) {
+                db.close();
+                resolve([]);
+                return;
+            }
+            const tx = db.transaction([STORE_WRONG], 'readonly');
+            const store = tx.objectStore(STORE_WRONG);
+            const req = store.getAll();
+            req.onsuccess = () => {
+                const records = req.result || [];
+                const words = records.map(r => r.data).filter(Boolean);
+                db.close();
+                resolve(words);
+            };
+            req.onerror = () => { db.close(); reject(new Error('读取错词本失败')); };
+        };
+    });
+}
+
+// 获取单词的关键字段（与 fc.html 的 getWordKey 保持兼容）
+function getWordKey(wordObj) {
+    return wordObj.name || wordObj.word || wordObj.title || '';
+}
+function getWordTrans(wordObj) {
+    if (Array.isArray(wordObj.trans)) return wordObj.trans.join('；');
+    if (typeof wordObj.translation === 'string') return wordObj.translation;
+    if (typeof wordObj === 'string') return '';
+    return '';
+}
+
+// ============================================================
+// 发音
+// ============================================================
+function playWordAudio(word) {
+    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=1`;
+    const audio = new Audio(url);
+    audio.play().catch(() => {});
+}
+
+// ============================================================
+// 游戏状态
+// ============================================================
+const els = {
+    statusPanel: document.getElementById('status-panel'),
+    statusText: document.getElementById('status-text'),
+    gameArea: document.getElementById('game-area'),
+    modeSelect: document.getElementById('mode-select'),
+    countSelect: document.getElementById('count-select'),
+    audioSwitch: document.getElementById('audio-switch'),
+    roundText: document.getElementById('round-text'),
+    scoreText: document.getElementById('score-text'),
+    progressFill: document.getElementById('progress-fill'),
+    wordDisplay: document.getElementById('word-display'),
+    promptText: document.getElementById('prompt-text'),
+    charList: document.getElementById('char-list'),
+    answerInput: document.getElementById('answer-input'),
+    btnClear: document.getElementById('btn-clear'),
+    btnSkip: document.getElementById('btn-skip'),
+    resultPanel: document.getElementById('result-panel'),
+    resultWord: document.getElementById('result-word'),
+    resultTrans: document.getElementById('result-trans'),
+    btnAgain: document.getElementById('btn-again'),
+    btnHome: document.getElementById('btn-home'),
+    retryList: document.getElementById('retry-list'),
+    statsPanel: document.getElementById('stats-panel'),
+    statTotal: document.getElementById('stat-total'),
+    statCorrect: document.getElementById('stat-correct'),
+    statWrong: document.getElementById('stat-wrong'),
+    statAccuracy: document.getElementById('stat-accuracy'),
+    statHeat: document.getElementById('stat-heat'),
+    linkFc: document.getElementById('link-fc')
+};
+
+let wrongWords = [];      // 全部错词（原始数据）
+let sessionWords = [];    // 本局抽取的单词（已打乱）
+let sessionIndex = 0;     // 当前题号
+let currentWord = '';     // 当前题的正确答案
+let currentTrans = '';    // 当前题的释义
+let currentMode = 'translate'; // 当前的模式 (translate / copy)
+let stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
+let retryWords = [];      // 本次答错的单词（用于再练）
+let isFinished = false;
+
+// ============================================================
+// 初始化
+// ============================================================
+async function init() {
+    try {
+        wrongWords = await loadWrongWordsFromDB();
+        if (wrongWords.length === 0) {
+            els.statusText.textContent = '📭 错词本是空的，还没有可练习的单词。';
+            els.statusText.classList.add('success');
+            return;
+        }
+        // 过滤掉无法确定单词的无效项
+        wrongWords = wrongWords.filter(w => getWordKey(w).trim() !== '');
+        if (wrongWords.length === 0) {
+            els.statusText.textContent = '📭 错词本中的单词无效（缺少 word/name/title 字段）。';
+            els.statusText.classList.add('success');
+            return;
+        }
+
+        els.statusPanel.classList.add('hidden');
+        els.gameArea.classList.remove('hidden');
+
+        // 事件绑定
+        bindEvents();
+        startSession();
+    } catch (err) {
+        els.statusText.textContent = '⚠️ ' + err.message;
+        els.statusText.classList.add('error');
+    }
+}
+
+function bindEvents() {
+    els.modeSelect.addEventListener('change', () => {
+        currentMode = els.modeSelect.value;
+        if (!isFinished) renderQuestion();
+    });
+    els.countSelect.addEventListener('change', () => {
+        if (!isFinished) startSession();
+    });
+    els.answerInput.addEventListener('input', renderCharFeedback);
+    els.btnClear.addEventListener('click', clearInput);
+    els.btnSkip.addEventListener('click', () => { if (!isFinished) wrongAnswer(true); });
+    els.btnAgain.addEventListener('click', () => {
+        if (retryWords.length > 0) {
+            sessionWords = shuffle(retryWords.slice());
+            retryWords = [];
+            stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
+            startSession(false);
+        } else {
+            startSession();
+        }
+    });
+    els.btnHome.addEventListener('click', showHome);
+    els.linkFc.addEventListener('click', () => {
+        window.location.href = 'fc.html';
+    });
+}
+
+function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+// 开始一局：从错词本中随机抽取 count 个单词（不足则全部）
+function startSession(resetStats = true) {
+    const count = Math.min(parseInt(els.countSelect.value) || 20, wrongWords.length);
+    sessionWords = shuffle(wrongWords).slice(0, count);
+    sessionIndex = 0;
+    retryWords = [];
+    if (resetStats) {
+        stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
+    }
+    isFinished = false;
+
+    els.answerInput.disabled = false;
+    els.answerInput.value = '';
+    els.resultPanel.classList.add('hidden');
+    els.statsPanel.classList.add('hidden');
+    els.retryList.classList.add('hidden');
+
+    renderQuestion();
+}
+
+// ============================================================
+// 渲染题目
+// ============================================================
+function renderQuestion() {
+    if (sessionIndex >= sessionWords.length) { finishSession(); return; }
+
+    const obj = sessionWords[sessionIndex];
+    currentWord = getWordKey(obj);
+    currentTrans = getWordTrans(obj);
+    currentMode = els.modeSelect.value;
+
+    // 更新关卡信息
+    els.roundText.textContent = `第 ${sessionIndex + 1} / ${sessionWords.length} 题`;
+    els.scoreText.textContent = `得分 ${stats.correct} (${Math.round((stats.correct / Math.max(stats.total, 1)) * 100)}%)`;
+    els.progressFill.style.width = `${(sessionIndex / sessionWords.length) * 100}%`;
+
+    // 题目显示
+    if (currentMode === 'copy') {
+        // 照词跟打：显示单词，隐藏释义
+        els.wordDisplay.textContent = currentWord;
+        els.promptText.textContent = '照着上方单词输入一遍';
+    } else {
+        // 看释义拼单词：显示释义，隐藏单词
+        els.wordDisplay.textContent = currentTrans || '（无释义）';
+        els.promptText.textContent = '根据释义拼出上方单词';
+    }
+
+    // 清空输入与字符格子
+    els.answerInput.value = '';
+    renderCharFeedback();
+    els.answerInput.focus();
+
+    // 自动发音：仅在照词模式下自动发音，方便跟打
+    if (currentMode === 'copy' && els.audioSwitch.checked) {
+        playWordAudio(currentWord);
+    }
+}
+
+// 逐字符反馈：把输入与答案逐字比对，显示绿/红/待输入
+function renderCharFeedback() {
+    const input = els.answerInput.value;
+    const target = currentWord;
+
+    const chars = [];
+    const n = Math.max(target.length, input.length);
+    for (let i = 0; i < n; i++) {
+        const t = target[i];
+        const v = input[i];
+        if (v === undefined) {
+            chars.push({ c: t || '', cls: 'pending' });
+        } else if (t === undefined) {
+            chars.push({ c: v, cls: 'wrong' }); // 多输的字符直接标红
+        } else if (v === t) {
+            chars.push({ c: v, cls: 'correct' });
+        } else {
+            chars.push({ c: v, cls: 'wrong' });
+        }
+    }
+
+    els.charList.innerHTML = chars.map(ch => `<span class="char-item ${ch.cls}">${escapeHtml(ch.c)}</span>`).join('');
+}
+
+function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function clearInput() {
+    els.answerInput.value = '';
+    renderCharFeedback();
+}
+
+// ============================================================
+// 提交答案
+// ============================================================
+function submitAnswer() {
+    if (isFinished) return;
+    const input = els.answerInput.value.trim();
+    const isCorrect = input.toLowerCase() === currentWord.toLowerCase();
+    if (isCorrect) {
+        correctAnswer();
+    } else {
+        wrongAnswer(false);
+    }
+}
+
+function correctAnswer() {
+    stats.total++;
+    stats.correct++;
+    stats.heat++;
+    stats.maxHeat = Math.max(stats.maxHeat, stats.heat);
+
+    // 答对发音（仅当开关打开且当前词未被跳过时）
+    if (els.audioSwitch.checked) playWordAudio(currentWord);
+
+    // 进入下一题
+    sessionIndex++;
+    renderQuestion();
+}
+
+function wrongAnswer(skipped) {
+    stats.total++;
+    stats.wrong++;
+    stats.heat = 0;
+
+    if (!skipped) retryWords.push(sessionWords[sessionIndex]); // 加入错题回顾
+
+    // 显示正确答案（2 秒提示后自动进入下一题，或立即进入）
+    showFlashAnswer(skipped);
+}
+
+function showFlashAnswer(skipped) {
+    const obj = sessionWords[sessionIndex];
+    els.resultPanel.classList.remove('hidden');
+    els.resultWord.textContent = getWordKey(obj);
+    els.resultTrans.textContent = getWordTrans(obj);
+    els.resultWord.style.color = skipped ? 'var(--text-main)' : 'var(--accent)';
+    els.resultWord.textContent = (skipped ? '⏭ 已跳过: ' : '❌ 正确答案: ') + getWordKey(obj);
+    els.btnAgain.classList.add('hidden'); // 隐藏再练按钮（回合间）
+    els.btnHome.classList.add('hidden');
+    els.retryList.classList.add('hidden');
+
+    // 2 秒后自动进入下一题
+    setTimeout(() => {
+        els.resultPanel.classList.add('hidden');
+        sessionIndex++;
+        renderQuestion();
+    }, 2000);
+}
+
+function renderRetryList() {
+    els.retryList.classList.remove('hidden');
+    els.retryList.innerHTML = '<h3>📋 本次答错的单词（点击可听发音）</h3>' +
+        retryWords.map(w => `<span class="retry-chip" title="${escapeHtml(getWordTrans(w))}">${escapeHtml(getWordKey(w))}</span>`).join('');
+    // 绑定点击发音
+    els.retryList.querySelectorAll('.retry-chip').forEach(chip => {
+        chip.addEventListener('click', () => playWordAudio(chip.textContent.trim()));
+    });
+}
+
+// ============================================================
+// 结算
+// ============================================================
+function finishSession() {
+    isFinished = true;
+    els.answerInput.disabled = true;
+    els.answerInput.value = '';
+
+    // 显示统计
+    els.statsPanel.classList.remove('hidden');
+    els.statTotal.textContent = stats.total;
+    els.statCorrect.textContent = stats.correct;
+    els.statWrong.textContent = stats.wrong;
+    els.statAccuracy.textContent = stats.total ? Math.round((stats.correct / stats.total) * 100) + '%' : '0%';
+    els.statHeat.textContent = stats.maxHeat;
+
+    // 显示结果面板
+    els.resultPanel.classList.remove('hidden');
+    els.btnAgain.classList.remove('hidden');
+    els.btnHome.classList.remove('hidden');
+    els.resultWord.textContent = '🏁 本局结束!';
+    els.resultWord.style.color = 'var(--text-main)';
+    els.resultTrans.textContent = `共 ${stats.total} 题，答对 ${stats.correct} 题`;
+    if (retryWords.length > 0) {
+        els.resultTrans.textContent += `，还有 ${retryWords.length} 个单词需要复习`;
+        renderRetryList();
+    } else {
+        els.retryList.classList.add('hidden');
+    }
+
+    els.progressFill.style.width = '100%';
+    els.roundText.textContent = `第 ${sessionWords.length} / ${sessionWords.length} 题`;
+    els.answerInput.focus();
+}
+
+// ============================================================
+// 返回设置界面（重新开始）
+// ============================================================
+function showHome() {
+    isFinished = true;
+    sessionWords = [];
+    els.resultPanel.classList.add('hidden');
+    els.statsPanel.classList.add('hidden');
+    els.retryList.classList.add('hidden');
+    els.answerInput.disabled = true;
+    els.answerInput.value = '';
+    els.wordDisplay.textContent = '—';
+    els.promptText.textContent = '';
+    els.charList.innerHTML = '';
+    els.roundText.textContent = '第 0 / 0 题';
+    els.scoreText.textContent = '得分 0 (0%)';
+    els.progressFill.style.width = '0%';
+}
+
+// ============================================================
+// 键盘事件
+// ============================================================
+els.answerInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        submitAnswer();
+    } else if (e.key === 'Escape' || (e.ctrlKey && e.key.toLowerCase() === 'z')) {
+        e.preventDefault();
+        clearInput();
+    } else if (e.key === 'Shift') {
+        // 跳过当前题
+        if (!isFinished) {
+            e.preventDefault();
+            wrongAnswer(true);
+        }
+    }
+});
+
+// 全局：快捷键 '/' 或 '.' 聚焦输入框（游戏中随时可输入）
+document.addEventListener('keydown', (e) => {
+    if (isFinished) return;
+    if (e.target === els.answerInput) return;
+    if (e.code === 'Enter' || e.code === 'Space') {
+        // 聚焦到输入框
+        e.preventDefault();
+        els.answerInput.focus();
+    }
+});
+
+// ============================================================
+// 启动
+// ============================================================
+init();
+</script>
+</body>
+</html>
