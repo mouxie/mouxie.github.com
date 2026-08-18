@@ -446,6 +446,9 @@
 
     <div class="footer-note">
         数据来源：<a id="link-fc" title="打开闪卡游戏">fc.html 的错词本</a> · 刷新页面可重新读取错词本
+        <div style="margin-top:6px;">
+            <span id="audio-cache-badge" title="点击清空全部语音缓存" style="cursor:pointer; border-bottom:1px dashed #ccc;">📦 本地语音缓存: 0 个</span>
+        </div>
     </div>
 </div>
 
@@ -456,42 +459,89 @@
 // 数据来源：与 fc.html 共用的 IndexedDB (FlashcardDB / wrong_words)
 // ============================================================
 const DB_NAME = 'FlashcardDB';
-const DB_VERSION = 3;
+const DB_VERSION = 4; // v4: 新增 audio_cache 表（有道语音本地缓存）
 const STORE_WRONG = 'wrong_words';
+const STORE_AUDIO = 'audio_cache';
 
-// 从 IndexedDB 中读取全部错词
-function loadWrongWordsFromDB() {
+// 统一打开数据库（升级时自动补齐缺失的表）
+function openFlashcardDB() {
     return new Promise((resolve, reject) => {
         if (!('indexedDB' in window)) { reject(new Error('当前浏览器不支持 IndexedDB')); return; }
         const request = indexedDB.open(DB_NAME, DB_VERSION);
         request.onerror = () => reject(new Error('无法打开错词本数据库 (FlashcardDB)'));
         request.onupgradeneeded = (e) => {
-            // 仅为了能打开数据库，不需要修改结构
             const db = e.target.result;
             if (!db.objectStoreNames.contains(STORE_WRONG)) {
-                // 数据库存在但缺少 wrong_words 表（例如第一次打开），创建空表
                 db.createObjectStore(STORE_WRONG, { keyPath: 'wordKey' });
             }
-        };
-        request.onsuccess = (e) => {
-            const db = e.target.result;
-            if (!db.objectStoreNames.contains(STORE_WRONG)) {
-                db.close();
-                resolve([]);
-                return;
+            if (!db.objectStoreNames.contains(STORE_AUDIO)) {
+                db.createObjectStore(STORE_AUDIO, { keyPath: 'word' });
             }
-            const tx = db.transaction([STORE_WRONG], 'readonly');
-            const store = tx.objectStore(STORE_WRONG);
-            const req = store.getAll();
-            req.onsuccess = () => {
-                const records = req.result || [];
-                const words = records.map(r => r.data).filter(Boolean);
-                db.close();
-                resolve(words);
-            };
-            req.onerror = () => { db.close(); reject(new Error('读取错词本失败')); };
         };
+        request.onsuccess = (e) => resolve(e.target.result);
     });
+}
+
+// 从 IndexedDB 中读取全部错词
+function loadWrongWordsFromDB() {
+    return openFlashcardDB().then((db) => new Promise((resolve, reject) => {
+        if (!db.objectStoreNames.contains(STORE_WRONG)) {
+            db.close();
+            resolve([]);
+            return;
+        }
+        const tx = db.transaction([STORE_WRONG], 'readonly');
+        const store = tx.objectStore(STORE_WRONG);
+        const req = store.getAll();
+        req.onsuccess = () => {
+            const records = req.result || [];
+            const words = records.map(r => r.data).filter(Boolean);
+            db.close();
+            resolve(words);
+        };
+        req.onerror = () => { db.close(); reject(new Error('读取错词本失败')); };
+    })).catch(() => []);
+}
+
+// ============================================================
+// 有道语音本地缓存（IndexedDB: audio_cache，key = 单词）
+// ============================================================
+function getCachedAudio(word) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_AUDIO)) { db.close(); resolve(null); return; }
+        const req = db.transaction(STORE_AUDIO, 'readonly').objectStore(STORE_AUDIO).get(word);
+        req.onsuccess = () => { db.close(); resolve(req.result ? req.result.blob : null); };
+        req.onerror = () => { db.close(); resolve(null); };
+    })).catch(() => null);
+}
+
+function saveCachedAudio(word, blob) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_AUDIO)) { db.close(); resolve(); return; }
+        const tx = db.transaction(STORE_AUDIO, 'readwrite');
+        tx.objectStore(STORE_AUDIO).put({ word: word, blob: blob, ts: Date.now() });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); resolve(); };
+    })).catch(() => {});
+}
+
+function getAudioCacheCount() {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_AUDIO)) { db.close(); resolve(0); return; }
+        const req = db.transaction(STORE_AUDIO, 'readonly').objectStore(STORE_AUDIO).count();
+        req.onsuccess = () => { db.close(); resolve(req.result || 0); };
+        req.onerror = () => { db.close(); resolve(0); };
+    })).catch(() => 0);
+}
+
+function clearAudioCache() {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_AUDIO)) { db.close(); resolve(); return; }
+        const tx = db.transaction(STORE_AUDIO, 'readwrite');
+        tx.objectStore(STORE_AUDIO).clear();
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); resolve(); };
+    })).catch(() => {});
 }
 
 // 获取单词的关键字段（与 fc.html 的 getWordKey 保持兼容）
@@ -509,12 +559,57 @@ function getWordPhonetic(wordObj) {
 }
 
 // ============================================================
-// 发音
+// 发音（优先播放本地缓存，未命中时下载并缓存到 IndexedDB）
 // ============================================================
-function playWordAudio(word) {
-    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=1`;
-    const audio = new Audio(url);
+let currentAudio = null; // 当前播放实例（用于快速打断上一题发音）
+
+function playAudioSource(src, isBlobUrl) {
+    // 先打断上一次播放，避免两段发音重叠
+    if (currentAudio) { try { currentAudio.pause(); } catch (e) {} }
+    const audio = new Audio(src);
+    currentAudio = audio;
+    if (isBlobUrl) {
+        // blob URL 播放结束/失败后释放内存
+        const release = () => { try { URL.revokeObjectURL(src); } catch (e) {} };
+        audio.addEventListener('ended', release);
+        audio.addEventListener('error', release);
+    }
     audio.play().catch(() => {});
+}
+
+async function playWordAudio(word) {
+    if (!word || word === 'Unknown') return;
+    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=1`;
+
+    // 1) 缓存命中：直接播放本地音频，零网络请求
+    const cachedBlob = await getCachedAudio(word);
+    if (cachedBlob && cachedBlob.size > 0) {
+        playAudioSource(URL.createObjectURL(cachedBlob), true);
+        return;
+    }
+
+    // 2) 未命中：no-cors 下载（规避有道接口跨域限制），写入缓存后播放
+    try {
+        const response = await fetch(url, { mode: 'no-cors' });
+        const blob = await response.blob();
+        if (blob && blob.size > 0) {
+            saveCachedAudio(word, blob); // 后台写入，不阻塞播放
+            updateAudioCacheBadge();
+            playAudioSource(URL.createObjectURL(blob), true);
+            return;
+        }
+    } catch (e) { /* 网络异常，走兜底 */ }
+
+    // 3) 兜底：直接播放远程地址（依赖浏览器自身 HTTP 磁盘缓存）
+    playAudioSource(url, false);
+}
+
+// 更新页脚缓存数量角标
+async function updateAudioCacheBadge() {
+    try {
+        const count = await getAudioCacheCount();
+        els.audioCacheBadge.textContent = `📦 本地语音缓存: ${count} 个`;
+    } catch (e) { /* 忽略 */ }
 }
 
 // ============================================================
@@ -551,7 +646,8 @@ const els = {
     statWrong: document.getElementById('stat-wrong'),
     statAccuracy: document.getElementById('stat-accuracy'),
     statHeat: document.getElementById('stat-heat'),
-    linkFc: document.getElementById('link-fc')
+    linkFc: document.getElementById('link-fc'),
+    audioCacheBadge: document.getElementById('audio-cache-badge')
 };
 
 let wrongWords = [];      // 全部错词（原始数据）
@@ -589,6 +685,7 @@ async function init() {
 
         // 事件绑定
         bindEvents();
+        updateAudioCacheBadge();
         startSession();
     } catch (err) {
         els.statusText.textContent = '⚠️ ' + err.message;
@@ -622,6 +719,13 @@ function bindEvents() {
     els.btnHome.addEventListener('click', showHome);
     els.linkFc.addEventListener('click', () => {
         window.location.href = 'fc.html';
+    });
+    // 点击页脚缓存角标：清空全部语音缓存
+    els.audioCacheBadge.addEventListener('click', async () => {
+        if (confirm('确定清空全部本地语音缓存吗？之后首次播放需要重新下载。')) {
+            await clearAudioCache();
+            updateAudioCacheBadge();
+        }
     });
 }
 
