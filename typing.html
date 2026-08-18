@@ -928,6 +928,11 @@ function bindEvents() {
     });
     els.groupSelect.addEventListener('change', () => {
         // 切换组别：立即用新分组重新开局（结算后同样生效）
+        // 结算后切换组别时，先清除结束标记，确保 startSession 正常执行
+        if (isFinished) {
+            isFinished = false;
+            els.answerInput.disabled = false;
+        }
         saveProgress();
         startSession();
     });
@@ -1001,8 +1006,9 @@ function currentSize() {
 }
 
 // 重建"选择组别"下拉选项（与 fc.html 一致：按每组数量切分错词本顺序）
-function rebuildGroupOptions() {
-    const selected = parseInt(els.groupSelect.value) || 0;
+// forceSelect: 可选，强制选中指定组别（用于结算后切换组别时确保值正确）
+function rebuildGroupOptions(forceSelect) {
+    const selected = (forceSelect !== undefined) ? forceSelect : (parseInt(els.groupSelect.value) || 0);
     const size = currentSize();
     const totalGroups = Math.max(Math.ceil(wrongWords.length / size), 1);
     els.groupSelect.innerHTML = '';
