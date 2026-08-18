@@ -458,7 +458,6 @@
             <div class="result-trans" id="result-trans"></div>
             <div class="result-btns">
                 <button class="btn btn-primary" id="btn-again">🔁 再练一次</button>
-                <button class="btn btn-plain" id="btn-home">🏠 返回设置</button>
             </div>
             <div class="retry-list hidden" id="retry-list"></div>
         </div>
@@ -844,7 +843,6 @@ const els = {
     resultWord: document.getElementById('result-word'),
     resultTrans: document.getElementById('result-trans'),
     btnAgain: document.getElementById('btn-again'),
-    btnHome: document.getElementById('btn-home'),
     retryList: document.getElementById('retry-list'),
     statsPanel: document.getElementById('stats-panel'),
     statTotal: document.getElementById('stat-total'),
@@ -952,6 +950,16 @@ function bindEvents() {
     els.btnToggleTrans.addEventListener('click', toggleTransReveal);
     els.btnToggleExample.addEventListener('click', toggleExampleReveal);
     els.btnAgain.addEventListener('click', () => {
+        // 不是最后一个组别：切换到下一组，继续听写（重置统计）
+        const groupIdx = parseInt(els.groupSelect.value) || 0;
+        const totalGroups = els.groupSelect.options.length;
+        if (groupIdx + 1 < totalGroups) {
+            els.groupSelect.value = String(groupIdx + 1);
+            saveProgress();
+            startSession();
+            return;
+        }
+        // 已是最后一组：有错词则只重练错词，无错词则重练本组
         if (retryWords.length > 0) {
             sessionWords = shuffle(retryWords.slice());
             retryWords = [];
@@ -961,7 +969,6 @@ function bindEvents() {
             startSession();
         }
     });
-    els.btnHome.addEventListener('click', showHome);
     els.linkFc.addEventListener('click', () => {
         window.location.href = 'fc.html';
     });
@@ -1335,7 +1342,6 @@ function showFlashAnswer() {
     els.resultWord.style.color = 'var(--accent)';
     els.resultTrans.textContent = (ph ? ph + '　' : '') + getWordTrans(obj);
     els.btnAgain.classList.add('hidden'); // 隐藏再练按钮（回合间）
-    els.btnHome.classList.add('hidden');
     els.retryList.classList.add('hidden');
 
     // 2 秒后自动进入下一题（若用户已手动导航则不再前进）
@@ -1413,7 +1419,6 @@ function finishSession() {
     // 显示结果面板
     els.resultPanel.classList.remove('hidden');
     els.btnAgain.classList.remove('hidden');
-    els.btnHome.classList.remove('hidden');
     els.resultWord.textContent = '🏁 本局结束!';
     els.resultWord.style.color = 'var(--text-main)';
     els.resultTrans.textContent = `共 ${stats.total} 题，答对 ${stats.correct} 题`;
@@ -1428,34 +1433,6 @@ function finishSession() {
     const absoluteTotal = ((parseInt(els.groupSelect.value) || 0) * currentSize()) + sessionWords.length;
     els.roundText.textContent = `组内: ${sessionWords.length}/${sessionWords.length} (总第${absoluteTotal}词)`;
     els.answerInput.focus();
-}
-
-// ============================================================
-// 返回设置界面（重新开始）
-// ============================================================
-function showHome() {
-    isFinished = true;
-    sessionWords = [];
-    els.resultPanel.classList.add('hidden');
-    els.statsPanel.classList.add('hidden');
-    els.retryList.classList.add('hidden');
-    els.answerInput.disabled = true;
-    els.answerInput.value = '';
-    els.wordDisplay.textContent = '—';
-    els.promptText.textContent = '';
-    els.btnReplay.classList.add('hidden');
-    els.btnToggleTrans.classList.add('hidden');
-    els.btnToggleExample.classList.add('hidden');
-    els.transReveal.classList.add('hidden');
-    els.transReveal.textContent = '';
-    els.exampleReveal.classList.add('hidden');
-    els.exampleReveal.textContent = '';
-    els.charList.innerHTML = '';
-    els.roundText.textContent = '组内: 0 / 0';
-    els.scoreText.textContent = '得分 0 (0%)';
-    els.progressFill.style.width = '0%';
-    els.btnPrevWord.disabled = true;
-    els.btnNextWord.disabled = true;
 }
 
 // ============================================================
