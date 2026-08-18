@@ -460,6 +460,7 @@
 // ============================================================
 const DB_NAME = 'FlashcardDB';
 const DB_VERSION = 4; // v4: 新增 audio_cache 表（有道语音本地缓存）
+const STORE_ALL = 'words';        // 全词库（与 fc.html 共用，用于音标补全）
 const STORE_WRONG = 'wrong_words';
 const STORE_AUDIO = 'audio_cache';
 
@@ -483,24 +484,43 @@ function openFlashcardDB() {
 }
 
 // 从 IndexedDB 中读取全部错词
-function loadWrongWordsFromDB() {
-    return openFlashcardDB().then((db) => new Promise((resolve, reject) => {
-        if (!db.objectStoreNames.contains(STORE_WRONG)) {
-            db.close();
-            resolve([]);
-            return;
-        }
-        const tx = db.transaction([STORE_WRONG], 'readonly');
-        const store = tx.objectStore(STORE_WRONG);
-        const req = store.getAll();
-        req.onsuccess = () => {
-            const records = req.result || [];
-            const words = records.map(r => r.data).filter(Boolean);
-            db.close();
-            resolve(words);
-        };
-        req.onerror = () => { db.close(); reject(new Error('读取错词本失败')); };
-    })).catch(() => []);
+// 与 fc.html 保持一致：优先用全词库 (words 表) 中的完整词条（含音标），
+// 旧错词数据无音标时自动补全
+async function loadWrongWordsFromDB() {
+    const db = await openFlashcardDB();
+
+    // 1) 构建全词库 key -> 完整词条 索引（用于音标补全）
+    const allWordsMap = new Map();
+    if (db.objectStoreNames.contains(STORE_ALL)) {
+        await new Promise((resolve) => {
+            const req = db.transaction(STORE_ALL, 'readonly').objectStore(STORE_ALL).openCursor();
+            req.onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (cursor) {
+                    const key = getWordKey(cursor.value && cursor.value.data);
+                    if (key) allWordsMap.set(key, cursor.value.data);
+                    cursor.continue();
+                } else { resolve(); }
+            };
+            req.onerror = () => resolve();
+        });
+    }
+
+    // 2) 读取错词列表：优先取全词库中的完整词条
+    let words = [];
+    if (db.objectStoreNames.contains(STORE_WRONG)) {
+        words = await new Promise((resolve, reject) => {
+            const req = db.transaction(STORE_WRONG, 'readonly').objectStore(STORE_WRONG).getAll();
+            req.onsuccess = () => {
+                const records = req.result || [];
+                resolve(records.map(r => allWordsMap.get(r.wordKey) || r.data).filter(Boolean));
+            };
+            req.onerror = () => { reject(new Error('读取错词本失败')); };
+        });
+    }
+
+    db.close();
+    return words;
 }
 
 // ============================================================
@@ -554,8 +574,18 @@ function getWordTrans(wordObj) {
     if (typeof wordObj === 'string') return '';
     return '';
 }
+// 获取单词的音标（与 fc.html 的存取格式保持一致）
+// 优先英/美双音标 (usphone/ukphone)，其次通用 phonetic 字段
 function getWordPhonetic(wordObj) {
-    return wordObj.phonetic || wordObj.phonetics || '';
+    if (!wordObj || typeof wordObj !== 'object') return '';
+
+    const usPhone = wordObj.usphone || '';
+    const ukPhone = wordObj.ukphone || '';
+    if (usPhone && ukPhone && usPhone !== ukPhone) {
+        return `英 [${ukPhone}]  美 [${usPhone}]`;
+    }
+    const single = usPhone || ukPhone || wordObj.phonetic || wordObj.phonetics || '';
+    return single ? `[${single}]` : '';
 }
 
 // ============================================================
