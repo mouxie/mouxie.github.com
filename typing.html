@@ -920,16 +920,16 @@ function bindEvents() {
         if (!isFinished) renderQuestion();
     });
     els.sizeSelect.addEventListener('change', () => {
-        // 每组数量变化：跳回第 1 组并立即重新开局
+        // 每组数量变化：跳回第 1 组并立即重新开局（结算后同样生效）
         els.groupSelect.value = '0';
         rebuildGroupOptions();
         saveProgress();
-        if (!isFinished) startSession();
+        startSession();
     });
     els.groupSelect.addEventListener('change', () => {
-        // 切换组别：立即用新分组重新开局
+        // 切换组别：立即用新分组重新开局（结算后同样生效）
         saveProgress();
-        if (!isFinished) startSession();
+        startSession();
     });
     els.answerInput.addEventListener('input', (e) => {
         renderCharFeedback();
