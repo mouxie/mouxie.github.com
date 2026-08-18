@@ -175,6 +175,29 @@
             word-break: break-all;
         }
 
+        .example-reveal {
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: #eef4ff;
+            border: 1px solid #c9dcf7;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.8;
+            word-break: break-all;
+        }
+        .example-item { margin: 6px 0; }
+        .example-pos {
+            display: inline-block;
+            background: var(--primary);
+            color: #fff;
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 11px;
+            margin-right: 6px;
+            vertical-align: 1px;
+        }
+
         .char-list {
             display: flex;
             flex-wrap: wrap;
@@ -407,8 +430,10 @@
                 <div class="question-actions">
                     <button id="btn-replay" class="btn btn-primary btn-sm hidden">🔊 重听发音</button>
                     <button id="btn-toggle-trans" class="btn btn-plain btn-sm hidden">👁 查看释义</button>
+                    <button id="btn-toggle-example" class="btn btn-plain btn-sm hidden">📖 查看例句</button>
                 </div>
                 <div class="trans-reveal hidden" id="trans-reveal"></div>
+                <div class="example-reveal hidden" id="example-reveal"></div>
             </div>
             <div class="char-list" id="char-list"></div>
             <div class="input-area">
@@ -779,7 +804,9 @@ const els = {
     promptText: document.getElementById('prompt-text'),
     btnReplay: document.getElementById('btn-replay'),
     btnToggleTrans: document.getElementById('btn-toggle-trans'),
+    btnToggleExample: document.getElementById('btn-toggle-example'),
     transReveal: document.getElementById('trans-reveal'),
+    exampleReveal: document.getElementById('example-reveal'),
     charList: document.getElementById('char-list'),
     answerInput: document.getElementById('answer-input'),
     btnClear: document.getElementById('btn-clear'),
@@ -877,6 +904,7 @@ function bindEvents() {
     els.btnNextWord.addEventListener('click', goNextWord);
     els.btnReplay.addEventListener('click', () => { if (currentWord) playWordAudio(currentWord); });
     els.btnToggleTrans.addEventListener('click', toggleTransReveal);
+    els.btnToggleExample.addEventListener('click', toggleExampleReveal);
     els.btnAgain.addEventListener('click', () => {
         if (retryWords.length > 0) {
             sessionWords = shuffle(retryWords.slice());
@@ -962,6 +990,11 @@ function renderQuestion() {
     els.transReveal.classList.add('hidden');
     els.transReveal.textContent = '';
     els.btnToggleTrans.textContent = '👁 查看释义';
+    // 重置例句查看状态（例句按钮在听写/跟打两种模式下均可用）
+    els.exampleReveal.classList.add('hidden');
+    els.exampleReveal.textContent = '';
+    els.btnToggleExample.classList.remove('hidden');
+    els.btnToggleExample.textContent = '📖 查看例句';
 
     if (currentMode === 'copy') {
         // 照词跟打：显示单词，隐藏音标与释义按钮
@@ -1037,6 +1070,125 @@ function toggleTransReveal() {
         els.transReveal.classList.add('hidden');
         els.btnToggleTrans.textContent = '👁 查看释义';
     }
+}
+
+// ============================================================
+// 例句查询（Free Dictionary API：https://dictionaryapi.dev，
+// 完全免费、无需 API Key；数据字段 example 即英文例句）
+// ============================================================
+const EXAMPLE_API_URL = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
+const EXAMPLE_CACHE_KEY = 'dictExamples_';        // localStorage 键前缀
+const EXAMPLE_CACHE_TTL = 30 * 24 * 3600 * 1000;  // 缓存有效期 30 天
+const exampleMemoryCache = new Map();             // 内存缓存（本次会话）
+
+// 从 API 返回的 entries 数组中提取例句（去重，最多 3 条）
+function extractExamples(data) {
+    const seen = new Set();
+    const out = [];
+    for (const entry of data) {
+        for (const m of (entry.meanings || [])) {
+            for (const d of (m.definitions || [])) {
+                if (d.example && !seen.has(d.example)) {
+                    seen.add(d.example);
+                    out.push({ example: d.example, pos: m.partOfSpeech, definition: d.definition });
+                    if (out.length >= 3) return out;
+                }
+            }
+        }
+    }
+    return out;
+}
+
+// 读取本地缓存（localStorage），过期/损坏则返回 null
+function readExampleCache(word) {
+    try {
+        const raw = localStorage.getItem(EXAMPLE_CACHE_KEY + word);
+        if (!raw) return null;
+        const obj = JSON.parse(raw);
+        if (!Array.isArray(obj.list) || Date.now() - obj.ts > EXAMPLE_CACHE_TTL) return null;
+        return obj.list;
+    } catch (e) { return null; }
+}
+
+function writeExampleCache(word, list) {
+    try {
+        localStorage.setItem(EXAMPLE_CACHE_KEY + word, JSON.stringify({ ts: Date.now(), list: list }));
+    } catch (e) { /* 隐私模式等场景忽略 */ }
+}
+
+// 获取单词例句：内存缓存 → localStorage 缓存 → 网络请求
+// 任何失败都返回空数组，不向上抛出异常（例句是增强信息，不能打断游戏）
+async function fetchExamples(word) {
+    if (!word) return [];
+    if (exampleMemoryCache.has(word)) return exampleMemoryCache.get(word);
+    const cached = readExampleCache(word);
+    if (cached) { exampleMemoryCache.set(word, cached); return cached; }
+
+    try {
+        const resp = await fetch(EXAMPLE_API_URL + encodeURIComponent(word));
+        if (!resp.ok) { // 404（API 无此词）等：按无例句处理
+            exampleMemoryCache.set(word, []);
+            return [];
+        }
+        // 注意：429（限流）时返回的是 HTML 而非 JSON，resp.json() 会抛错走 catch
+        const data = await resp.json();
+        const list = extractExamples(data);
+        exampleMemoryCache.set(word, list);
+        writeExampleCache(word, list);
+        return list;
+    } catch (e) {
+        return [];
+    }
+}
+
+// 切换例句显示/隐藏
+function toggleExampleReveal() {
+    const isHidden = els.exampleReveal.classList.contains('hidden');
+    if (isHidden) {
+        els.exampleReveal.textContent = '⏳ 正在加载例句...';
+        els.exampleReveal.classList.remove('hidden');
+        els.btnToggleExample.textContent = '🙈 隐藏例句';
+        fetchExamples(currentWord).then((list) => {
+            // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
+            if (els.exampleReveal.classList.contains('hidden')) return;
+            renderExamples(list);
+        });
+    } else {
+        els.exampleReveal.classList.add('hidden');
+        els.btnToggleExample.textContent = '📖 查看例句';
+    }
+}
+
+function renderExamples(list) {
+    if (!list || list.length === 0) {
+        els.exampleReveal.textContent = '（未找到该单词的例句）';
+        return;
+    }
+    // 听写模式下例句会把答案单词原样显示出来（泄露拼写），必须遮成下划线
+    const hideWord = (currentMode === 'dictation');
+    els.exampleReveal.innerHTML = list.map((it) => {
+        const ex = hideWord ? maskAnswerWord(it.example, currentWord) : it.example;
+        const title = it.definition ? ' title="' + escapeHtml(it.definition) + '"' : '';
+        return `<div class="example-item"${title}><span class="example-pos">${escapeHtml(it.pos || '')}</span>${escapeHtml(ex)}</div>`;
+    }).join('');
+    // 绑定点击例句重听发音（整句可能多个单词，播放句首首词即可作为提示）
+    els.exampleReveal.querySelectorAll('.example-item').forEach((item) => {
+        item.style.cursor = 'pointer';
+        item.addEventListener('click', () => playWordAudio(item.textContent.trim().split(/\s+/)[0]));
+    });
+}
+
+// 把例句中的目标单词整体替换成下划线（整词匹配，保留前后字符）
+function maskAnswerWord(sentence, word) {
+    if (!word) return sentence;
+    try {
+        const re = new RegExp('(^|[^A-Za-z])' + escapeRegExp(word) + '($|[^A-Za-z])', 'gi');
+        return sentence.replace(re, (m, p1, p2) => p1 + '_'.repeat(word.length) + p2);
+    } catch (e) { return sentence; }
+}
+
+function escapeRegExp(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // ============================================================
@@ -1198,8 +1350,11 @@ function showHome() {
     els.promptText.textContent = '';
     els.btnReplay.classList.add('hidden');
     els.btnToggleTrans.classList.add('hidden');
+    els.btnToggleExample.classList.add('hidden');
     els.transReveal.classList.add('hidden');
     els.transReveal.textContent = '';
+    els.exampleReveal.classList.add('hidden');
+    els.exampleReveal.textContent = '';
     els.charList.innerHTML = '';
     els.roundText.textContent = '第 0 / 0 题';
     els.scoreText.textContent = '得分 0 (0%)';
