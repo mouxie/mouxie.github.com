@@ -1075,7 +1075,11 @@ function renderQuestion() {
     els.progressFill.style.width = `${(sessionIndex / sessionWords.length) * 100}%`;
 
     // 上一词/下一词边界
-    els.btnPrevWord.disabled = (sessionIndex <= 0);
+    // 上一词：组内第一个单词时，若还有上一组则允许跳转
+    const isFirstWordInGroup = (sessionIndex <= 0);
+    const curGroupIdx = parseInt(els.groupSelect.value) || 0;
+    const hasPrevGroup = (curGroupIdx > 0);
+    els.btnPrevWord.disabled = isFirstWordInGroup && !hasPrevGroup;
     // 下一词：本组最后一个单词时，若还有下一组则允许跳转
     const isLastWordInGroup = (sessionIndex >= sessionWords.length - 1);
     const groupIdx = parseInt(els.groupSelect.value) || 0;
@@ -1369,10 +1373,36 @@ function showFlashAnswer() {
 // 上一词 / 下一词 导航（与 fc.html 一致）
 // ============================================================
 function goPrevWord() {
-    if (isFinished || sessionIndex <= 0) return;
-    rollbackQuestionResult(sessionIndex); // 回滚当前题统计（若已作答），允许重练
-    sessionIndex--;
+    if (isFinished) return;
+    if (sessionIndex > 0) {
+        rollbackQuestionResult(sessionIndex); // 回滚当前题统计（若已作答），允许重练
+        sessionIndex--;
+        renderQuestion();
+        return;
+    }
+    // sessionIndex === 0：当前是本组第一个单词，尝试跳转到上一个组别的最后一个单词
+    const groupIdx = parseInt(els.groupSelect.value) || 0;
+    if (groupIdx <= 0) return; // 已经是第一组，无法再往前
+    rollbackQuestionResult(sessionIndex); // 回滚当前题统计
+    els.groupSelect.value = String(groupIdx - 1);
+    saveProgress();
+    // 切换到上一组后，定位到该组的最后一个单词
+    const prevSize = currentSize();
+    const prevOffset = (groupIdx - 1) * prevSize;
+    const prevGroupLen = Math.min(prevSize, wrongWords.length - prevOffset);
+    sessionWords = wrongWords.slice(prevOffset, prevOffset + prevSize);
+    sessionIndex = prevGroupLen - 1;
+    retryWords = [];
+    sessionResults = new Array(sessionWords.length).fill(null);
+    stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
+    isFinished = false;
+    els.answerInput.disabled = false;
+    els.answerInput.value = '';
+    els.resultPanel.classList.add('hidden');
+    els.statsPanel.classList.add('hidden');
+    els.retryList.classList.add('hidden');
     renderQuestion();
+    saveProgress();
 }
 
 function goNextWord() {
