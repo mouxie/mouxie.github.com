@@ -513,8 +513,7 @@
 // 数据来源：与 fc.html 共用的 IndexedDB (FlashcardDB / wrong_words)
 // ============================================================
 const DB_NAME = 'FlashcardDB';
-const DB_VERSION = 6; // v6: 与 fc.html 统一建 4 张表（v5 时 typing.html 未建 words 表，
-                      //     导致先开本页再开 fc.html 时 fc 无法补齐 words 表）
+const DB_VERSION = 5; 
 const STORE_ALL = 'words';        // 全词库（与 fc.html 共用，用于音标补全）
 const STORE_WRONG = 'wrong_words';
 const STORE_AUDIO = 'audio_cache';
