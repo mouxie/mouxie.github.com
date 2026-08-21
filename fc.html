@@ -1064,13 +1064,54 @@
         let exampleCacheSeq = 0;             // 例句缓存请求序号（用于匹配 worker 回包）
         const pendingExampleCacheRequests = new Map(); // seq -> resolve 回调
 
+        // ------------------------------------------------------------------
+        // DeepSeek 设置常量（必须在使用前提前声明，避免 const TDZ 错误）
+        // ------------------------------------------------------------------
+        const DS_SETTINGS_KEY = 'deepseek_settings_v1';
+        const DEFAULT_DS_SETTINGS = {
+            apiKey: '',
+            baseUrl: 'https://api.deepseek.com',
+            model: 'deepseek-chat',
+            reasoningEffort: 'medium',
+            audioProxyUrl: ''
+        };
+
+        function loadDSSettings() {
+            try {
+                const raw = localStorage.getItem(DS_SETTINGS_KEY);
+                return raw ? Object.assign({}, DEFAULT_DS_SETTINGS, JSON.parse(raw)) : Object.assign({}, DEFAULT_DS_SETTINGS);
+            } catch (e) { return Object.assign({}, DEFAULT_DS_SETTINGS); }
+        }
+
+        function saveDSSettings(settings) {
+            try { localStorage.setItem(DS_SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* 隐私模式等写入失败可忽略 */ }
+        }
+
         // 初始化
         const initDsSettings = loadDSSettings();
         worker.postMessage({ type: 'init', url: JSON_URL, audioProxyUrl: initDsSettings.audioProxyUrl || '' });
 
+        // Worker 初始化超时保护：15 秒内未收到 ready/error 则提示用户
+        let workerInitDone = false;
+        const workerInitTimer = setTimeout(() => {
+            if (!workerInitDone) {
+                initStatusText.innerText = '⚠️ 初始化超时，请检查网络连接后刷新页面';
+                initStatusText.style.color = '#d9534f';
+            }
+        }, 15000);
+
+        worker.onerror = function(err) {
+            workerInitDone = true;
+            clearTimeout(workerInitTimer);
+            initStatusText.innerText = '⚠️ Worker 启动失败: ' + (err.message || '未知错误') + '，请刷新页面重试';
+            initStatusText.style.color = '#d9534f';
+        };
+
         worker.onmessage = function(e) {
             const msg = e.data;
             if (msg.type === 'ready') {
+                workerInitDone = true;
+                clearTimeout(workerInitTimer);
                 initStatusText.style.display = 'none';
                 topBar.style.display = 'flex';
                 cardScene.style.display = 'block';
@@ -1125,6 +1166,8 @@
                 }
             }
             else if (msg.type === 'error') {
+                workerInitDone = true;
+                clearTimeout(workerInitTimer);
                 initStatusText.innerText = '⚠️ ' + msg.message;
                 initStatusText.style.color = '#d9534f';
             }
@@ -1417,15 +1460,9 @@
         //     -H "Content-Type: application/json" \
         //     -H "Authorization: Bearer <API Key>" \
         //     -d '{"model":"deepseek-chat","messages":[...],"stream":false}'
+        // （DS_SETTINGS_KEY / DEFAULT_DS_SETTINGS / loadDSSettings / saveDSSettings
+        //   已提前声明在 Worker 初始化之前，避免 const TDZ 错误）
         // ------------------------------------------------------------------
-        const DS_SETTINGS_KEY = 'deepseek_settings_v1';
-        const DEFAULT_DS_SETTINGS = {
-            apiKey: '',
-            baseUrl: 'https://api.deepseek.com',
-            model: 'deepseek-chat',
-            reasoningEffort: 'medium',
-            audioProxyUrl: ''   // Cloudflare Worker 语音代理地址（可选）
-        };
 
         const btnSettings = document.getElementById('btn-settings');
         const settingsModal = document.getElementById('settings-modal');
@@ -1454,17 +1491,7 @@
                 .replace(/'/g, '&#39;');
         }
 
-        // ---------- 设置持久化（localStorage） ----------
-        function loadDSSettings() {
-            try {
-                const raw = localStorage.getItem(DS_SETTINGS_KEY);
-                return raw ? Object.assign({}, DEFAULT_DS_SETTINGS, JSON.parse(raw)) : Object.assign({}, DEFAULT_DS_SETTINGS);
-            } catch (e) { return Object.assign({}, DEFAULT_DS_SETTINGS); }
-        }
-
-        function saveDSSettings(settings) {
-            try { localStorage.setItem(DS_SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* 隐私模式等写入失败可忽略 */ }
-        }
+        // ---------- 设置持久化（loadDSSettings / saveDSSettings 已在上方提前声明） ----------
 
         function openSettingsPanel() {
             const s = loadDSSettings();
