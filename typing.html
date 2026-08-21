@@ -197,6 +197,17 @@
             margin-right: 6px;
             vertical-align: 1px;
         }
+        .example-item-head { margin-bottom: 2px; line-height: 1.6; }
+        .example-meaning { font-size: 13px; font-weight: 600; color: var(--text-main); }
+        .example-en { margin: 4px 0 2px; }
+        .example-cn { font-size: 13px; color: #666; }
+        .example-cache-tip {
+            font-size: 11px;
+            color: var(--text-sub);
+            margin-bottom: 6px;
+            border-bottom: 1px dashed #d5dfea;
+            padding-bottom: 4px;
+        }
 
         .char-list {
             display: flex;
@@ -502,10 +513,11 @@
 // 数据来源：与 fc.html 共用的 IndexedDB (FlashcardDB / wrong_words)
 // ============================================================
 const DB_NAME = 'FlashcardDB';
-const DB_VERSION = 4; // v4: 新增 audio_cache 表（有道语音本地缓存）
+const DB_VERSION = 5; // v5: 新增 example_cache 表（DeepSeek 例句缓存，与 fc.html 共用）
 const STORE_ALL = 'words';        // 全词库（与 fc.html 共用，用于音标补全）
 const STORE_WRONG = 'wrong_words';
 const STORE_AUDIO = 'audio_cache';
+const STORE_EXAMPLE = 'example_cache';
 
 // 统一打开数据库（升级时自动补齐缺失的表）
 function openFlashcardDB() {
@@ -520,6 +532,9 @@ function openFlashcardDB() {
             }
             if (!db.objectStoreNames.contains(STORE_AUDIO)) {
                 db.createObjectStore(STORE_AUDIO, { keyPath: 'word' });
+            }
+            if (!db.objectStoreNames.contains(STORE_EXAMPLE)) {
+                db.createObjectStore(STORE_EXAMPLE, { keyPath: 'word' });
             }
         };
         request.onsuccess = (e) => resolve(e.target.result);
@@ -602,6 +617,28 @@ function clearAudioCache() {
         if (!db.objectStoreNames.contains(STORE_AUDIO)) { db.close(); resolve(); return; }
         const tx = db.transaction(STORE_AUDIO, 'readwrite');
         tx.objectStore(STORE_AUDIO).clear();
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); resolve(); };
+    })).catch(() => {});
+}
+
+// ============================================================
+// DeepSeek 例句缓存（IndexedDB: example_cache，key = 单词，与 fc.html 共用）
+// ============================================================
+function getCachedExample(word) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_EXAMPLE)) { db.close(); resolve(null); return; }
+        const req = db.transaction(STORE_EXAMPLE, 'readonly').objectStore(STORE_EXAMPLE).get(word);
+        req.onsuccess = () => { db.close(); resolve(req.result || null); };
+        req.onerror = () => { db.close(); resolve(null); };
+    })).catch(() => null);
+}
+
+function saveCachedExample(word, data) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_EXAMPLE)) { db.close(); resolve(); return; }
+        const tx = db.transaction(STORE_EXAMPLE, 'readwrite');
+        tx.objectStore(STORE_EXAMPLE).put({ word: word, data: data, ts: Date.now() });
         tx.oncomplete = () => { db.close(); resolve(); };
         tx.onerror = () => { db.close(); resolve(); };
     })).catch(() => {});
@@ -1188,71 +1225,140 @@ function toggleTransReveal() {
 }
 
 // ============================================================
-// 例句查询（Free Dictionary API：https://dictionaryapi.dev，
-// 完全免费、无需 API Key；数据字段 example 即英文例句）
+// 例句查询（DeepSeek 模型 API，与 fc.html 共用设置与 IndexedDB 缓存）
 // ============================================================
-const EXAMPLE_API_URL = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
-const EXAMPLE_CACHE_KEY = 'dictExamples_';        // localStorage 键前缀
-const EXAMPLE_CACHE_TTL = 30 * 24 * 3600 * 1000;  // 缓存有效期 30 天
-const exampleMemoryCache = new Map();             // 内存缓存（本次会话）
+const DS_SETTINGS_KEY = 'deepseek_settings_v1';
+const DEFAULT_DS_SETTINGS = {
+    apiKey: '',
+    baseUrl: 'https://api.deepseek.com',
+    model: 'deepseek-chat',
+    reasoningEffort: 'medium'
+};
+let exampleRequestWord = ''; // 例句请求对应的单词（防止切词后旧响应覆盖新题）
 
-// 从 API 返回的 entries 数组中提取例句（去重，最多 3 条）
-function extractExamples(data) {
-    const seen = new Set();
+// 读取 DeepSeek 设置（与 fc.html 相同的 localStorage key）
+function loadDSSettings() {
+    try {
+        const raw = localStorage.getItem(DS_SETTINGS_KEY);
+        return raw ? Object.assign({}, DEFAULT_DS_SETTINGS, JSON.parse(raw)) : Object.assign({}, DEFAULT_DS_SETTINGS);
+    } catch (e) { return Object.assign({}, DEFAULT_DS_SETTINGS); }
+}
+
+// 从模型返回文本中容错提取 JSON 对象（与 fc.html 相同的容错策略）
+function extractJSON(text) {
+    const t = (text || '').trim();
+    const cleaned = t.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+    try {
+        const parsed = JSON.parse(cleaned);
+        if (parsed && typeof parsed === 'object') return parsed;
+    } catch (e) { /* fall through */ }
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+        try {
+            const parsed = JSON.parse(cleaned.substring(start, end + 1));
+            if (parsed && typeof parsed === 'object') return parsed;
+        } catch (e) { /* fall through */ }
+    }
+    return null;
+}
+
+// 将模型返回的 JSON 归一化为 [{partOfSpeech, meaning, exampleEnglish, exampleChinese}]
+// 优先多词性 examples 数组，其次兼容旧版单例句字段
+function normalizeExamples(parsed) {
+    if (!parsed || typeof parsed !== 'object') return [];
     const out = [];
-    for (const entry of data) {
-        for (const m of (entry.meanings || [])) {
-            for (const d of (m.definitions || [])) {
-                if (d.example && !seen.has(d.example)) {
-                    seen.add(d.example);
-                    out.push({ example: d.example, pos: m.partOfSpeech, definition: d.definition });
-                    if (out.length >= 3) return out;
-                }
-            }
-        }
+    const arr = (Array.isArray(parsed.examples) && parsed.examples.length > 0) ? parsed.examples : null;
+    if (arr) {
+        arr.forEach((item) => {
+            if (!item || typeof item !== 'object') return;
+            const part = item.partOfSpeech || item.pos || item.part || '';
+            const meaning = item.meaning || item.definition || '';
+            const en = item.exampleEnglish || item.example_en || item.example || '';
+            const cn = item.exampleChinese || item.example_cn || '';
+            if (!en && !meaning && !cn && !part) return;
+            out.push({ partOfSpeech: part, meaning: meaning, exampleEnglish: en, exampleChinese: cn });
+        });
+    } else {
+        const en = parsed.exampleEnglish || parsed.example_en || parsed.example || '';
+        const cn = parsed.exampleChinese || parsed.example_cn || parsed.cn || '';
+        const part = parsed.partOfSpeech || parsed.pos || '';
+        const meaning = parsed.meaning || parsed.definition || '';
+        if (en || cn) out.push({ partOfSpeech: part, meaning: meaning, exampleEnglish: en, exampleChinese: cn });
     }
     return out;
 }
 
-// 读取本地缓存（localStorage），过期/损坏则返回 null
-function readExampleCache(word) {
-    try {
-        const raw = localStorage.getItem(EXAMPLE_CACHE_KEY + word);
-        if (!raw) return null;
-        const obj = JSON.parse(raw);
-        if (!Array.isArray(obj.list) || Date.now() - obj.ts > EXAMPLE_CACHE_TTL) return null;
-        return obj.list;
-    } catch (e) { return null; }
-}
+// 获取单词例句：IndexedDB 缓存（与 fc.html 共用）→ DeepSeek API → 写回缓存
+// 返回 { list, fromCache } 或 { error }（错误不向上抛出，例句是增强信息不打断游戏）
+async function fetchExamplesFromModel(word) {
+    if (!word) return { error: '（当前单词无效）' };
 
-function writeExampleCache(word, list) {
-    try {
-        localStorage.setItem(EXAMPLE_CACHE_KEY + word, JSON.stringify({ ts: Date.now(), list: list }));
-    } catch (e) { /* 隐私模式等场景忽略 */ }
-}
+    const settings = loadDSSettings();
+    if (!settings.apiKey) {
+        return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置后再使用例句功能。' };
+    }
 
-// 获取单词例句：内存缓存 → localStorage 缓存 → 网络请求
-// 任何失败都返回空数组，不向上抛出异常（例句是增强信息，不能打断游戏）
-async function fetchExamples(word) {
-    if (!word) return [];
-    if (exampleMemoryCache.has(word)) return exampleMemoryCache.get(word);
-    const cached = readExampleCache(word);
-    if (cached) { exampleMemoryCache.set(word, cached); return cached; }
+    // 1) 优先读取 IndexedDB 缓存（fc.html 生成的例句可直接复用）
+    const cached = await getCachedExample(word);
+    if (cached && cached.data) {
+        const ex = normalizeExamples(cached.data);
+        if (ex.length > 0) return { list: ex, fromCache: true };
+    }
 
+    // 2) 未命中：调用 DeepSeek API（与 fc.html 相同的请求格式）
     try {
-        const resp = await fetch(EXAMPLE_API_URL + encodeURIComponent(word));
-        if (!resp.ok) { // 404（API 无此词）等：按无例句处理
-            exampleMemoryCache.set(word, []);
-            return [];
+        const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+        const systemPrompt = '你是一个专业的英语学习助手。请为给定的英文单词生成地道例句。' +
+            '必须考虑该单词不同的词性和含义，为每个主要词性各生成 1 个例句。' +
+            '你必须只输出一个合法的 JSON 对象（不要输出 markdown 代码块、不要输出任何解释文字）。JSON 格式如下：' +
+            '{"word":"英文单词","phonetic":"音标(可省略该字段)","examples":[' +
+            '{"partOfSpeech":"n.","meaning":"该词性下的中文释义","exampleEnglish":"英文例句","exampleChinese":"例句中文翻译"},' +
+            '{"partOfSpeech":"v.","meaning":"动词释义","exampleEnglish":"英文例句","exampleChinese":"例句中文翻译"}' +
+            ']}';
+        const userPrompt = '请为单词 "' + word + '" 生成每个主要词性（如 n./v./adj./adv. 等）各 1 个地道实用例句，每个例句附中文翻译与释义。';
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + settings.apiKey
+            },
+            body: JSON.stringify({
+                model: settings.model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                reasoning_effort: settings.reasoningEffort,
+                stream: false,
+                response_format: { type: 'json_object' }  // 强制模型返回 JSON
+            })
+        });
+
+        if (!response.ok) {
+            let errMsg = 'HTTP ' + response.status;
+            try { const err = await response.json(); if (err.error && err.error.message) errMsg = err.error.message; } catch (e) { /* 非 JSON 错误体 */ }
+            return { error: '❌ 请求失败: ' + errMsg };
         }
-        // 注意：429（限流）时返回的是 HTML 而非 JSON，resp.json() 会抛错走 catch
-        const data = await resp.json();
-        const list = extractExamples(data);
-        exampleMemoryCache.set(word, list);
-        writeExampleCache(word, list);
-        return list;
-    } catch (e) {
-        return [];
+
+        const data = await response.json();
+        const content = data.choices && data.choices[0] && data.choices[0].message
+            ? (data.choices[0].message.content || '')
+            : '';
+        const parsed = extractJSON(content);
+        if (!parsed) return { error: '❌ 模型未返回有效的 JSON 内容' };
+
+        // 3) 写入 IndexedDB 缓存（下次 fc.html / typing.html 直接读取）
+        saveCachedExample(word, parsed);
+        const list = normalizeExamples(parsed);
+        return list.length > 0 ? { list: list } : { error: '（模型未返回有效例句）' };
+    } catch (err) {
+        let msg = err && err.message ? err.message : String(err);
+        if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
+            msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+        }
+        return { error: '❌ 请求失败: ' + msg };
     }
 }
 
@@ -1260,13 +1366,19 @@ async function fetchExamples(word) {
 function toggleExampleReveal() {
     const isHidden = els.exampleReveal.classList.contains('hidden');
     if (isHidden) {
-        els.exampleReveal.textContent = '⏳ 正在加载例句...';
+        els.exampleReveal.textContent = '⏳ 正在请求 DeepSeek 生成例句...';
         els.exampleReveal.classList.remove('hidden');
         els.btnToggleExample.textContent = '🙈 隐藏例句';
-        fetchExamples(currentWord).then((list) => {
+        exampleRequestWord = currentWord;
+        fetchExamplesFromModel(currentWord).then((result) => {
             // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
             if (els.exampleReveal.classList.contains('hidden')) return;
-            renderExamples(list);
+            if (exampleRequestWord !== currentWord) return;
+            if (result.error) {
+                els.exampleReveal.textContent = result.error;
+                return;
+            }
+            renderExamples(result.list, result.fromCache);
         });
     } else {
         els.exampleReveal.classList.add('hidden');
@@ -1274,22 +1386,32 @@ function toggleExampleReveal() {
     }
 }
 
-function renderExamples(list) {
+// 渲染多词性例句（词性徽章 + 释义 + 英文例句 + 中文翻译）
+function renderExamples(list, fromCache) {
     if (!list || list.length === 0) {
         els.exampleReveal.textContent = '（未找到该单词的例句）';
         return;
     }
     // 听写模式下例句会把答案单词原样显示出来（泄露拼写），必须遮成下划线
     const hideWord = (currentMode === 'dictation');
-    els.exampleReveal.innerHTML = list.map((it) => {
-        const ex = hideWord ? maskAnswerWord(it.example, currentWord) : it.example;
-        const title = it.definition ? ' title="' + escapeHtml(it.definition) + '"' : '';
-        return `<div class="example-item"${title}><span class="example-pos">${escapeHtml(it.pos || '')}</span>${escapeHtml(ex)}</div>`;
+    const cacheTip = fromCache ? '<div class="example-cache-tip">📦 已加载本地缓存例句</div>' : '';
+    els.exampleReveal.innerHTML = cacheTip + list.map((it) => {
+        const en = hideWord ? maskAnswerWord(it.exampleEnglish, currentWord) : it.exampleEnglish;
+        const head = (it.partOfSpeech || it.meaning)
+            ? `<div class="example-item-head"><span class="example-pos">${escapeHtml(it.partOfSpeech || '')}</span><span class="example-meaning">${escapeHtml(it.meaning || '')}</span></div>`
+            : '';
+        const cn = it.exampleChinese ? `<div class="example-cn">🇨🇳 ${escapeHtml(it.exampleChinese)}</div>` : '';
+        return `<div class="example-item">${head}<div class="example-en">📝 ${escapeHtml(en)}</div>${cn}</div>`;
     }).join('');
     // 绑定点击例句重听发音（整句可能多个单词，播放句首首词即可作为提示）
     els.exampleReveal.querySelectorAll('.example-item').forEach((item) => {
+        const enEl = item.querySelector('.example-en');
+        if (!enEl) return;
         item.style.cursor = 'pointer';
-        item.addEventListener('click', () => playWordAudio(item.textContent.trim().split(/\s+/)[0]));
+        item.addEventListener('click', () => {
+            const first = enEl.textContent.trim().split(/\s+/)[0];
+            if (first) playWordAudio(first);
+        });
     });
 }
 
