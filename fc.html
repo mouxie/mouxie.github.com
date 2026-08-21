@@ -1417,6 +1417,7 @@
                 const userPrompt = '请为单词 "' + currentWordString + '" 生成每个主要词性（如 n./v./adj./adv. 等）各 1 个地道实用例句，每个例句附中文翻译与释义。';
 
                 const response = await fetch(url, {
+                    method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': 'Bearer ' + settings.apiKey
