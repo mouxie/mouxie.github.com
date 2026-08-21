@@ -540,6 +540,11 @@
                         <option value="high">高 (high)</option>
                     </select>
                 </div>
+                <div class="form-field">
+                    <label for="audio-proxy-url">🎙️ 语音代理地址 (Cloudflare Worker)</label>
+                    <input type="text" id="audio-proxy-url" placeholder="https://audio-proxy.xxx.workers.dev" spellcheck="false">
+                    <div class="form-hint">可选。部署 Cloudflare Worker 后填入，语音可缓存到本地（离线可用）；留空则使用内置源。</div>
+                </div>
                 <div id="settings-status" class="form-status"></div>
             </div>
             <div class="modal-footer">
@@ -597,6 +602,9 @@
             let pageSize = 20;
             let currentGroupIdx = 0;
             let currentGroupWords = [];
+
+            // Cloudflare Worker 语音代理地址（由前端设置面板传入，可选）
+            let currentAudioProxyUrl = '';
 
             // 全量词库索引：key -> 完整词条数据（含音标），用于错词数据补全
             let allWordsMap = new Map();
@@ -840,8 +848,13 @@
                         if (totalAll <= 0) {
                             throw new Error('词库导入失败，请检查网络后重试');
                         }
+                        if (msg.audioProxyUrl) currentAudioProxyUrl = String(msg.audioProxyUrl).trim();
                         self.postMessage({ type: 'ready', totalAll, totalWrong: wrongWordIdsSet.size });
                     } catch (error) { self.postMessage({ type: 'error', message: error.message }); }
+                }
+
+                else if (msg.type === 'setAudioProxy') {
+                    currentAudioProxyUrl = String(msg.url || '').trim();
                 }
 
                 else if (msg.type === 'updateFilter') {
@@ -899,19 +912,44 @@
                 }
 
                 else if (msg.type === 'playAudio') {
-                    // 缓存优先：命中直接返回本地 Blob；未命中则 no-cors 下载并写入缓存
+                    // 缓存优先：命中直接返回本地 Blob；未命中则下载并写入缓存
                     try {
                         const cachedBlob = await getCachedAudio(msg.word);
                         if (cachedBlob && cachedBlob.size > 0) {
                             self.postMessage({ type: 'audioBlob', token: msg.token, blob: cachedBlob });
                             return;
                         }
-                        const response = await fetch('https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(msg.word) + '&type=1', { mode: 'no-cors' });
-                        const blob = await response.blob();
-                        if (blob && blob.size > 0) {
-                            await saveCachedAudio(msg.word, blob);
+                        // 下载源优先级：
+                        //   1) Cloudflare Worker 代理（CORS 可读，可缓存；需在设置面板配置）
+                        //   2) StreamElements TTS（cors=*，偶发限流 401，作为备选）
+                        // 全部失败则走兜底直链播放（浏览器 audio 标签不受 CORS 限制）
+                        const sources = [];
+                        const proxyBase = (currentAudioProxyUrl || '').replace(/\/+$/, '');
+                        if (proxyBase) {
+                            sources.push(proxyBase + '/?audio=' + encodeURIComponent(msg.word) + '&type=1');
+                            sources.push(proxyBase + '/dictvoice?audio=' + encodeURIComponent(msg.word) + '&type=1');
+                        }
+                        sources.push('https://api.streamelements.com/kappa/v2/speech?voice=Amy&text=' + encodeURIComponent(msg.word));
+
+                        let downloaded = null;
+                        for (const src of sources) {
+                            const controller = new AbortController();
+                            const timer = setTimeout(() => controller.abort(), 10000);
+                            try {
+                                const response = await fetch(src, { signal: controller.signal });
+                                if (response.ok) {
+                                    const b = await response.blob();
+                                    if (b && b.size > 0 && b.type.indexOf('audio') === 0) {
+                                        downloaded = b; clearTimeout(timer); break;
+                                    }
+                                }
+                            } catch (e) { /* 尝试下一个源 */ }
+                            clearTimeout(timer);
+                        }
+                        if (downloaded) {
+                            await saveCachedAudio(msg.word, downloaded);
                             const count = await getAudioCacheCount();
-                            self.postMessage({ type: 'audioBlob', token: msg.token, blob: blob, cacheCount: count });
+                            self.postMessage({ type: 'audioBlob', token: msg.token, blob: downloaded, cacheCount: count });
                             return;
                         }
                     } catch (e) { /* 网络异常，走兜底直链 */ }
@@ -1027,7 +1065,8 @@
         const pendingExampleCacheRequests = new Map(); // seq -> resolve 回调
 
         // 初始化
-        worker.postMessage({ type: 'init', url: JSON_URL });
+        const initDsSettings = loadDSSettings();
+        worker.postMessage({ type: 'init', url: JSON_URL, audioProxyUrl: initDsSettings.audioProxyUrl || '' });
 
         worker.onmessage = function(e) {
             const msg = e.data;
@@ -1095,7 +1134,11 @@
             else if (msg.type === 'audioBlob') {
                 // 令牌不匹配说明用户已切到别的词，丢弃过期音频
                 if (msg.token !== audioPlayToken) return;
-                if (msg.cacheCount !== undefined) updateAudioCacheBadge(msg.cacheCount);
+                if (msg.cacheCount !== undefined) {
+                    updateAudioCacheBadge(msg.cacheCount);
+                    // 新音频已写入缓存，刷新页脚 IndexedDB 统计
+                    worker.postMessage({ type: 'getDbStats' });
+                }
                 if (msg.blob && msg.blob.size > 0) {
                     if (currentAudioBlobUrl) URL.revokeObjectURL(currentAudioBlobUrl);
                     currentAudioBlobUrl = URL.createObjectURL(msg.blob);
@@ -1380,7 +1423,8 @@
             apiKey: '',
             baseUrl: 'https://api.deepseek.com',
             model: 'deepseek-chat',
-            reasoningEffort: 'medium'
+            reasoningEffort: 'medium',
+            audioProxyUrl: ''   // Cloudflare Worker 语音代理地址（可选）
         };
 
         const btnSettings = document.getElementById('btn-settings');
@@ -1392,6 +1436,7 @@
         const inputBaseUrl = document.getElementById('ds-base-url');
         const inputModel = document.getElementById('ds-model');
         const selectEffort = document.getElementById('ds-reasoning-effort');
+        const inputAudioProxyUrl = document.getElementById('audio-proxy-url');
         const settingsStatus = document.getElementById('settings-status');
         const btnExample = document.getElementById('btn-example');
         const exampleArea = document.getElementById('example-area');
@@ -1427,6 +1472,7 @@
             inputBaseUrl.value = s.baseUrl;
             inputModel.value = s.model;
             selectEffort.value = s.reasoningEffort;
+            inputAudioProxyUrl.value = s.audioProxyUrl || '';
             settingsStatus.innerText = '';
             settingsModal.style.display = 'flex';
         }
@@ -1443,7 +1489,8 @@
                 apiKey: inputApiKey.value.trim(),
                 baseUrl: inputBaseUrl.value.trim() || DEFAULT_DS_SETTINGS.baseUrl,
                 model: inputModel.value.trim() || DEFAULT_DS_SETTINGS.model,
-                reasoningEffort: selectEffort.value
+                reasoningEffort: selectEffort.value,
+                audioProxyUrl: inputAudioProxyUrl.value.trim()
             };
             if (!settings.apiKey) {
                 settingsStatus.innerText = '⚠️ API Key 不能为空';
@@ -1451,6 +1498,8 @@
                 return;
             }
             saveDSSettings(settings);
+            // 同步语音代理地址到 Worker（无需刷新页面即可生效）
+            worker.postMessage({ type: 'setAudioProxy', url: settings.audioProxyUrl || '' });
             settingsStatus.innerText = '✅ 设置已保存';
             settingsStatus.style.color = '#2ea44f';
             setTimeout(closeSettingsPanel, 600);
