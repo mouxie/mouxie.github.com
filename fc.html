@@ -504,8 +504,9 @@
         
         <div class="hint" id="hint-text" style="display: none;">💡 提示：点击卡片翻面 | ➔ 下一词 | ← 上一词 | 空格翻转 | V 键听发音 | 回车标记错词</div>
 
-        <div class="hint" id="audio-cache-bar" style="display: none;">
-            <span id="audio-cache-badge" title="点击清空全部本地语音缓存" style="cursor: pointer; border-bottom: 1px dashed #aaa;">📦 本地语音缓存: 0 个</span>
+        <div class="hint" id="db-stats-bar" style="display: none;">
+            <span id="db-stats-text" title="点击刷新统计" style="cursor: pointer; border-bottom: 1px dashed #aaa;">🗄️ IndexedDB: 词库 0 | 错词本 0 | 语音缓存 0 | 例句缓存 0 | 总占用 0 B</span>
+            <span id="audio-cache-badge" title="点击清空全部本地语音缓存" style="cursor: pointer; border-bottom: 1px dashed #aaa; margin-left: 12px;">🗑️ 清空语音缓存</span>
         </div>
     </div>
 
@@ -930,9 +931,53 @@
                     self.postMessage({ type: 'audioCacheInfo', count: await getAudioCacheCount() });
                 }
 
+                else if (msg.type === 'getDbStats') {
+                    const dbStats = await getDbStats();
+                    self.postMessage({ type: 'dbStats', stats: dbStats });
+                }
+
                 else if (msg.type === 'clearAudioCache') {
                     await clearAudioCache();
                     self.postMessage({ type: 'audioCacheInfo', count: await getAudioCacheCount() });
+                }
+
+                // 统计各表记录数与估算大小（用于页脚显示）
+                async function getDbStats() {
+                    const stats = {};
+                    const stores = [STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE];
+                    for (const storeName of stores) {
+                        if (!db || !db.objectStoreNames.contains(storeName)) {
+                            stats[storeName] = { count: 0, size: 0 };
+                            continue;
+                        }
+                        try {
+                            const counts = await new Promise((resolve) => {
+                                const t = db.transaction([storeName], 'readonly');
+                                const s = t.objectStore(storeName);
+                                const req = s.count();
+                                req.onsuccess = () => resolve(req.result || 0);
+                                req.onerror = () => resolve(0);
+                            });
+                            const sizes = await new Promise((resolve) => {
+                                const t = db.transaction([storeName], 'readonly');
+                                const s = t.objectStore(storeName);
+                                const req = s.openCursor();
+                                let total = 0;
+                                req.onsuccess = function (e) {
+                                    const c = e.target.result;
+                                    if (c) {
+                                        try { total += JSON.stringify(c.value).length * 2; } catch (err) { /* skip */ }
+                                        c.continue();
+                                    } else { resolve(total); }
+                                };
+                                req.onerror = () => resolve(0);
+                            });
+                            stats[storeName] = { count: counts, size: sizes };
+                        } catch (e) {
+                            stats[storeName] = { count: 0, size: 0 };
+                        }
+                    }
+                    return stats;
                 }
             };
         `;
@@ -966,6 +1011,7 @@
         const btnExportWrong = document.getElementById('btn-export-wrong');
         const globalAudio = document.getElementById('global-audio');
         const audioCacheBadge = document.getElementById('audio-cache-badge');
+        const dbStatsText = document.getElementById('db-stats-text');
 
         // 前端数据状态指针
         let currentRelativeIndex = 0; 
@@ -1003,8 +1049,9 @@
 
                 updateWrongCountUI(msg.totalWrong);
                 rebuildGroupOptions(msg.totalAll, currentSize());
-                document.getElementById('audio-cache-bar').style.display = 'block';
+                document.getElementById('db-stats-bar').style.display = 'block';
                 worker.postMessage({ type: 'getAudioCacheInfo' });
+                worker.postMessage({ type: 'getDbStats' });
 
                 if (saved) {
                     const maxGroup = Math.max(groupSelect.options.length - 1, 0);
@@ -1063,6 +1110,9 @@
             else if (msg.type === 'audioCacheInfo') {
                 updateAudioCacheBadge(msg.count);
             }
+            else if (msg.type === 'dbStats') {
+                renderDbStats(msg.stats);
+            }
             else if (msg.type === 'exampleCacheData') {
                 const resolver = pendingExampleCacheRequests.get(msg.seq);
                 if (resolver) {
@@ -1070,10 +1120,31 @@
                     resolver(msg.data);  // { word, data, ts } 或 null
                 }
             }
+            else if (msg.type === 'exampleCacheSaved') {
+                // 例句写入缓存后刷新页脚统计
+                worker.postMessage({ type: 'getDbStats' });
+            }
         };
 
         function updateAudioCacheBadge(count) {
-            if (count !== undefined) audioCacheBadge.innerText = `📦 本地语音缓存: ${count} 个`;
+            if (count !== undefined) audioCacheBadge.innerText = '🗑️ 清空语音缓存 (' + count + ')';
+        }
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        // 渲染 IndexedDB 各表统计信息到页脚
+        function renderDbStats(stats) {
+            if (!stats || !dbStatsText) return;
+            const allStore = stats['words'] || { count: 0, size: 0 };
+            const wrongStore = stats['wrong_words'] || { count: 0, size: 0 };
+            const audioStore = stats['audio_cache'] || { count: 0, size: 0 };
+            const exampleStore = stats['example_cache'] || { count: 0, size: 0 };
+            const totalBytes = (allStore.size || 0) + (wrongStore.size || 0) + (audioStore.size || 0) + (exampleStore.size || 0);
+            dbStatsText.innerText = `🗄️ IndexedDB: 词库 ${allStore.count || 0} | 错词本 ${wrongStore.count || 0} | 语音缓存 ${audioStore.count || 0} | 例句缓存 ${exampleStore.count || 0} | 总占用 ${formatBytes(totalBytes)}`;
         }
 
         function exportWrongWordsAsJSON(data) {
@@ -1266,11 +1337,18 @@
             worker.postMessage({ type: 'exportWrong' });
         });
 
-        // 点击页脚缓存角标：清空全部语音缓存
+        // 点击页脚缓存角标：清空全部语音缓存，并刷新统计
         audioCacheBadge.addEventListener('click', () => {
             if (confirm('确定清空全部本地语音缓存吗？之后首次播放需要重新下载。')) {
                 worker.postMessage({ type: 'clearAudioCache' });
+                worker.postMessage({ type: 'getDbStats' });
             }
+        });
+
+        // 点击页脚统计文本：手动刷新统计
+        dbStatsText.addEventListener('click', () => {
+            worker.postMessage({ type: 'getAudioCacheInfo' });
+            worker.postMessage({ type: 'getDbStats' });
         });
 
         cardScene.addEventListener('click', () => { if(currentWordData) flashcard.classList.toggle('is-flipped'); });
