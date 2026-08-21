@@ -397,6 +397,26 @@
         .example-cn { color: #555; }
         .example-note { margin-top: 8px; font-size: 13px; color: #888; background: #f7f7f7; border-radius: 6px; padding: 6px 8px; }
         .example-empty { color: var(--text-sub); text-align: center; padding: 8px 0; }
+        .example-source-badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: bold;
+            color: #fff;
+            background: var(--success);
+            border-radius: 4px;
+            padding: 1px 6px;
+            margin-left: 6px;
+            vertical-align: 1px;
+        }
+        .example-refresh {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--primary);
+            font-size: 14px;
+            margin-right: 4px;
+        }
+        .example-refresh:hover { color: #2a6db8; }
     </style>
 </head>
 <body>
@@ -473,8 +493,11 @@
 
         <div id="example-area" class="example-area" style="display: none;">
             <div class="example-area__header">
-                <span>📖 例句 (DeepSeek 生成)</span>
-                <button id="btn-close-example" class="example-close" title="关闭">✕</button>
+                <span>📖 例句 (DeepSeek 生成)<span id="example-source-badge" class="example-source-badge" style="display:none;"></span></span>
+                <span style="display:flex; align-items:center; gap:4px;">
+                    <button id="btn-refresh-example" class="example-refresh" title="重新生成（忽略缓存）">🔄</button>
+                    <button id="btn-close-example" class="example-close" title="关闭">✕</button>
+                </span>
             </div>
             <div id="example-content" class="example-area__content"></div>
         </div>
@@ -559,10 +582,11 @@
         // ------------------------------------------------------------------
         const workerScript = `
             const DB_NAME = 'FlashcardDB';
-            const DB_VERSION = 4; // v4: 新增 audio_cache 表（有道语音本地缓存，与 typing_game.html 共用）
+            const DB_VERSION = 5; // v5: 新增 example_cache 表（DeepSeek 例句 JSON 本地缓存）
             const STORE_ALL = 'words';
             const STORE_WRONG = 'wrong_words';
             const STORE_AUDIO = 'audio_cache';
+            const STORE_EXAMPLE = 'example_cache';
             let db = null;
             
             let currentMode = 'all'; 
@@ -589,6 +613,9 @@
                         }
                         if (!upgradedDb.objectStoreNames.contains(STORE_AUDIO)) {
                             upgradedDb.createObjectStore(STORE_AUDIO, { keyPath: 'word' });
+                        }
+                        if (!upgradedDb.objectStoreNames.contains(STORE_EXAMPLE)) {
+                            upgradedDb.createObjectStore(STORE_EXAMPLE, { keyPath: 'word' });
                         }
                     };
                     request.onsuccess = function(e) { db = e.target.result; resolve(db); };
@@ -689,6 +716,27 @@
                     if (!db || !db.objectStoreNames.contains(STORE_AUDIO)) { resolve(); return; }
                     const tx = db.transaction([STORE_AUDIO], 'readwrite');
                     tx.objectStore(STORE_AUDIO).clear();
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                    tx.onabort = () => resolve();
+                });
+            }
+
+            // ---------- DeepSeek 例句缓存（example_cache 表，key = 单词原文） ----------
+            function getCachedExample(word) {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(STORE_EXAMPLE)) { resolve(null); return; }
+                    const req = db.transaction([STORE_EXAMPLE], 'readonly').objectStore(STORE_EXAMPLE).get(word);
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => resolve(null);
+                });
+            }
+
+            function saveCachedExample(word, data) {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(STORE_EXAMPLE)) { resolve(); return; }
+                    const tx = db.transaction([STORE_EXAMPLE], 'readwrite');
+                    tx.objectStore(STORE_EXAMPLE).put({ word: word, data: data, ts: Date.now() });
                     tx.oncomplete = () => resolve();
                     tx.onerror = () => resolve();
                     tx.onabort = () => resolve();
@@ -869,6 +917,15 @@
                     self.postMessage({ type: 'audioBlob', token: msg.token, blob: null });
                 }
 
+                else if (msg.type === 'getExampleCache') {
+                    self.postMessage({ type: 'exampleCacheData', seq: msg.seq, data: await getCachedExample(msg.word) });
+                }
+
+                else if (msg.type === 'saveExampleCache') {
+                    await saveCachedExample(msg.word, msg.data);
+                    self.postMessage({ type: 'exampleCacheSaved', word: msg.word });
+                }
+
                 else if (msg.type === 'getAudioCacheInfo') {
                     self.postMessage({ type: 'audioCacheInfo', count: await getAudioCacheCount() });
                 }
@@ -919,6 +976,9 @@
         let pendingWordIndex = null;   // 首次加载时待恢复的组内单词索引
         let audioPlayToken = 0;        // 播放令牌：防止快速切词时旧语音晚到覆盖新词
         let currentAudioBlobUrl = null; // 当前 blob URL（下次播放前释放）
+        let skipExampleCacheNext = false;    // 点击 🔄 刷新时置 true，跳过本地缓存
+        let exampleCacheSeq = 0;             // 例句缓存请求序号（用于匹配 worker 回包）
+        const pendingExampleCacheRequests = new Map(); // seq -> resolve 回调
 
         // 初始化
         worker.postMessage({ type: 'init', url: JSON_URL });
@@ -1002,6 +1062,13 @@
             }
             else if (msg.type === 'audioCacheInfo') {
                 updateAudioCacheBadge(msg.count);
+            }
+            else if (msg.type === 'exampleCacheData') {
+                const resolver = pendingExampleCacheRequests.get(msg.seq);
+                if (resolver) {
+                    pendingExampleCacheRequests.delete(msg.seq);
+                    resolver(msg.data);  // { word, data, ts } 或 null
+                }
             }
         };
 
@@ -1252,6 +1319,8 @@
         const exampleArea = document.getElementById('example-area');
         const exampleContent = document.getElementById('example-content');
         const btnCloseExample = document.getElementById('btn-close-example');
+        const btnRefreshExample = document.getElementById('btn-refresh-example');
+        const exampleSourceBadge = document.getElementById('example-source-badge');
 
         function escapeHtml(str) {
             return String(str == null ? '' : str)
@@ -1331,7 +1400,32 @@
             return null;
         }
 
-        function renderExampleParsed(parsed) {
+        // 例句头部来源徽标（缓存命中时显示）
+        function setExampleSourceBadge(text) {
+            if (!exampleSourceBadge) return;
+            exampleSourceBadge.innerText = text;
+            exampleSourceBadge.style.display = text ? 'inline-block' : 'none';
+        }
+
+        function formatTs(ts) {
+            if (!ts) return '';
+            try {
+                const d = new Date(ts);
+                return (d.getMonth() + 1) + '-' + d.getDate() + ' ' +
+                    String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+            } catch (e) { return ''; }
+        }
+
+        // 查询 IndexedDB 中的例句缓存
+        function requestExampleCache(word) {
+            return new Promise((resolve) => {
+                const seq = ++exampleCacheSeq;
+                pendingExampleCacheRequests.set(seq, resolve);
+                worker.postMessage({ type: 'getExampleCache', word, seq });
+            });
+        }
+
+        function renderExampleParsed(parsed, fromCache, ts) {
             const word = parsed.word || currentWordString;
             const phonetic = parsed.phonetic
                 ? ' <span class="example-phonetic">[' + escapeHtml(parsed.phonetic) + ']</span>'
@@ -1384,7 +1478,14 @@
 
             if (explanation) html += '<div class="example-note">💡 ' + escapeHtml(explanation) + '</div>';
             exampleContent.innerHTML = html;
+            setExampleSourceBadge(fromCache ? '📦 缓存 ' + formatTs(ts) : '');
         }
+
+        // 点击 🔄：跳过本地缓存，强制重新调用 API（成功后覆盖缓存）
+        btnRefreshExample.addEventListener('click', () => {
+            skipExampleCacheNext = true;
+            btnExample.click();
+        });
 
         btnExample.addEventListener('click', async () => {
             if (!currentWordString) return;
@@ -1400,8 +1501,21 @@
             btnExample.innerText = '⏳ 生成中...';
             exampleArea.style.display = 'block';
             exampleContent.innerHTML = '<div class="example-loading">⏳ 正在请求 DeepSeek ...<br><span>为 "' + escapeHtml(currentWordString) + '" 生成多词性例句中</span></div>';
+            setExampleSourceBadge('');
+
+            const exampleWord = currentWordString;
 
             try {
+                // 1) 优先读取本地缓存（点击 🔄 刷新时跳过）
+                const skipCache = skipExampleCacheNext;
+                skipExampleCacheNext = false;
+                if (!skipCache) {
+                    const cached = await requestExampleCache(exampleWord);
+                    if (cached && cached.data) {
+                        renderExampleParsed(cached.data, true, cached.ts);
+                        return;
+                    }
+                }
                 // 对应 curl：POST {base_url}/chat/completions
                 //   -H "Content-Type: application/json"
                 //   -H "Authorization: Bearer <API Key>"
@@ -1448,10 +1562,11 @@
                     ? (data.choices[0].message.content || '')
                     : '';
 
-                // 解析并渲染模型返回的 JSON
+                // 解析并渲染模型返回的 JSON：先写入 IndexedDB 本地缓存，下次直接读取
                 const parsed = extractJSON(content);
                 if (!parsed) throw new Error('模型未返回有效的 JSON 内容');
-                renderExampleParsed(parsed);
+                worker.postMessage({ type: 'saveExampleCache', word: exampleWord, data: parsed });
+                renderExampleParsed(parsed, false, null);
             } catch (err) {
                 let msg = err && err.message ? err.message : String(err);
                 if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
