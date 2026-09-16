@@ -1343,7 +1343,11 @@
                 
                 statusText.innerText = `组内: ${relativeIndex + 1}/${totalWordsInGroup} (总第${absoluteIndex}词)`;
                 
-                btnPrev.disabled = (relativeIndex === 0);
+                // 当前组第一个词时不再禁用"上一词"：若前面还有组，点击可自动返回上一组
+                const isFirstInGroup = (relativeIndex === 0);
+                const hasPrevGroup = (parseInt(groupSelect.value) > 0);
+                btnPrev.disabled = isFirstInGroup && !hasPrevGroup;
+                btnPrev.title = isFirstInGroup && hasPrevGroup ? '已是本组第一个词，点击返回上一组' : '';
                 // 当前组最后一个词时不再禁用"下一词"：若后面还有组，点击可自动跳转到下一组
                 const isLastInGroup = (relativeIndex === totalWordsInGroup - 1);
                 const hasNextGroup = (parseInt(groupSelect.value) < groupSelect.options.length - 1);
@@ -1377,7 +1381,9 @@
             elWordCn.innerHTML = "当前选择的分组内没有数据。";
             statusText.innerText = "0 / 0";
             btnPrev.disabled = true;
+            btnPrev.title = '';
             btnNext.disabled = true;
+            btnNext.title = '';
             btnToggleWrong.disabled = true;
             btnSpeak.disabled = true;
             btnExample.disabled = true;
@@ -1480,7 +1486,19 @@
                 saveProgress();
             }
         });
-        btnPrev.addEventListener('click', () => { if (currentRelativeIndex > 0) { currentRelativeIndex--; loadCard(currentRelativeIndex); saveProgress(); } });
+        btnPrev.addEventListener('click', () => {
+            if (currentRelativeIndex > 0) {
+                currentRelativeIndex--;
+                loadCard(currentRelativeIndex);
+                saveProgress();
+            } else if (parseInt(groupSelect.value) > 0) {
+                // 已到本组第一个词：自动返回上一个组，并定位到该组最后一个词（与"下一词"跳组形成闭环）
+                groupSelect.value = String(parseInt(groupSelect.value) - 1);
+                pendingWordIndex = Number.MAX_SAFE_INTEGER; // 由 filterApplied 钳制到上一组最后一个词
+                applyFilters(groupSelect.value);
+                saveProgress();
+            }
+        });
 
         // 键盘快捷键
         document.addEventListener('keydown', (e) => {
