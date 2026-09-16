@@ -577,13 +577,21 @@ async function loadWrongWordsFromDB() {
     }
 
     // 2) 读取错词列表：优先取全词库中的完整词条
+    // 排序与 fc.html 保持一致：按加入时间 ts 倒序（最新加入的排最前）。
+    // 不能依赖 getAll() 的主键（wordKey 字符串）字典序，否则与 fc.html 错词本顺序不一致，
+    // 会导致两个页面看到不同的分组（"练了又练"的乱序感）。
+    // 历史数据无 ts 字段时按 0 兜底（自动排到最后）；ts 相同（同一毫秒加入）时按 key 字典序兜底，保证顺序稳定。
     let words = [];
     if (db.objectStoreNames.contains(STORE_WRONG)) {
         words = await new Promise((resolve, reject) => {
             const req = db.transaction(STORE_WRONG, 'readonly').objectStore(STORE_WRONG).getAll();
             req.onsuccess = () => {
                 const records = req.result || [];
-                resolve(records.map(r => allWordsMap.get(r.wordKey) || r.data).filter(Boolean));
+                const mapped = records
+                    .map(r => ({ data: allWordsMap.get(r.wordKey) || r.data, ts: r.ts || 0, key: r.wordKey }))
+                    .filter(item => Boolean(item.data));
+                mapped.sort((a, b) => (b.ts - a.ts) || String(a.key).localeCompare(String(b.key)));
+                resolve(mapped.map(item => item.data));
             };
             req.onerror = () => { reject(new Error('读取错词本失败')); };
         });
