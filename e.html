@@ -419,9 +419,11 @@ async function loadAllExamples() {
                         const pos = ex.partOfSpeech || ex.pos || ex.part || '';
                         const meaning = ex.meaning || ex.definition || '';
                         if (en) {
+                            const nEn = normalizeSentence(en);
                             list.push({
+                                key: makeItemKey(word, pos, nEn),
                                 word, phonetic, pos, meaning,
-                                en: normalizeSentence(en),
+                                en: nEn,
                                 cn: cn || makeFallbackCn(word),
                                 ts: rec.ts || 0
                             });
@@ -432,11 +434,13 @@ async function loadAllExamples() {
                     const en = data.exampleEnglish || data.example_en || data.example || '';
                     const cn = data.exampleChinese || data.example_cn || data.cn || '';
                     if (en) {
+                        const nEn = normalizeSentence(en);
                         list.push({
+                            key: makeItemKey(word, data.partOfSpeech || data.pos || '', nEn),
                             word, phonetic,
                             pos: data.partOfSpeech || data.pos || '',
                             meaning: data.explanation || data.note || '',
-                            en: normalizeSentence(en),
+                            en: nEn,
                             cn: cn || makeFallbackCn(word),
                             ts: rec.ts || 0
                         });
@@ -452,6 +456,11 @@ async function loadAllExamples() {
 // 连续空白（含换行）统一为单个空格
 function normalizeSentence(s) {
     return String(s || '').replace(/\s+/g, ' ').trim();
+}
+
+// 例句唯一 key：单词 + 词性 + 例句原文（用不可见分隔符避免内容冲突）
+function makeItemKey(word, pos, en) {
+    return String(word) + '\u0001' + String(pos || '') + '\u0001' + String(en || '');
 }
 
 // 例句无中文翻译时的兜底文案
@@ -471,6 +480,62 @@ let currentTarget = '';
 let sentenceErrors = 0;  // 当前句错误字符数
 let advanceTimer = null;
 let finished = false;
+
+// ------------------------------ 进度持久化（localStorage） ------------------------------
+// 保存：打乱后的队列顺序（key 列表） + 当前索引 + 统计，刷新后恢复到原句
+const PROGRESS_KEY = 'example_typing_progress_v1';
+
+function saveProgress(isFinished) {
+    if (!queue.length) return;
+    try {
+        const state = {
+            queueKeys: queue.map((it) => it.key),
+            idx: idx,
+            doneSentences: doneSentences,
+            totalKeystrokes: totalKeystrokes,
+            correctKeystrokes: correctKeystrokes,
+            elapsed: startTime ? Date.now() - startTime : 0,
+            finished: !!isFinished
+        };
+        localStorage.setItem(PROGRESS_KEY, JSON.stringify(state));
+    } catch (e) { /* 隐私模式等写入失败时忽略 */ }
+}
+
+function loadProgress() {
+    try {
+        const raw = localStorage.getItem(PROGRESS_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+}
+
+// 用保存的队列顺序重建本轮（过滤已被删除的例句，新增例句追加到末尾）
+function restoreProgress() {
+    const state = loadProgress();
+    if (!state || !Array.isArray(state.queueKeys) || state.queueKeys.length === 0) return false;
+
+    const byKey = new Map(items.map((it) => [it.key, it]));
+    const rebuilt = [];
+    state.queueKeys.forEach((k) => {
+        if (byKey.has(k)) {
+            rebuilt.push(byKey.get(k));
+            byKey.delete(k);
+        }
+    });
+    byKey.forEach((it) => rebuilt.push(it)); // 新增例句补到末尾
+    if (rebuilt.length === 0) return false;
+
+    queue = rebuilt;
+    idx = Math.min(state.idx || 0, queue.length - 1);
+    doneSentences = Math.min(state.doneSentences || 0, queue.length);
+    totalKeystrokes = state.totalKeystrokes || 0;
+    correctKeystrokes = state.correctKeystrokes || 0;
+    if (totalKeystrokes > 0 && correctKeystrokes > totalKeystrokes) correctKeystrokes = totalKeystrokes;
+    const elapsed = state.elapsed || 0;
+    startTime = Date.now() - elapsed;
+    // 上一轮已全部完成 → 标记后由调用方展示结果面板
+    finished = !!(state.finished && doneSentences >= queue.length);
+    return true;
+}
 
 function shuffle(arr) {
     const a = arr.slice();
@@ -560,6 +625,7 @@ function loadSentence() {
     $('sentence-result').textContent = '';
     $('sentence-result').className = 'sentence-result';
     updateStats();
+    saveProgress(false);
     focusInput();
 }
 
@@ -586,6 +652,10 @@ function onSentenceDone() {
         resEl.textContent = '✅ 完美！';
         resEl.className = 'sentence-result good';
     }
+
+    // 立即推进索引并保存（刷新发生在反馈等待窗口时也能定位到下一句）
+    idx++;
+    saveProgress(false);
     updateStats();
 
     if (doneSentences >= queue.length) {
@@ -593,10 +663,7 @@ function onSentenceDone() {
         return;
     }
     // 短暂停留展示反馈后进入下一句（Enter 可跳过等待）
-    advanceTimer = setTimeout(() => {
-        idx++;
-        loadSentence();
-    }, 1200);
+    advanceTimer = setTimeout(loadSentence, 1200);
 }
 
 function finishGame() {
@@ -614,6 +681,7 @@ function finishGame() {
 
     $('game-area').style.display = 'none';
     $('end-panel').style.display = 'block';
+    saveProgress(true);
 }
 
 function startGame() {
@@ -674,6 +742,10 @@ $('btn-skip').addEventListener('click', () => {
     loadSentence();
 });
 
+// 页面关闭前兜底保存一次（避免最后一次判定丢失）
+window.addEventListener('pagehide', () => saveProgress(finished));
+window.addEventListener('beforeunload', () => saveProgress(finished));
+
 // 启动
 (async function init() {
     try {
@@ -685,7 +757,13 @@ $('btn-skip').addEventListener('click', () => {
             return;
         }
         $('loading-panel').style.display = 'none';
-        startGame();
+        if (restoreProgress()) {
+            if (finished) { finishGame(); return; } // 上轮已全部完成 → 直接回结果页
+            $('game-area').style.display = 'block';
+            loadSentence();
+        } else {
+            startGame();
+        }
     } catch (err) {
         $('loading-panel').innerHTML = '❌ 加载失败：' + (err && err.message ? err.message : String(err)) +
             '<br><span style="font-size:13px;color:#888;">请确认已用 fc.html 打开过本站（同一域名）以创建 IndexedDB。</span>';
