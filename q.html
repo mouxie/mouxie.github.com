@@ -1,0 +1,2041 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>打字游戏 - 释义拼写练习版</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --accent: #E24A4A;
+            --success: #2EA44F;
+            --bg: #F5F7FA;
+            --card-bg: #FFFFFF;
+            --text-main: #333333;
+            --text-sub: #888888;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #ui-container {
+            text-align: center;
+            width: 100%;
+            max-width: 520px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* 顶部控制栏 */
+        .top-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+            margin-bottom: 15px;
+            background: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-row--flex-end {
+            justify-content: flex-end;
+            gap: 15px;
+        }
+
+        select {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 13px;
+            background-color: white;
+            cursor: pointer;
+            outline: none;
+            max-width: 60%;
+        }
+
+        /* 自动发音开关样式 */
+        .switch-label {
+            font-size: 13px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .switch-label input {
+            cursor: pointer;
+            width: 15px;
+            height: 15px;
+            margin: 0;
+        }
+
+        #status-text {
+            font-size: 14px;
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        /* 释义卡片（打字模式下无翻转，仅做成败反馈边框） */
+        .meaning-card {
+            width: 100%;
+            min-height: 170px;
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            border: 3px solid transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 22px 24px;
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            margin-bottom: 15px;
+        }
+
+        .meaning-card.is-success {
+            border-color: var(--success);
+            box-shadow: 0 0 0 4px rgba(46, 164, 79, 0.15), 0 10px 25px rgba(0,0,0,0.08);
+        }
+
+        .meaning-card.is-error {
+            border-color: var(--accent);
+            animation: shake 0.4s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-8px); }
+            40% { transform: translateX(8px); }
+            60% { transform: translateX(-5px); }
+            80% { transform: translateX(5px); }
+        }
+
+        .card__meaning {
+            font-size: 23px;
+            font-weight: 600;
+            color: var(--text-main);
+            text-align: center;
+            line-height: 1.7;
+            max-height: 90px;
+            overflow-y: auto;
+        }
+
+        .card__phonetic {
+            margin-top: 12px;
+            font-size: 15px;
+            font-weight: normal;
+            color: var(--text-sub);
+            letter-spacing: 0.5px;
+            text-align: center;
+            max-width: 90%;
+            word-break: break-all;
+        }
+
+        /* 打字区域：字母格子 + 输入框 */
+        .typing-area {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .letters {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 6px;
+            min-height: 48px;
+            margin-bottom: 12px;
+        }
+
+        .letter {
+            width: 34px;
+            height: 44px;
+            line-height: 44px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 6px;
+            background: #eef1f5;
+            color: #a8b0bd;
+            border-bottom: 3px solid #d5dae2;
+            transition: all 0.12s;
+        }
+
+        .letter.current {
+            background: #fff;
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .letter.correct {
+            background: #d9f2e2;
+            color: #1e7e34;
+            border-bottom-color: #9fd8b4;
+        }
+
+        .letter.wrong {
+            background: #ffe0e0;
+            color: #c0392b;
+            border-bottom-color: #f0a9a9;
+            animation: pop 0.15s;
+        }
+
+        .letter--space {
+            background: transparent;
+            border-bottom-style: dashed;
+            color: #bbb;
+        }
+
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+
+        .type-input {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 22px;
+            letter-spacing: 2px;
+            border: 2px solid #d5dae2;
+            border-radius: 10px;
+            outline: none;
+            text-align: center;
+            background: #fff;
+            box-sizing: border-box;
+            color: var(--text-main);
+            transition: border-color 0.2s;
+        }
+
+        .type-input:focus { border-color: var(--primary); }
+        .type-input:disabled { background: #f2f2f2; color: #aaa; }
+
+        .type-status {
+            min-height: 20px;
+            font-size: 13px;
+            margin-top: 8px;
+            color: var(--text-sub);
+        }
+
+        .type-status.success { color: var(--success); font-weight: 600; }
+        .type-status.error { color: var(--accent); font-weight: 600; }
+
+        /* 功能控制区域 */
+        .action-bar {
+            margin-bottom: 15px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn-action {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-action:active {
+            transform: scale(0.98);
+        }
+
+        /* 发音按钮样式 */
+        .btn-audio {
+            background-color: #eef5fc;
+            color: var(--primary);
+            border: 1px solid #cce2f7;
+        }
+        .btn-audio:hover {
+            background-color: #ddedfc;
+        }
+        .btn-audio svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        /* 错词本按钮样式 */
+        .btn-add-wrong {
+            background-color: #ffeaea;
+            color: var(--accent);
+            border: 1px solid #ffcccc;
+        }
+        .btn-add-wrong:hover { background-color: #ffd1d1; }
+
+        .btn-remove-wrong {
+            background-color: #e6f4ea;
+            color: var(--success);
+            border: 1px solid #ceead6;
+        }
+        .btn-remove-wrong:hover { background-color: #d2e9d6; }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .btn-nav {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(74, 144, 226, 0.2);
+            transition: all 0.2s;
+        }
+
+        .btn-nav:active { transform: scale(0.96); }
+        .btn-nav:disabled {
+            background-color: #cccccc;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .hint {
+            font-size: 12px;
+            color: var(--text-sub);
+            margin-top: 12px;
+        }
+
+        /* 设置按钮 */
+        .btn-settings {
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            color: #555;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-settings:hover { background-color: #e4e4e4; color: #333; }
+
+        /* 设置模态框 */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0,0,0,0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-panel {
+            background: #fff;
+            border-radius: 14px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+            overflow: hidden;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 18px;
+            background: #f8f9fb;
+            border-bottom: 1px solid #eee;
+        }
+        .modal-header h3 { margin: 0; font-size: 16px; color: var(--text-main); }
+        .modal-close {
+            background: none; border: none; font-size: 18px;
+            cursor: pointer; color: #999; padding: 2px 6px; border-radius: 6px;
+        }
+        .modal-close:hover { background: #eee; color: #333; }
+        .modal-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+        .form-field { display: flex; flex-direction: column; gap: 5px; }
+        .form-field label { font-size: 13px; font-weight: 600; color: #555; }
+        .form-field input, .form-field select {
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-field input:focus, .form-field select:focus { border-color: var(--primary); }
+        .form-hint { font-size: 11px; color: var(--text-sub); }
+        .form-status { font-size: 13px; min-height: 18px; text-align: center; }
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 12px 18px;
+            border-top: 1px solid #eee;
+            background: #f8f9fb;
+        }
+        .modal-footer .btn-nav { padding: 8px 20px; font-size: 14px; }
+        .btn-cancel { background-color: #9e9e9e; box-shadow: none; }
+        .btn-cancel:hover { background-color: #8a8a8a; }
+
+        /* 例句按钮 */
+        .btn-example {
+            background: linear-gradient(135deg, #6a5af9, #8b5cf6);
+            color: #fff;
+            border: none;
+        }
+        .btn-example:hover { filter: brightness(1.08); }
+        .btn-example:disabled {
+            background: #cccccc;
+            filter: none;
+            cursor: not-allowed;
+        }
+
+        /* 例句显示区域 */
+        .example-area {
+            width: 100%;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 14px 16px;
+            box-sizing: border-box;
+            margin-bottom: 12px;
+            text-align: left;
+        }
+        .example-area__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 10px;
+        }
+        .example-close { background: none; border: none; cursor: pointer; color: #999; font-size: 15px; }
+        .example-close:hover { color: #333; }
+        .example-area__content { font-size: 14px; line-height: 1.7; color: var(--text-main); }
+        .example-loading, .example-error { color: var(--text-sub); text-align: center; padding: 8px 0; }
+        .example-error { color: #d9534f; }
+        .example-word { font-size: 18px; font-weight: bold; color: var(--primary); margin-bottom: 6px; }
+        .example-phonetic { font-size: 14px; font-weight: normal; color: var(--text-sub); }
+        .example-item {
+            margin: 10px 0;
+            padding: 10px 12px;
+            background: #fafbfd;
+            border-left: 3px solid var(--primary);
+            border-radius: 6px;
+        }
+        .example-item:first-of-type { margin-top: 4px; }
+        .example-part {
+            display: inline-block;
+            font-size: 12px;
+            font-weight: bold;
+            color: #fff;
+            background: var(--primary);
+            border-radius: 4px;
+            padding: 1px 7px;
+            margin-right: 6px;
+            vertical-align: 1px;
+        }
+        .example-meaning { font-size: 13px; font-weight: 600; color: var(--text-main); }
+        .example-en { font-size: 16px; margin: 6px 0; }
+        .example-cn { color: #555; }
+        .example-note { margin-top: 8px; font-size: 13px; color: #888; background: #f7f7f7; border-radius: 6px; padding: 6px 8px; }
+        .example-empty { color: var(--text-sub); text-align: center; padding: 8px 0; }
+        .example-source-badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: bold;
+            color: #fff;
+            background: var(--success);
+            border-radius: 4px;
+            padding: 1px 6px;
+            margin-left: 6px;
+            vertical-align: 1px;
+        }
+        .example-refresh {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--primary);
+            font-size: 14px;
+            margin-right: 4px;
+        }
+        .example-refresh:hover { color: #2a6db8; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <div class="top-bar" id="top-bar" style="display: none;">
+            <div class="control-row">
+                <select id="mode-select">
+                    <option value="all">📚 全部词库</option>
+                    <option value="wrong">❌ 我的错词本 (0)</option>
+                </select>
+                <div id="status-text">⏳ 加载中...</div>
+            </div>
+            
+            <div class="control-row">
+                <div>
+                    <span style="font-size: 12px; color: #555;">每组:</span>
+                    <select id="size-select">
+                        <option value="10">10 个</option>
+                        <option value="20" selected>20 个</option>
+                        <option value="50">50 个</option>
+                        <option value="100">100 个</option>
+                    </select>
+                </div>
+                <div>
+                    <span style="font-size: 12px; color: #555;">选择组别:</span>
+                    <select id="group-select">
+                        <option value="0">第 1 组</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="control-row control-row--flex-end">
+                <label class="switch-label">
+                    <input type="checkbox" id="auto-speak-switch">
+                    🔊 切换单词时自动发音
+                </label>
+                <button id="btn-settings" class="btn-settings">⚙️ 设置</button>
+            </div>
+
+            <div class="control-row control-row--flex-end">
+                <button id="btn-export-wrong" class="btn-action btn-audio" style="width:auto; padding: 6px 14px; font-size: 12px;">📤 导出错词本 (JSON)</button>
+            </div>
+        </div>
+
+        <div id="init-status-text">⏳ 正在初始化本地数据库...</div>
+        
+        <!-- 释义卡片：显示中文释义与音标，打字区给出英文 -->
+        <div class="meaning-card" id="meaning-card" style="display: none;">
+            <div class="card__meaning" id="word-cn">加载中...</div>
+            <div class="card__phonetic" id="word-phonetic"></div>
+        </div>
+
+        <!-- 打字区域 -->
+        <div class="typing-area" id="typing-area" style="display: none;">
+            <div class="letters" id="letters"></div>
+            <input type="text" id="type-input" class="type-input" placeholder="👆 根据释义输入英文单词..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" disabled>
+            <div class="type-status" id="type-status"></div>
+        </div>
+
+        <div class="action-bar" id="action-bar" style="display: none;">
+            <button id="btn-speak" class="btn-action btn-audio" disabled>
+                <svg viewBox="0 0 24 24">
+                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                </svg>
+                听音发音 (快捷键: V)
+            </button>
+            
+            <button id="btn-toggle-wrong" class="btn-action btn-add-wrong" disabled>✨ 加强 (标记为错词)</button>
+            <button id="btn-example" class="btn-action btn-example" disabled>📖 例句 (DeepSeek)</button>
+        </div>
+
+        <div class="controls" id="controls" style="display: none;">
+            <button id="btn-prev" class="btn-nav" disabled>上一词</button>
+            <button id="btn-next" class="btn-nav">下一词</button>
+        </div>
+
+        <div id="example-area" class="example-area" style="display: none;">
+            <div class="example-area__header">
+                <span>📖 例句 (DeepSeek 生成)<span id="example-source-badge" class="example-source-badge" style="display:none;"></span></span>
+                <span style="display:flex; align-items:center; gap:4px;">
+                    <button id="btn-refresh-example" class="example-refresh" title="重新生成（忽略缓存）">🔄</button>
+                    <button id="btn-close-example" class="example-close" title="关闭">✕</button>
+                </span>
+            </div>
+            <div id="example-content" class="example-area__content"></div>
+        </div>
+        
+        <div class="hint" id="hint-text" style="display: none;">💡 提示：根据释义打出英文，字母逐一变色 | 回车跳下一词 | ←/→ 切词 | V 发音 | 空格聚焦输入框</div>
+
+        <div class="hint" id="db-stats-bar" style="display: none;">
+            <span id="db-stats-text" title="点击刷新统计" style="cursor: pointer; border-bottom: 1px dashed #aaa;">🗄️ IndexedDB: 词库 0 | 错词本 0 | 语音缓存 0 | 例句缓存 0 | 总占用 0 B</span>
+            <span id="audio-cache-badge" title="点击清空全部本地语音缓存" style="cursor: pointer; border-bottom: 1px dashed #aaa; margin-left: 12px;">🗑️ 清空语音缓存</span>
+        </div>
+    </div>
+
+    <!-- DeepSeek 设置面板 -->
+    <div id="settings-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h3>⚙️ DeepSeek 模型设置</h3>
+                <button id="btn-close-settings" class="modal-close" title="关闭">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-field">
+                    <label for="ds-api-key">API Key</label>
+                    <input type="password" id="ds-api-key" placeholder="sk-..." autocomplete="off" spellcheck="false">
+                </div>
+                <div class="form-field">
+                    <label for="ds-base-url">Base URL</label>
+                    <input type="text" id="ds-base-url" placeholder="https://api.deepseek.com" spellcheck="false">
+                    <div class="form-hint">例如 https://api.deepseek.com 或 https://api.deepseek.com/v1</div>
+                </div>
+                <div class="form-field">
+                    <label for="ds-model">模型 ID</label>
+                    <input type="text" id="ds-model" placeholder="deepseek-chat" spellcheck="false">
+                    <div class="form-hint">deepseek-chat / deepseek-reasoner</div>
+                </div>
+                <div class="form-field">
+                    <label for="ds-reasoning-effort">Reasoning Effort（推理强度）</label>
+                    <select id="ds-reasoning-effort">
+                        <option value="low">低 (low)</option>
+                        <option value="medium" selected>中 (medium)</option>
+                        <option value="high">高 (high)</option>
+                    </select>
+                </div>
+                <div id="settings-status" class="form-status"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-cancel-settings" class="btn-nav btn-cancel">取消</button>
+                <button id="btn-save-settings" class="btn-nav">💾 保存</button>
+            </div>
+        </div>
+    </div>
+
+    <audio id="global-audio" autoplay></audio>
+
+    <script>
+        // 词库下载源（按顺序尝试：GitHub 源 → jsDelivr CDN 镜像，避免单一源不可达导致卡死）
+        const JSON_URLS = [
+            'https://raw.githubusercontent.com/mouxie/qwerty-learner/refs/heads/master/public/dicts/dictionary.json',
+            'https://cdn.jsdelivr.net/gh/mouxie/qwerty-learner@master/public/dicts/dictionary.json',
+            'https://fastly.jsdelivr.net/gh/mouxie/qwerty-learner@master/public/dicts/dictionary.json'
+        ];
+
+        // ------------------------------------------------------------------
+        // 学习进度持久化（localStorage，独立 key 以免与 fc.html 闪卡进度互相覆盖）
+        // ------------------------------------------------------------------
+        const PROGRESS_KEY = 'typing_progress_v1';
+
+        function loadProgress() {
+            try {
+                const raw = localStorage.getItem(PROGRESS_KEY);
+                return raw ? JSON.parse(raw) : null;
+            } catch (e) { return null; }
+        }
+
+        function saveProgress() {
+            try {
+                const state = {
+                    mode: currentMode(),
+                    pageSize: currentSize(),
+                    groupIdx: parseInt(groupSelect.value) || 0,
+                    wordIndex: currentRelativeIndex
+                };
+                localStorage.setItem(PROGRESS_KEY, JSON.stringify(state));
+            } catch (e) { /* 忽略写入失败（如隐私模式） */ }
+        }
+
+        // ------------------------------------------------------------------
+        // Web Worker 后台数据库核心代码（与 fc.html 完全一致：共享同一 FlashcardDB v5）
+        // ------------------------------------------------------------------
+        const workerScript = `
+            const DB_NAME = 'FlashcardDB';
+            const DB_VERSION = 5; // v5: 与 fc.html/typing.html 统一建 4 张表
+            const STORE_ALL = 'words';
+            const STORE_WRONG = 'wrong_words';
+            const STORE_AUDIO = 'audio_cache';
+            const STORE_EXAMPLE = 'example_cache';
+            let db = null;
+            
+            let currentMode = 'all'; 
+            let wrongWordIdsSet = new Set(); 
+            let wrongWordsList = []; 
+
+            let pageSize = 20;
+            let currentGroupIdx = 0;
+            let currentGroupWords = [];
+
+            // Cloudflare Worker 语音代理地址（固定指向已部署的代理服务）
+            const currentAudioProxyUrl = 'https://audio-proxy.mouxieyan.workers.dev/';
+
+            // 全量词库索引：key -> 完整词条数据（含音标），用于错词数据补全
+            let allWordsMap = new Map();
+
+            function initDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_NAME, DB_VERSION);
+                    request.onupgradeneeded = function(e) {
+                        const upgradedDb = e.target.result;
+                        if (!upgradedDb.objectStoreNames.contains(STORE_ALL)) {
+                            upgradedDb.createObjectStore(STORE_ALL, { keyPath: 'id' });
+                        }
+                        if (!upgradedDb.objectStoreNames.contains(STORE_WRONG)) {
+                            upgradedDb.createObjectStore(STORE_WRONG, { keyPath: 'wordKey' });
+                        }
+                        if (!upgradedDb.objectStoreNames.contains(STORE_AUDIO)) {
+                            upgradedDb.createObjectStore(STORE_AUDIO, { keyPath: 'word' });
+                        }
+                        if (!upgradedDb.objectStoreNames.contains(STORE_EXAMPLE)) {
+                            upgradedDb.createObjectStore(STORE_EXAMPLE, { keyPath: 'word' });
+                        }
+                    };
+                    request.onsuccess = function(e) { db = e.target.result; resolve(db); };
+                    request.onerror = function() { reject(new Error('IndexedDB 打开失败')); };
+                    request.onblocked = function() { reject(new Error('IndexedDB 升级被其他标签页阻塞，请关闭其他打开过本页面的标签页后刷新')); };
+                });
+            }
+
+            function normalizeDictionaryList(raw) {
+                if (Array.isArray(raw)) return raw;
+                if (raw && Array.isArray(raw.words)) return raw.words;
+                if (raw && Array.isArray(raw.data)) return raw.data;
+                if (raw && typeof raw === 'object') {
+                    return Object.values(raw).filter((item) => typeof item === 'object' || typeof item === 'string');
+                }
+                return [];
+            }
+
+            function normalizeWordItem(item) {
+                if (typeof item === 'string') return { word: item, translation: '' };
+                if (item && typeof item === 'object') return item;
+                return null;
+            }
+
+            function formatBytesLocal(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB';
+                return (bytes / 1048576).toFixed(1) + ' MB';
+            }
+
+            // 带进度上报与超时的 JSON 下载（90 秒超时，避免网络不通时无限挂起）
+            async function fetchJsonWithProgress(url) {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 90000);
+                try {
+                    const response = await fetch(url, { signal: controller.signal });
+                    if (!response.ok) throw new Error('词库下载失败: HTTP ' + response.status);
+                    if (!response.body) return await response.json();
+                    const total = parseInt(response.headers.get('content-length') || '0', 10);
+                    const reader = response.body.getReader();
+                    const chunks = [];
+                    let received = 0;
+                    let lastReport = 0;
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        chunks.push(value);
+                        received += value.length;
+                        const now = Date.now();
+                        if (now - lastReport > 300) {
+                            lastReport = now;
+                            const pct = total ? Math.round(received * 100 / total) : null;
+                            self.postMessage({ type: 'initProgress', message: '📥 下载词库中 ' + formatBytesLocal(received) + (pct !== null ? ' (' + pct + '%)' : '') + ' ...' });
+                        }
+                    }
+                    const all = new Uint8Array(received);
+                    let offset = 0;
+                    for (const c of chunks) { all.set(c, offset); offset += c.length; }
+                    return JSON.parse(new TextDecoder('utf-8').decode(all));
+                } catch (e) {
+                    if (e && e.name === 'AbortError') throw new Error('词库下载超时(90s)');
+                    throw e;
+                } finally {
+                    clearTimeout(timer);
+                }
+            }
+
+            // 多源依次尝试下载并导入词库（单一源失败/被墙时自动切换下一个）
+            async function seedDictionary(urls) {
+                if (!urls || urls.length === 0) throw new Error('词库地址缺失，无法初始化数据');
+                if (!db || !db.objectStoreNames.contains(STORE_ALL)) throw new Error('词库表不存在，无法导入');
+
+                let lastError = null;
+                for (let i = 0; i < urls.length; i++) {
+                    try {
+                        self.postMessage({ type: 'initProgress', message: '📥 正在从源 ' + (i + 1) + '/' + urls.length + ' 下载词库 ...' });
+                        const payload = await fetchJsonWithProgress(urls[i]);
+                        const list = normalizeDictionaryList(payload)
+                            .map(normalizeWordItem)
+                            .filter(Boolean);
+                        if (list.length === 0) throw new Error('词库文件为空或格式不支持');
+
+                        self.postMessage({ type: 'initProgress', message: '💾 正在写入本地数据库 (' + list.length + ' 词) ...' });
+                        await new Promise((resolve, reject) => {
+                            const tx = db.transaction([STORE_ALL], 'readwrite');
+                            const store = tx.objectStore(STORE_ALL);
+                            for (let j = 0; j < list.length; j++) {
+                                store.put({ id: j, data: list[j] });
+                            }
+                            tx.oncomplete = () => resolve();
+                            tx.onerror = () => reject(new Error('词库写入失败'));
+                            tx.onabort = () => reject(new Error('词库写入被中止'));
+                        });
+                        return list.length;
+                    } catch (e) {
+                        lastError = e;
+                    }
+                }
+                throw new Error('所有词库下载源均失败: ' + (lastError && lastError.message ? lastError.message : '未知错误'));
+            }
+
+            function getCount(storeName) {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(storeName)) {
+                        resolve(0);
+                        return;
+                    }
+                    const transaction = db.transaction([storeName], 'readonly');
+                    const store = transaction.objectStore(storeName);
+                    const req = store.count();
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(0);
+                });
+            }
+
+            // ---------- 有道语音本地缓存（audio_cache 表，key = 单词原文） ----------
+            function getCachedAudio(word) {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(STORE_AUDIO)) { resolve(null); return; }
+                    const req = db.transaction([STORE_AUDIO], 'readonly').objectStore(STORE_AUDIO).get(word);
+                    req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+                    req.onerror = () => resolve(null);
+                });
+            }
+
+            function saveCachedAudio(word, blob) {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(STORE_AUDIO)) { resolve(); return; }
+                    const tx = db.transaction([STORE_AUDIO], 'readwrite');
+                    tx.objectStore(STORE_AUDIO).put({ word: word, blob: blob, ts: Date.now() });
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                    tx.onabort = () => resolve();
+                });
+            }
+
+            function getAudioCacheCount() {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(STORE_AUDIO)) { resolve(0); return; }
+                    const req = db.transaction([STORE_AUDIO], 'readonly').objectStore(STORE_AUDIO).count();
+                    req.onsuccess = () => resolve(req.result || 0);
+                    req.onerror = () => resolve(0);
+                });
+            }
+
+            function clearAudioCache() {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(STORE_AUDIO)) { resolve(); return; }
+                    const tx = db.transaction([STORE_AUDIO], 'readwrite');
+                    tx.objectStore(STORE_AUDIO).clear();
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                    tx.onabort = () => resolve();
+                });
+            }
+
+            // ---------- DeepSeek 例句缓存（example_cache 表，key = 单词原文） ----------
+            function getCachedExample(word) {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(STORE_EXAMPLE)) { resolve(null); return; }
+                    const req = db.transaction([STORE_EXAMPLE], 'readonly').objectStore(STORE_EXAMPLE).get(word);
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => resolve(null);
+                });
+            }
+
+            function saveCachedExample(word, data) {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(STORE_EXAMPLE)) { resolve(); return; }
+                    const tx = db.transaction([STORE_EXAMPLE], 'readwrite');
+                    tx.objectStore(STORE_EXAMPLE).put({ word: word, data: data, ts: Date.now() });
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                    tx.onabort = () => resolve();
+                });
+            }
+
+            // 一次性构建 全词库 key -> 完整词条（含音标） 的内存索引，供错词数据补全
+            function buildAllWordsMap() {
+                return new Promise((resolve) => {
+                    allWordsMap.clear();
+                    if (!db || !db.objectStoreNames.contains(STORE_ALL)) {
+                        resolve();
+                        return;
+                    }
+                    const transaction = db.transaction([STORE_ALL], 'readonly');
+                    const store = transaction.objectStore(STORE_ALL);
+                    const req = store.openCursor();
+                    req.onsuccess = function(event) {
+                        const cursor = event.target.result;
+                        if (cursor) {
+                            const data = cursor.value.data;
+                            const key = getWordKey(data);
+                            if (key) allWordsMap.set(key, data);
+                            cursor.continue();
+                        } else { resolve(); }
+                    };
+                    req.onerror = () => resolve();
+                });
+            }
+
+            function cacheWrongWordsKeys() {
+                return new Promise((resolve) => {
+                    wrongWordIdsSet.clear();
+                    wrongWordsList = [];
+                    if (!db || !db.objectStoreNames.contains(STORE_WRONG)) {
+                        resolve();
+                        return;
+                    }
+                    const transaction = db.transaction([STORE_WRONG], 'readonly');
+                    const store = transaction.objectStore(STORE_WRONG);
+                    const req = store.openCursor();
+                    // 先把 { key, data, ts } 收集起来，循环结束后统一按时间排序：
+                    // 不能直接依赖 IndexedDB 主键（wordKey 字符串）的游标顺序，否则会得到字典序而非加入顺序
+                    const pending = [];
+                    req.onsuccess = function(event) {
+                        const cursor = event.target.result;
+                        if (cursor) {
+                            wrongWordIdsSet.add(cursor.key);
+                            // 优先使用全词库中的完整词条（含音标），旧错词数据无音标时自动补全
+                            pending.push({
+                                key: cursor.key,
+                                data: allWordsMap.get(cursor.key) || cursor.value.data,
+                                ts: cursor.value.ts || 0 // 历史数据无 ts 字段时按 0 兜底（自动排到最后）
+                            });
+                            cursor.continue();
+                        } else {
+                            // 最新加入的错词排最前（最近记忆最需巩固）；ts 相同（同一毫秒加入）时按 key 字典序兜底，保证顺序稳定
+                            pending.sort((a, b) => (b.ts - a.ts) || String(a.key).localeCompare(String(b.key)));
+                            wrongWordsList = pending.map(item => item.data);
+                            resolve();
+                        }
+                    };
+                    req.onerror = () => resolve();
+                });
+            }
+
+            async function loadCurrentGroupData() {
+                currentGroupWords = [];
+                const offset = currentGroupIdx * pageSize;
+
+                if (currentMode === 'all') {
+                    return new Promise((resolve) => {
+                        if (!db || !db.objectStoreNames.contains(STORE_ALL)) {
+                            resolve();
+                            return;
+                        }
+                        const transaction = db.transaction([STORE_ALL], 'readonly');
+                        const store = transaction.objectStore(STORE_ALL);
+                        const range = IDBKeyRange.bound(offset, offset + pageSize - 1);
+                        const req = store.openCursor(range);
+                        req.onsuccess = function(e) {
+                            const cursor = e.target.result;
+                            if (cursor) {
+                                currentGroupWords.push(cursor.value.data);
+                                cursor.continue();
+                            } else { resolve(); }
+                        };
+                        req.onerror = () => resolve();
+                    });
+                } else {
+                    currentGroupWords = wrongWordsList.slice(offset, offset + pageSize);
+                }
+            }
+
+            function getWordKey(wordObj) {
+                return wordObj.name || wordObj.word || wordObj.title;
+            }
+
+            self.onmessage = async function(e) {
+                const msg = e.data;
+
+                if (msg.type === 'init') {
+                    try {
+                        await initDB();
+                        await buildAllWordsMap();
+                        await cacheWrongWordsKeys();
+                        let totalAll = await getCount(STORE_ALL);
+                        if (totalAll === 0) {
+                            const urls = (msg.urls && msg.urls.length) ? msg.urls : (msg.url ? [msg.url] : []);
+                            await seedDictionary(urls);
+                            totalAll = await getCount(STORE_ALL);
+                        }
+                        if (totalAll <= 0) {
+                            throw new Error('词库导入失败，请检查网络后重试');
+                        }
+                        self.postMessage({ type: 'ready', totalAll, totalWrong: wrongWordIdsSet.size });
+                    } catch (error) { self.postMessage({ type: 'error', message: error.message }); }
+                }
+
+                else if (msg.type === 'updateFilter') {
+                    currentMode = msg.mode;
+                    pageSize = parseInt(msg.pageSize);
+                    currentGroupIdx = parseInt(msg.groupIdx);
+
+                    if (currentMode === 'wrong') await cacheWrongWordsKeys();
+
+                    const totalCount = currentMode === 'all' ? await getCount(STORE_ALL) : wrongWordsList.length;
+                    await loadCurrentGroupData();
+
+                    self.postMessage({ type: 'filterApplied', totalCount: totalCount, groupWordsCount: currentGroupWords.length });
+                }
+
+                else if (msg.type === 'getCard') {
+                    const idx = msg.index;
+                    const wordData = currentGroupWords[idx];
+
+                    if (wordData) {
+                        const key = getWordKey(wordData);
+                        const isWrong = wrongWordIdsSet.has(key);
+                        const absoluteIndex = (currentGroupIdx * pageSize) + idx + 1;
+                        self.postMessage({ type: 'cardData', index: idx, absoluteIndex, data: wordData, isWrong });
+                    }
+                }
+
+                else if (msg.type === 'addToWrong') {
+                    const wordData = msg.data;
+                    const key = getWordKey(wordData);
+                    // 连带音标一起存储：从全词库索引取完整词条（含 usphone/ukphone/phonetic），找不到时用传入数据兜底
+                    const storeData = allWordsMap.get(key) || wordData;
+                    const transaction = db.transaction([STORE_WRONG], 'readwrite');
+                    // ts = 加入错词本的时间戳，供 cacheWrongWordsKeys 按时间序排列（最新加入的排最前）
+                    transaction.objectStore(STORE_WRONG).put({ wordKey: key, data: storeData, ts: Date.now() });
+                    transaction.oncomplete = async () => {
+                        await cacheWrongWordsKeys();
+                        self.postMessage({ type: 'wrongUpdated', totalWrong: wrongWordIdsSet.size, isWrong: true });
+                    };
+                }
+
+                else if (msg.type === 'removeFromWrong') {
+                    const wordData = msg.data;
+                    const key = getWordKey(wordData);
+                    const transaction = db.transaction([STORE_WRONG], 'readwrite');
+                    transaction.objectStore(STORE_WRONG).delete(key);
+                    transaction.oncomplete = async () => {
+                        await cacheWrongWordsKeys();
+                        self.postMessage({ type: 'wrongUpdated', totalWrong: wrongWordIdsSet.size, isWrong: false });
+                    };
+                }
+
+                else if (msg.type === 'exportWrong') {
+                    await cacheWrongWordsKeys();
+                    self.postMessage({ type: 'wrongExportData', data: wrongWordsList });
+                }
+
+                else if (msg.type === 'playAudio') {
+                    // 缓存优先：命中直接返回本地 Blob；未命中则下载并写入缓存
+                    try {
+                        const cachedBlob = await getCachedAudio(msg.word);
+                        if (cachedBlob && cachedBlob.size > 0) {
+                            self.postMessage({ type: 'audioBlob', token: msg.token, blob: cachedBlob });
+                            return;
+                        }
+                        // 下载源优先级：
+                        //   1) Cloudflare Worker 代理（CORS 可读，可缓存；已固定指向默认代理）
+                        //   2) StreamElements TTS（cors=*，偶发限流 401，作为备选）
+                        // 全部失败则走兜底直链播放（浏览器 audio 标签不受 CORS 限制）
+                        const sources = [];
+                        // 注意：本 Worker 代码位于模板字符串中，正则不能写 \\/ 反斜杠转义，否则会被转义破坏
+                        const proxyBase = (currentAudioProxyUrl || '').replace(/[/]+$/, '');
+                        if (proxyBase) {
+                            sources.push(proxyBase + '/?audio=' + encodeURIComponent(msg.word) + '&type=1');
+                            sources.push(proxyBase + '/dictvoice?audio=' + encodeURIComponent(msg.word) + '&type=1');
+                        }
+                        sources.push('https://api.streamelements.com/kappa/v2/speech?voice=Amy&text=' + encodeURIComponent(msg.word));
+
+                        let downloaded = null;
+                        for (const src of sources) {
+                            const controller = new AbortController();
+                            const timer = setTimeout(() => controller.abort(), 10000);
+                            try {
+                                const response = await fetch(src, { signal: controller.signal });
+                                if (response.ok) {
+                                    const b = await response.blob();
+                                    if (b && b.size > 0 && b.type.indexOf('audio') === 0) {
+                                        downloaded = b; clearTimeout(timer); break;
+                                    }
+                                }
+                            } catch (e) { /* 尝试下一个源 */ }
+                            clearTimeout(timer);
+                        }
+                        if (downloaded) {
+                            await saveCachedAudio(msg.word, downloaded);
+                            const count = await getAudioCacheCount();
+                            self.postMessage({ type: 'audioBlob', token: msg.token, blob: downloaded, cacheCount: count });
+                            return;
+                        }
+                    } catch (e) { /* 网络异常，走兜底直链 */ }
+                    self.postMessage({ type: 'audioBlob', token: msg.token, blob: null });
+                }
+
+                else if (msg.type === 'getExampleCache') {
+                    self.postMessage({ type: 'exampleCacheData', seq: msg.seq, data: await getCachedExample(msg.word) });
+                }
+
+                else if (msg.type === 'saveExampleCache') {
+                    await saveCachedExample(msg.word, msg.data);
+                    self.postMessage({ type: 'exampleCacheSaved', word: msg.word });
+                }
+
+                else if (msg.type === 'getAudioCacheInfo') {
+                    self.postMessage({ type: 'audioCacheInfo', count: await getAudioCacheCount() });
+                }
+
+                else if (msg.type === 'getDbStats') {
+                    const dbStats = await getDbStats();
+                    self.postMessage({ type: 'dbStats', stats: dbStats });
+                }
+
+                else if (msg.type === 'clearAudioCache') {
+                    await clearAudioCache();
+                    self.postMessage({ type: 'audioCacheInfo', count: await getAudioCacheCount() });
+                }
+
+                // 统计各表记录数与估算大小（用于页脚显示）
+                async function getDbStats() {
+                    const stats = {};
+                    const stores = [STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE];
+                    for (const storeName of stores) {
+                        if (!db || !db.objectStoreNames.contains(storeName)) {
+                            stats[storeName] = { count: 0, size: 0 };
+                            continue;
+                        }
+                        try {
+                            const counts = await new Promise((resolve) => {
+                                const t = db.transaction([storeName], 'readonly');
+                                const s = t.objectStore(storeName);
+                                const req = s.count();
+                                req.onsuccess = () => resolve(req.result || 0);
+                                req.onerror = () => resolve(0);
+                            });
+                            const sizes = await new Promise((resolve) => {
+                                const t = db.transaction([storeName], 'readonly');
+                                const s = t.objectStore(storeName);
+                                const req = s.openCursor();
+                                let total = 0;
+                                req.onsuccess = function (e) {
+                                    const c = e.target.result;
+                                    if (c) {
+                                        try { total += JSON.stringify(c.value).length * 2; } catch (err) { /* skip */ }
+                                        c.continue();
+                                    } else { resolve(total); }
+                                };
+                                req.onerror = () => resolve(0);
+                            });
+                            stats[storeName] = { count: counts, size: sizes };
+                        } catch (e) {
+                            stats[storeName] = { count: 0, size: 0 };
+                        }
+                    }
+                    return stats;
+                }
+            };
+        `;
+
+        // 启动 Worker
+        const blob = new Blob([workerScript], { type: 'application/javascript' });
+        const worker = new Worker(URL.createObjectURL(blob));
+
+        // 绑定 DOM 元素
+        const topBar = document.getElementById('top-bar');
+        const initStatusText = document.getElementById('init-status-text');
+        const statusText = document.getElementById('status-text');
+        const modeSelect = document.getElementById('mode-select');
+        const sizeSelect = document.getElementById('size-select');
+        const groupSelect = document.getElementById('group-select');
+        const autoSpeakSwitch = document.getElementById('auto-speak-switch');
+        
+        const meaningCard = document.getElementById('meaning-card');
+        const typingArea = document.getElementById('typing-area');
+        const lettersBox = document.getElementById('letters');
+        const typeInput = document.getElementById('type-input');
+        const typeStatus = document.getElementById('type-status');
+        const actionBar = document.getElementById('action-bar');
+        const controls = document.getElementById('controls');
+        const hintText = document.getElementById('hint-text');
+        
+        const elWordCn = document.getElementById('word-cn');
+        const elWordPhonetic = document.getElementById('word-phonetic');
+        const btnPrev = document.getElementById('btn-prev');
+        const btnNext = document.getElementById('btn-next');
+        const btnToggleWrong = document.getElementById('btn-toggle-wrong');
+        const btnSpeak = document.getElementById('btn-speak');
+        const btnExportWrong = document.getElementById('btn-export-wrong');
+        const globalAudio = document.getElementById('global-audio');
+        const audioCacheBadge = document.getElementById('audio-cache-badge');
+        const dbStatsText = document.getElementById('db-stats-text');
+
+        // 前端数据状态指针
+        let currentRelativeIndex = 0; 
+        let totalWordsInGroup = 0;    
+        let currentWordString = "";     
+        let currentWordData = null;
+        let currentCardIsWrong = false;
+        let pendingWordIndex = null;   // 首次加载时待恢复的组内单词索引
+        let audioPlayToken = 0;        // 播放令牌：防止快速切词时旧语音晚到覆盖新词
+        let currentAudioBlobUrl = null; // 当前 blob URL（下次播放前释放）
+        let letterSpans = [];           // 目标单词的字母格子 DOM 引用
+        let resolvingWord = false;      // 正在做成功/失败反馈中（锁定输入，防止连发）
+        let skipExampleCacheNext = false;    // 点击 🔄 刷新时置 true，跳过本地缓存
+        let exampleCacheSeq = 0;             // 例句缓存请求序号（用于匹配 worker 回包）
+        const pendingExampleCacheRequests = new Map(); // seq -> resolve 回调
+
+        // 初始化（语音代理地址已固定为默认值，无需设置）
+        worker.postMessage({ type: 'init', urls: JSON_URLS });
+
+        worker.onmessage = function(e) {
+            const msg = e.data;
+            if (msg.type === 'ready') {
+                initStatusText.style.display = 'none';
+                topBar.style.display = 'flex';
+                meaningCard.style.display = 'flex';
+                typingArea.style.display = 'block';
+                actionBar.style.display = 'block';
+                controls.style.display = 'flex';
+                hintText.style.display = 'block';
+                
+                // 恢复上次浏览进度（模式 / 每组数量 / 组别 / 组内单词索引）
+                const saved = loadProgress();
+                if (saved) {
+                    if (saved.mode === 'all' || saved.mode === 'wrong') modeSelect.value = saved.mode;
+                    const sizeOptions = Array.from(sizeSelect.options).map(o => o.value);
+                    if (sizeOptions.includes(String(saved.pageSize))) sizeSelect.value = String(saved.pageSize);
+                }
+
+                updateWrongCountUI(msg.totalWrong);
+                rebuildGroupOptions(msg.totalAll, currentSize());
+                document.getElementById('db-stats-bar').style.display = 'block';
+                worker.postMessage({ type: 'getAudioCacheInfo' });
+                worker.postMessage({ type: 'getDbStats' });
+
+                if (saved) {
+                    const maxGroup = Math.max(groupSelect.options.length - 1, 0);
+                    groupSelect.value = String(Math.min(parseInt(saved.groupIdx) || 0, maxGroup));
+                    pendingWordIndex = Math.max(parseInt(saved.wordIndex) || 0, 0);
+                }
+                applyFilters(groupSelect.value);
+            }
+            else if (msg.type === 'filterApplied') {
+                totalWordsInGroup = msg.groupWordsCount;
+                updateWrongCountUI(currentMode() === 'wrong' ? msg.totalCount : null);
+                if (pendingWordIndex !== null) {
+                    // 首次加载：跳到上次记录的单词索引（越界时自动钳制到组内最后一张）
+                    currentRelativeIndex = Math.min(pendingWordIndex, Math.max(totalWordsInGroup - 1, 0));
+                    pendingWordIndex = null;
+                } else {
+                    currentRelativeIndex = 0;
+                }
+                if (totalWordsInGroup === 0) renderEmptyState(); else loadCard(currentRelativeIndex);
+                saveProgress(); // 同步持久化当前分组与单词索引
+            }
+            else if (msg.type === 'cardData') {
+                renderCard(msg.data, msg.index, msg.absoluteIndex, msg.isWrong);
+            }
+            else if (msg.type === 'wrongUpdated') {
+                updateWrongCountUI(msg.totalWrong);
+                updateWrongButtonUI(msg.isWrong);
+                if (currentMode() === 'wrong') {
+                    const oldSize = sizeSelect.value;
+                    rebuildGroupOptions(msg.totalWrong, oldSize);
+                    applyFilters(groupSelect.value); 
+                }
+            }
+            else if (msg.type === 'initProgress') {
+                initStatusText.innerText = msg.message;
+            }
+            else if (msg.type === 'error') {
+                initStatusText.innerText = '⚠️ ' + msg.message + '（点击此处重试）';
+                initStatusText.style.color = '#d9534f';
+                initStatusText.style.cursor = 'pointer';
+                initStatusText.onclick = () => {
+                    initStatusText.onclick = null;
+                    initStatusText.style.cursor = '';
+                    initStatusText.style.color = '';
+                    initStatusText.innerText = '⏳ 正在初始化本地数据库...';
+                    worker.postMessage({ type: 'init', urls: JSON_URLS });
+                };
+            }
+            else if (msg.type === 'wrongExportData') {
+                exportWrongWordsAsJSON(msg.data);
+            }
+            else if (msg.type === 'audioBlob') {
+                // 令牌不匹配说明用户已切到别的词，丢弃过期音频
+                if (msg.token !== audioPlayToken) return;
+                if (msg.cacheCount !== undefined) {
+                    updateAudioCacheBadge(msg.cacheCount);
+                    // 新音频已写入缓存，刷新页脚 IndexedDB 统计
+                    worker.postMessage({ type: 'getDbStats' });
+                }
+                if (msg.blob && msg.blob.size > 0) {
+                    if (currentAudioBlobUrl) URL.revokeObjectURL(currentAudioBlobUrl);
+                    currentAudioBlobUrl = URL.createObjectURL(msg.blob);
+                    globalAudio.src = currentAudioBlobUrl;
+                } else {
+                    // 下载失败兜底：直链播放
+                    const fallbackUrl = 'https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(currentWordString) + '&type=1';
+                    if (currentAudioBlobUrl) { URL.revokeObjectURL(currentAudioBlobUrl); currentAudioBlobUrl = null; }
+                    globalAudio.src = fallbackUrl;
+                }
+            }
+            else if (msg.type === 'audioCacheInfo') {
+                updateAudioCacheBadge(msg.count);
+            }
+            else if (msg.type === 'dbStats') {
+                renderDbStats(msg.stats);
+            }
+            else if (msg.type === 'exampleCacheData') {
+                const resolver = pendingExampleCacheRequests.get(msg.seq);
+                if (resolver) {
+                    pendingExampleCacheRequests.delete(msg.seq);
+                    resolver(msg.data);  // { word, data, ts } 或 null
+                }
+            }
+            else if (msg.type === 'exampleCacheSaved') {
+                // 例句写入缓存后刷新页脚统计
+                worker.postMessage({ type: 'getDbStats' });
+            }
+        };
+
+        function updateAudioCacheBadge(count) {
+            if (count !== undefined) audioCacheBadge.innerText = '🗑️ 清空语音缓存 (' + count + ')';
+        }
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        // 渲染 IndexedDB 各表统计信息到页脚
+        function renderDbStats(stats) {
+            if (!stats || !dbStatsText) return;
+            const allStore = stats['words'] || { count: 0, size: 0 };
+            const wrongStore = stats['wrong_words'] || { count: 0, size: 0 };
+            const audioStore = stats['audio_cache'] || { count: 0, size: 0 };
+            const exampleStore = stats['example_cache'] || { count: 0, size: 0 };
+            const totalBytes = (allStore.size || 0) + (wrongStore.size || 0) + (audioStore.size || 0) + (exampleStore.size || 0);
+            dbStatsText.innerText = `🗄️ IndexedDB: 词库 ${allStore.count || 0} | 错词本 ${wrongStore.count || 0} | 语音缓存 ${audioStore.count || 0} | 例句缓存 ${exampleStore.count || 0} | 总占用 ${formatBytes(totalBytes)}`;
+        }
+
+        function exportWrongWordsAsJSON(data) {
+            if (!data || data.length === 0) {
+                alert('错词本当前为空，无需导出。');
+                return;
+            }
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+            a.href = url;
+            a.download = 'wrong_words_' + ts + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function currentMode() { return modeSelect.value; }
+        function currentSize() { return parseInt(sizeSelect.value); }
+
+        function applyFilters(targetGroupIdx = 0) {
+            worker.postMessage({ type: 'updateFilter', mode: currentMode(), pageSize: currentSize(), groupIdx: targetGroupIdx });
+        }
+
+        function rebuildGroupOptions(totalCount, pageSize) {
+            const currentSelectedValue = groupSelect.value;
+            groupSelect.innerHTML = '';
+            const totalGroups = Math.ceil(totalCount / pageSize);
+            if (totalGroups === 0) { groupSelect.innerHTML = '<option value="0">无数据</option>'; return; }
+
+            for (let i = 0; i < totalGroups; i++) {
+                const start = i * pageSize + 1;
+                const end = Math.min((i + 1) * pageSize, totalCount);
+                const option = document.createElement('option');
+                option.value = i;
+                option.text = `第 ${i + 1} 组 (${start}-${end})`;
+                groupSelect.appendChild(option);
+            }
+            if (currentSelectedValue < totalGroups) groupSelect.value = currentSelectedValue;
+        }
+
+        function loadCard(relativeIndex) {
+            worker.postMessage({ type: 'getCard', index: relativeIndex });
+        }
+
+        // ==================================================================
+        // 打字游戏核心逻辑
+        // ==================================================================
+
+        // 渲染单元：显示中文释义 + 音标 + 字母格子，聚焦输入框
+        function renderCard(wordObj, relativeIndex, absoluteIndex, isWrong) {
+            currentWordData = wordObj;
+            currentCardIsWrong = isWrong;
+            currentWordString = getWordKeyLocal(wordObj).trim();
+            
+            meaningCard.classList.remove('is-success', 'is-error');
+            updateWrongButtonUI(isWrong);
+            
+            setTimeout(() => {
+                let cn = "暂无释义";
+                if (Array.isArray(wordObj.trans)) cn = wordObj.trans.map((t) => escapeHtml(t)).join('<br>');
+                else if (wordObj.translation) cn = escapeHtml(wordObj.translation);
+                else if (typeof wordObj === 'string') cn = escapeHtml(wordObj);
+
+                elWordCn.innerHTML = cn;
+
+                // 音标展示：优先英/美双音标，其次通用 phonetic 字段
+                const usPhone = wordObj.usphone || '';
+                const ukPhone = wordObj.ukphone || '';
+                let phoneticText = '';
+                if (usPhone && ukPhone && usPhone !== ukPhone) {
+                    phoneticText = `英 [${ukPhone}]  美 [${usPhone}]`;
+                } else {
+                    phoneticText = usPhone || ukPhone || wordObj.phonetic || '';
+                    if (phoneticText) phoneticText = `[${phoneticText}]`;
+                }
+                if (phoneticText) {
+                    elWordPhonetic.innerText = phoneticText;
+                    elWordPhonetic.style.display = 'block';
+                } else {
+                    elWordPhonetic.style.display = 'none';
+                }
+                
+                statusText.innerText = `组内: ${relativeIndex + 1}/${totalWordsInGroup} (总第${absoluteIndex}词)`;
+                
+                // 当前组第一个词时不再禁用"上一词"：若前面还有组，点击可自动返回上一组
+                const isFirstInGroup = (relativeIndex === 0);
+                const hasPrevGroup = (parseInt(groupSelect.value) > 0);
+                btnPrev.disabled = isFirstInGroup && !hasPrevGroup;
+                btnPrev.title = isFirstInGroup && hasPrevGroup ? '已是本组第一个词，点击返回上一组' : '';
+                // 当前组最后一个词时不再禁用"下一词"：若后面还有组，点击可自动跳转到下一组
+                const isLastInGroup = (relativeIndex === totalWordsInGroup - 1);
+                const hasNextGroup = (parseInt(groupSelect.value) < groupSelect.options.length - 1);
+                btnNext.disabled = isLastInGroup && !hasNextGroup;
+                btnNext.title = isLastInGroup && hasNextGroup ? '已是本组最后一个词，点击进入下一组' : '';
+                btnToggleWrong.disabled = false;
+                btnSpeak.disabled = false;
+                btnExample.disabled = false;
+
+                // 重置打字状态：重建字母格子、清空输入与反馈
+                buildLetters(currentWordString);
+                resetTyping();
+
+                // 切换单词时自动发音
+                if (autoSpeakSwitch.checked) {
+                    playAudio();
+                }
+
+                typeInput.focus();
+            }, 120);
+        }
+
+        function getWordKeyLocal(wordObj) {
+            return wordObj.name || wordObj.word || wordObj.title || "";
+        }
+
+        // 生成目标单词的字母格子（每个字符一个格子，空格用虚线格子 + · 占位）
+        function buildLetters(word) {
+            lettersBox.innerHTML = '';
+            letterSpans = [];
+            for (let i = 0; i < word.length; i++) {
+                const span = document.createElement('span');
+                span.className = 'letter';
+                span.dataset.idx = i;
+                if (word[i] === ' ') {
+                    span.classList.add('letter--space');
+                    span.textContent = '·';
+                } else {
+                    span.textContent = word[i];
+                }
+                lettersBox.appendChild(span);
+                letterSpans.push(span);
+            }
+            if (letterSpans.length > 0) letterSpans[0].classList.add('current');
+        }
+
+        // 根据输入内容实时更新字母格子的高亮状态
+        function updateLetterHighlight() {
+            const typed = typeInput.value;
+            const word = currentWordString;
+            letterSpans.forEach((span, i) => {
+                span.classList.remove('correct', 'wrong', 'current');
+                const ch = typed[i];
+                if (ch === undefined) {
+                    if (i === typed.length) span.classList.add('current');
+                } else if (ch === word[i]) {
+                    span.classList.add('correct');
+                } else {
+                    span.classList.add('wrong');
+                }
+            });
+        }
+
+        // 清空打字状态（不换词，只重置输入与反馈）
+        function resetTyping() {
+            resolvingWord = false;
+            typeInput.disabled = false;
+            typeInput.value = '';
+            meaningCard.classList.remove('is-success', 'is-error');
+            typeStatus.textContent = '';
+            typeStatus.className = 'type-status';
+            updateLetterHighlight();
+        }
+
+        // 输入完成且完全正确：成功反馈，短暂延迟后自动进入下一词
+        function onWordCorrect() {
+            resolvingWord = true;
+            typeInput.disabled = true;
+            meaningCard.classList.add('is-success');
+            typeStatus.textContent = '✅ 正确！即将进入下一词...';
+            typeStatus.className = 'type-status success';
+            setTimeout(() => {
+                goNextWord();
+            }, 650);
+        }
+
+        // 输入长度满但结果错误：错误反馈，清空后重打（不统计对错，只要求打对）
+        function onWordWrong() {
+            resolvingWord = true;
+            typeInput.disabled = true;
+            meaningCard.classList.remove('is-success');
+            void meaningCard.offsetWidth; // 重新触发 shake 动画
+            meaningCard.classList.add('is-error');
+            typeStatus.textContent = '❌ 字母不对，已清空，请重新输入';
+            typeStatus.className = 'type-status error';
+            setTimeout(() => {
+                resolvingWord = false;
+                typeInput.disabled = false;
+                typeInput.value = '';
+                meaningCard.classList.remove('is-error');
+                typeStatus.textContent = '';
+                typeStatus.className = 'type-status';
+                updateLetterHighlight();
+                typeInput.focus();
+            }, 600);
+        }
+
+        // 跳下一个词（打字成功后自动调用 / 回车跳过 / 点击下一词共用）
+        function goNextWord() {
+            resolvingWord = false;
+            if (currentRelativeIndex < totalWordsInGroup - 1) {
+                currentRelativeIndex++;
+                loadCard(currentRelativeIndex);
+                saveProgress();
+            } else if (parseInt(groupSelect.value) < groupSelect.options.length - 1) {
+                // 已到本组最后一个词：自动跳转到下一个组（组选择器 +1 并重新加载）
+                groupSelect.value = String(parseInt(groupSelect.value) + 1);
+                applyFilters(groupSelect.value);
+                saveProgress();
+            } else {
+                // 已到最后一组的最后一个词：整组通关
+                typeInput.disabled = true;
+                typeStatus.textContent = '🎉 本组全部完成！选择其他组别继续练习';
+                typeStatus.className = 'type-status success';
+            }
+        }
+
+        function playAudio() {
+            if (!currentWordString || currentWordString === "Unknown") return;
+            const token = ++audioPlayToken;
+            try { globalAudio.pause(); } catch (e) {}
+            // 交给 Worker：优先返回本地缓存 Blob，未命中则下载并缓存
+            worker.postMessage({ type: 'playAudio', word: currentWordString, token });
+        }
+
+        function renderEmptyState() {
+            currentWordData = null;
+            currentWordString = "";
+            meaningCard.classList.remove('is-success', 'is-error');
+            elWordCn.innerHTML = "📭 分组空空";
+            elWordPhonetic.innerText = '';
+            elWordPhonetic.style.display = 'none';
+            lettersBox.innerHTML = '';
+            letterSpans = [];
+            typeInput.value = '';
+            typeInput.disabled = true;
+            typeStatus.textContent = "当前选择的分组内没有数据。";
+            typeStatus.className = 'type-status';
+            statusText.innerText = "0 / 0";
+            btnPrev.disabled = true;
+            btnPrev.title = '';
+            btnNext.disabled = true;
+            btnNext.title = '';
+            btnToggleWrong.disabled = true;
+            btnSpeak.disabled = true;
+            btnExample.disabled = true;
+        }
+
+        function updateWrongCountUI(count) {
+            if (count !== null) modeSelect.options[1].text = `❌ 我的错词本 (${count})`;
+        }
+
+        function updateWrongButtonUI(isWrong) {
+            currentCardIsWrong = isWrong;
+            if (isWrong) {
+                btnToggleWrong.className = "btn-action btn-remove-wrong";
+                btnToggleWrong.innerText = "✅ 已掌握 (从错词本移出)";
+            } else {
+                btnToggleWrong.className = "btn-action btn-add-wrong";
+                btnToggleWrong.innerText = "✨ 加强 (加入错词本)";
+            }
+        }
+
+        function getStoreCountSafe(storeName, onCount) {
+            const request = indexedDB.open('FlashcardDB');
+            request.onsuccess = (event) => {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains(storeName)) {
+                    db.close();
+                    onCount(0);
+                    return;
+                }
+                const tx = db.transaction([storeName], 'readonly');
+                tx.objectStore(storeName).count().onsuccess = (ev) => { db.close(); onCount(ev.target.result || 0); };
+                tx.onerror = () => { db.close(); onCount(0); };
+            };
+            request.onerror = () => onCount(0);
+        }
+
+        // --- 打字输入事件 ---
+        typeInput.addEventListener('input', () => {
+            if (resolvingWord) return;
+            const typed = typeInput.value;
+            updateLetterHighlight();
+
+            // 进度提示（非统计性质，仅帮助用户感知还剩几个字母）
+            if (typed.length < currentWordString.length) {
+                typeStatus.textContent = `已输入 ${typed.length}/${currentWordString.length} 个字母`;
+                typeStatus.className = 'type-status';
+            }
+
+            // 长度达到单词长度：立即判定（相等=正确，不等=错误重来）
+            if (typed.length === currentWordString.length) {
+                if (typed === currentWordString) {
+                    onWordCorrect();
+                } else {
+                    onWordWrong();
+                }
+            }
+        });
+
+        // 回车 = 提交当前输入；若未打满长度则视为"跳过本词"（不统计对错）
+        typeInput.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            if (resolvingWord) return;
+            const typed = typeInput.value;
+            if (typed.length === currentWordString.length) {
+                if (typed === currentWordString) onWordCorrect();
+                else onWordWrong();
+            } else {
+                // 未完成输入：直接跳下一个词
+                if (btnNext.disabled) {
+                    // 已是最后一个词：尝试走 goNextWord 的整组通关逻辑
+                    goNextWord();
+                    if (resolvingWord) return;
+                } else {
+                    btnNext.click();
+                }
+            }
+        });
+
+        // --- 事件监听栏 ---
+        btnSpeak.addEventListener('click', playAudio);
+
+        modeSelect.addEventListener('change', () => {
+            // 统一刷新路径：先按新模式统计数量并重建组选项，再一次性下发筛选
+            const name = currentMode() === 'all' ? 'words' : 'wrong_words';
+            getStoreCountSafe(name, (count) => {
+                groupSelect.value = '0';
+                rebuildGroupOptions(count, currentSize());
+                applyFilters(0);
+                saveProgress();
+            });
+        });
+
+        sizeSelect.addEventListener('change', (e) => {
+            const newSize = parseInt(e.target.value);
+            const storeName = currentMode() === 'all' ? 'words' : 'wrong_words';
+            getStoreCountSafe(storeName, (count) => {
+                rebuildGroupOptions(count, newSize);
+                applyFilters(0);
+                saveProgress();
+            });
+        });
+
+        groupSelect.addEventListener('change', (e) => {
+            applyFilters(e.target.value);
+            saveProgress();
+        });
+
+        btnToggleWrong.addEventListener('click', () => {
+            if (!currentWordData) return;
+            if (currentCardIsWrong) worker.postMessage({ type: 'removeFromWrong', data: currentWordData });
+            else worker.postMessage({ type: 'addToWrong', data: currentWordData });
+        });
+
+        btnExportWrong.addEventListener('click', () => {
+            worker.postMessage({ type: 'exportWrong' });
+        });
+
+        // 点击页脚缓存角标：清空全部语音缓存，并刷新统计
+        audioCacheBadge.addEventListener('click', () => {
+            if (confirm('确定清空全部本地语音缓存吗？之后首次播放需要重新下载。')) {
+                worker.postMessage({ type: 'clearAudioCache' });
+                worker.postMessage({ type: 'getDbStats' });
+            }
+        });
+
+        // 点击页脚统计文本：手动刷新统计
+        dbStatsText.addEventListener('click', () => {
+            worker.postMessage({ type: 'getAudioCacheInfo' });
+            worker.postMessage({ type: 'getDbStats' });
+        });
+
+        btnNext.addEventListener('click', () => {
+            goNextWord();
+        });
+        btnPrev.addEventListener('click', () => {
+            if (currentRelativeIndex > 0) {
+                currentRelativeIndex--;
+                loadCard(currentRelativeIndex);
+                saveProgress();
+            } else if (parseInt(groupSelect.value) > 0) {
+                // 已到本组第一个词：自动返回上一个组，并定位到该组最后一个词（与"下一词"跳组形成闭环）
+                groupSelect.value = String(parseInt(groupSelect.value) - 1);
+                pendingWordIndex = Number.MAX_SAFE_INTEGER; // 由 filterApplied 钳制到上一组最后一个词
+                applyFilters(groupSelect.value);
+                saveProgress();
+            }
+        });
+
+        // 键盘快捷键（打字时输入框已聚焦，字母键/空格/方向键交给输入框本身处理，不会被拦截）
+        document.addEventListener('keydown', (e) => {
+            const activeIsInput = (document.activeElement === typeInput);
+            if (activeIsInput) return; // 输入框内一切按键由输入框自行处理（除上面已注册的 Enter）
+
+            if (e.code === 'Space') {
+                e.preventDefault();
+                typeInput.focus();
+            }
+            else if (e.code === 'ArrowRight') { if (!btnNext.disabled) btnNext.click(); }
+            else if (e.code === 'ArrowLeft') { if (!btnPrev.disabled) btnPrev.click(); }
+            else if (e.code === 'Enter') { if (!btnNext.disabled) btnNext.click(); else if (currentWordData) goNextWord(); }
+            else if (e.key.toLowerCase() === 'v') { if (!btnSpeak.disabled) playAudio(); }
+        });
+
+        // ------------------------------------------------------------------
+        // DeepSeek 设置 + 例句生成（OpenAI 兼容 API，参考 DeepSeek 官方 curl）
+        //   curl https://api.deepseek.com/chat/completions \
+        //     -H "Content-Type: application/json" \
+        //     -H "Authorization: Bearer <API Key>" \
+        //     -d '{"model":"deepseek-chat","messages":[...],"stream":false}'
+        // ------------------------------------------------------------------
+        const DS_SETTINGS_KEY = 'deepseek_settings_v1';
+        const DEFAULT_DS_SETTINGS = {
+            apiKey: '',
+            baseUrl: 'https://api.deepseek.com',
+            model: 'deepseek-chat',
+            reasoningEffort: 'medium'
+        };
+
+        const btnSettings = document.getElementById('btn-settings');
+        const settingsModal = document.getElementById('settings-modal');
+        const btnCloseSettings = document.getElementById('btn-close-settings');
+        const btnCancelSettings = document.getElementById('btn-cancel-settings');
+        const btnSaveSettings = document.getElementById('btn-save-settings');
+        const inputApiKey = document.getElementById('ds-api-key');
+        const inputBaseUrl = document.getElementById('ds-base-url');
+        const inputModel = document.getElementById('ds-model');
+        const selectEffort = document.getElementById('ds-reasoning-effort');
+        const settingsStatus = document.getElementById('settings-status');
+        const btnExample = document.getElementById('btn-example');
+        const exampleArea = document.getElementById('example-area');
+        const exampleContent = document.getElementById('example-content');
+        const btnCloseExample = document.getElementById('btn-close-example');
+        const btnRefreshExample = document.getElementById('btn-refresh-example');
+        const exampleSourceBadge = document.getElementById('example-source-badge');
+
+        function escapeHtml(str) {
+            return String(str == null ? '' : str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // ---------- 设置持久化（localStorage） ----------
+        function loadDSSettings() {
+            try {
+                const raw = localStorage.getItem(DS_SETTINGS_KEY);
+                return raw ? Object.assign({}, DEFAULT_DS_SETTINGS, JSON.parse(raw)) : Object.assign({}, DEFAULT_DS_SETTINGS);
+            } catch (e) { return Object.assign({}, DEFAULT_DS_SETTINGS); }
+        }
+
+        function saveDSSettings(settings) {
+            try { localStorage.setItem(DS_SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* 隐私模式等写入失败可忽略 */ }
+        }
+
+        function openSettingsPanel() {
+            const s = loadDSSettings();
+            inputApiKey.value = s.apiKey;
+            inputBaseUrl.value = s.baseUrl;
+            inputModel.value = s.model;
+            selectEffort.value = s.reasoningEffort;
+            settingsStatus.innerText = '';
+            settingsModal.style.display = 'flex';
+        }
+
+        function closeSettingsPanel() { settingsModal.style.display = 'none'; }
+
+        btnSettings.addEventListener('click', openSettingsPanel);
+        btnCloseSettings.addEventListener('click', closeSettingsPanel);
+        btnCancelSettings.addEventListener('click', closeSettingsPanel);
+        settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) closeSettingsPanel(); });
+
+        btnSaveSettings.addEventListener('click', () => {
+            const settings = {
+                apiKey: inputApiKey.value.trim(),
+                baseUrl: inputBaseUrl.value.trim() || DEFAULT_DS_SETTINGS.baseUrl,
+                model: inputModel.value.trim() || DEFAULT_DS_SETTINGS.model,
+                reasoningEffort: selectEffort.value
+            };
+            if (!settings.apiKey) {
+                settingsStatus.innerText = '⚠️ API Key 不能为空';
+                settingsStatus.style.color = '#d9534f';
+                return;
+            }
+            saveDSSettings(settings);
+            settingsStatus.innerText = '✅ 设置已保存';
+            settingsStatus.style.color = '#2ea44f';
+            setTimeout(closeSettingsPanel, 600);
+        });
+
+        // ---------- 例句 API 调用 ----------
+        // 从模型返回文本中容错提取 JSON 对象
+        function extractJSON(text) {
+            const t = (text || '').trim();
+            // 去掉可能的 markdown 代码块标记（```json ... ```）
+            const cleaned = t.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+            try {
+                const parsed = JSON.parse(cleaned);
+                if (parsed && typeof parsed === 'object') return parsed;
+            } catch (e) { /* fall through */ }
+            // 容错：截取第一个 { 到最后一个 } 之间的内容再尝试解析
+            const start = cleaned.indexOf('{');
+            const end = cleaned.lastIndexOf('}');
+            if (start !== -1 && end > start) {
+                try {
+                    const parsed = JSON.parse(cleaned.substring(start, end + 1));
+                    if (parsed && typeof parsed === 'object') return parsed;
+                } catch (e) { /* fall through */ }
+            }
+            return null;
+        }
+
+        // 例句头部来源徽标（缓存命中时显示）
+        function setExampleSourceBadge(text) {
+            if (!exampleSourceBadge) return;
+            exampleSourceBadge.innerText = text;
+            exampleSourceBadge.style.display = text ? 'inline-block' : 'none';
+        }
+
+        function formatTs(ts) {
+            if (!ts) return '';
+            try {
+                const d = new Date(ts);
+                return (d.getMonth() + 1) + '-' + d.getDate() + ' ' +
+                    String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+            } catch (e) { return ''; }
+        }
+
+        // 查询 IndexedDB 中的例句缓存
+        function requestExampleCache(word) {
+            return new Promise((resolve) => {
+                const seq = ++exampleCacheSeq;
+                pendingExampleCacheRequests.set(seq, resolve);
+                worker.postMessage({ type: 'getExampleCache', word, seq });
+            });
+        }
+
+        function renderExampleParsed(parsed, fromCache, ts) {
+            const word = parsed.word || currentWordString;
+            const phonetic = parsed.phonetic
+                ? ' <span class="example-phonetic">[' + escapeHtml(parsed.phonetic) + ']</span>'
+                : '';
+
+            let html = '<div class="example-word">' + escapeHtml(word) + phonetic + '</div>';
+
+            // 优先使用多词性例句数组 examples: [{partOfSpeech, meaning, exampleEnglish, exampleChinese}]
+            const examples = Array.isArray(parsed.examples) && parsed.examples.length > 0
+                ? parsed.examples
+                : null;
+            const explanation = parsed.explanation || parsed.note || '';
+
+            if (examples) {
+                examples.forEach((item) => {
+                    if (!item || typeof item !== 'object') return;
+                    const part = item.partOfSpeech || item.pos || item.part || '';  // 词性提示
+                    const meaning = item.meaning || item.definition || '';
+                    const en = item.exampleEnglish || item.example_en || item.example || '';
+                    const cn = item.exampleChinese || item.example_cn || '';
+
+                    if (!en && !meaning && !cn && !part) return;
+
+                    html += '<div class="example-item">';
+                    if (part || meaning) {
+                        html += '<div>';
+                        if (part) html += '<span class="example-part">' + escapeHtml(part) + '</span>';
+                        if (meaning) html += '<span class="example-meaning">' + escapeHtml(meaning) + '</span>';
+                        html += '</div>';
+                    }
+                    if (en) html += '<div class="example-en">📝 ' + escapeHtml(en) + '</div>';
+                    if (cn) html += '<div class="example-cn">🇨🇳 ' + escapeHtml(cn) + '</div>';
+                    html += '</div>';
+                });
+            } else {
+                // 兼容旧版单例句格式（无 examples 数组时回退）
+                const en = parsed.exampleEnglish || parsed.example_en || parsed.example || '';
+                const cn = parsed.exampleChinese || parsed.example_cn || parsed.cn || '';
+                if (en || cn || explanation) {
+                    html += '<div class="example-item">';
+                    const part = parsed.partOfSpeech || parsed.pos || '';
+                    if (part) html += '<div><span class="example-part">' + escapeHtml(part) + '</span></div>';
+                    if (en) html += '<div class="example-en">📝 ' + escapeHtml(en) + '</div>';
+                    if (cn) html += '<div class="example-cn">🇨🇳 ' + escapeHtml(cn) + '</div>';
+                    html += '</div>';
+                } else {
+                    html += '<div class="example-empty">模型未返回有效例句内容。</div>';
+                }
+            }
+
+            if (explanation) html += '<div class="example-note">💡 ' + escapeHtml(explanation) + '</div>';
+            exampleContent.innerHTML = html;
+            setExampleSourceBadge(fromCache ? '📦 缓存 ' + formatTs(ts) : '');
+        }
+
+        // 点击 🔄：跳过本地缓存，强制重新调用 API（成功后覆盖缓存）
+        btnRefreshExample.addEventListener('click', () => {
+            skipExampleCacheNext = true;
+            btnExample.click();
+        });
+
+        btnExample.addEventListener('click', async () => {
+            if (!currentWordString) return;
+
+            const settings = loadDSSettings();
+            if (!settings.apiKey) {
+                alert('请先在 ⚙️ 设置 中配置 DeepSeek API Key');
+                openSettingsPanel();
+                return;
+            }
+
+            btnExample.disabled = true;
+            btnExample.innerText = '⏳ 生成中...';
+            exampleArea.style.display = 'block';
+            exampleContent.innerHTML = '<div class="example-loading">⏳ 正在请求 DeepSeek ...<br><span>为 "' + escapeHtml(currentWordString) + '" 生成多词性例句中</span></div>';
+            setExampleSourceBadge('');
+
+            const exampleWord = currentWordString;
+
+            try {
+                // 1) 优先读取本地缓存（点击 🔄 刷新时跳过）
+                const skipCache = skipExampleCacheNext;
+                skipExampleCacheNext = false;
+                if (!skipCache) {
+                    const cached = await requestExampleCache(exampleWord);
+                    if (cached && cached.data) {
+                        renderExampleParsed(cached.data, true, cached.ts);
+                        return;
+                    }
+                }
+                // 对应 curl：POST {base_url}/chat/completions
+                //   -H "Content-Type: application/json"
+                //   -H "Authorization: Bearer <API Key>"
+                //   -d '{"model":...,"messages":[...],"stream":false, "response_format":{"type":"json_object"}}'
+                const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+                const systemPrompt = '你是一个专业的英语学习助手。请为给定的英文单词生成地道例句。' +
+                    '必须考虑该单词不同的词性和含义，为每个主要词性各生成 1 个例句。' +
+                    '你必须只输出一个合法的 JSON 对象（不要输出 markdown 代码块、不要输出任何解释文字）。JSON 格式如下：' +
+                    '{"word":"英文单词","phonetic":"音标(可省略该字段)","examples":[' +
+                    '{"partOfSpeech":"n.","meaning":"该词性下的中文释义","exampleEnglish":"英文例句","exampleChinese":"例句中文翻译"},' +
+                    '{"partOfSpeech":"v.","meaning":"动词释义","exampleEnglish":"英文例句","exampleChinese":"例句中文翻译"}' +
+                    ']}';
+                const userPrompt = '请为单词 "' + currentWordString + '" 生成每个主要词性（如 n./v./adj./adv. 等）各 1 个地道实用例句，每个例句附中文翻译与释义。';
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + settings.apiKey
+                    },
+                    body: JSON.stringify({
+                        model: settings.model,
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: userPrompt }
+                        ],
+                        reasoning_effort: settings.reasoningEffort,
+                        stream: false,
+                        response_format: { type: 'json_object' }  // 强制模型返回 JSON
+                    })
+                });
+
+                if (!response.ok) {
+                    let errMsg = 'HTTP ' + response.status;
+                    try {
+                        const err = await response.json();
+                        if (err.error && err.error.message) errMsg = err.error.message;
+                    } catch (e) { /* 非 JSON 错误体 */ }
+                    throw new Error(errMsg);
+                }
+
+                const data = await response.json();
+                const content = data.choices && data.choices[0] && data.choices[0].message
+                    ? (data.choices[0].message.content || '')
+                    : '';
+
+                // 解析并渲染模型返回的 JSON：先写入 IndexedDB 本地缓存，下次直接读取
+                const parsed = extractJSON(content);
+                if (!parsed) throw new Error('模型未返回有效的 JSON 内容');
+                worker.postMessage({ type: 'saveExampleCache', word: exampleWord, data: parsed });
+                renderExampleParsed(parsed, false, null);
+            } catch (err) {
+                let msg = err && err.message ? err.message : String(err);
+                if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
+                    msg += '<br><span style="font-size:12px;">提示：浏览器直连 API 可能受 CORS 限制，可改用本地代理 / 在线代理转发请求。</span>';
+                }
+                exampleContent.innerHTML = '<div class="example-error">❌ 请求失败: ' + msg + '</div>';
+            } finally {
+                btnExample.disabled = false;
+                btnExample.innerText = '📖 例句 (DeepSeek)';
+            }
+        });
+
+        btnCloseExample.addEventListener('click', () => { exampleArea.style.display = 'none'; });
+    </script>
+</body>
+</html>
