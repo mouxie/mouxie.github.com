@@ -1401,16 +1401,14 @@
         btnSpeak.addEventListener('click', playAudio);
 
         modeSelect.addEventListener('change', () => {
-            applyFilters(0);
-            setTimeout(() => {
-                const name = currentMode() === 'all' ? 'words' : 'wrong_words';
-                getStoreCountSafe(name, (count) => {
-                    groupSelect.value = '0';
-                    rebuildGroupOptions(count, currentSize());
-                    applyFilters(0);
-                    saveProgress();
-                });
-            }, 80);
+            // 统一刷新路径：先按新模式统计数量并重建组选项，再一次性下发筛选
+            const name = currentMode() === 'all' ? 'words' : 'wrong_words';
+            getStoreCountSafe(name, (count) => {
+                groupSelect.value = '0';
+                rebuildGroupOptions(count, currentSize());
+                applyFilters(0);
+                saveProgress();
+            });
         });
 
         sizeSelect.addEventListener('change', (e) => {
