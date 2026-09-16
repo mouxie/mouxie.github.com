@@ -1177,10 +1177,10 @@ function renderQuestion() {
     els.btnToggleExample.title = '查看例句';
 
     if (currentMode === 'copy') {
-        // 照词跟打：显示单词，隐藏音标与释义按钮
+        // 照词跟打：显示单词，提示区域显示释义，隐藏音标与释义按钮
         els.wordDisplay.textContent = currentWord;
         els.promptText.classList.remove('hidden');
-        els.promptText.textContent = '照着上方单词输入一遍';
+        els.promptText.textContent = currentTrans || '（暂无释义）';
         els.btnReplay.classList.add('hidden');
         els.btnToggleTrans.classList.add('hidden');
     } else {
