@@ -1331,7 +1331,11 @@
                 statusText.innerText = `组内: ${relativeIndex + 1}/${totalWordsInGroup} (总第${absoluteIndex}词)`;
                 
                 btnPrev.disabled = (relativeIndex === 0);
-                btnNext.disabled = (relativeIndex === totalWordsInGroup - 1);
+                // 当前组最后一个词时不再禁用"下一词"：若后面还有组，点击可自动跳转到下一组
+                const isLastInGroup = (relativeIndex === totalWordsInGroup - 1);
+                const hasNextGroup = (parseInt(groupSelect.value) < groupSelect.options.length - 1);
+                btnNext.disabled = isLastInGroup && !hasNextGroup;
+                btnNext.title = isLastInGroup && hasNextGroup ? '已是本组最后一个词，点击进入下一组' : '';
                 btnToggleWrong.disabled = false;
                 btnSpeak.disabled = false;
                 btnExample.disabled = false;
@@ -1451,7 +1455,18 @@
         });
 
         cardScene.addEventListener('click', () => { if(currentWordData) flashcard.classList.toggle('is-flipped'); });
-        btnNext.addEventListener('click', () => { if (currentRelativeIndex < totalWordsInGroup - 1) { currentRelativeIndex++; loadCard(currentRelativeIndex); saveProgress(); } });
+        btnNext.addEventListener('click', () => {
+            if (currentRelativeIndex < totalWordsInGroup - 1) {
+                currentRelativeIndex++;
+                loadCard(currentRelativeIndex);
+                saveProgress();
+            } else if (parseInt(groupSelect.value) < groupSelect.options.length - 1) {
+                // 已到本组最后一个词：自动跳转到下一个组（组选择器 +1 并重新加载）
+                groupSelect.value = String(parseInt(groupSelect.value) + 1);
+                applyFilters(groupSelect.value);
+                saveProgress();
+            }
+        });
         btnPrev.addEventListener('click', () => { if (currentRelativeIndex > 0) { currentRelativeIndex--; loadCard(currentRelativeIndex); saveProgress(); } });
 
         // 键盘快捷键
