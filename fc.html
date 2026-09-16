@@ -837,14 +837,26 @@
                     const transaction = db.transaction([STORE_WRONG], 'readonly');
                     const store = transaction.objectStore(STORE_WRONG);
                     const req = store.openCursor();
+                    // 先把 { key, data, ts } 收集起来，循环结束后统一按时间排序：
+                    // 不能直接依赖 IndexedDB 主键（wordKey 字符串）的游标顺序，否则会得到字典序而非加入顺序
+                    const pending = [];
                     req.onsuccess = function(event) {
                         const cursor = event.target.result;
                         if (cursor) {
                             wrongWordIdsSet.add(cursor.key);
                             // 优先使用全词库中的完整词条（含音标），旧错词数据无音标时自动补全
-                            wrongWordsList.push(allWordsMap.get(cursor.key) || cursor.value.data);
+                            pending.push({
+                                key: cursor.key,
+                                data: allWordsMap.get(cursor.key) || cursor.value.data,
+                                ts: cursor.value.ts || 0 // 历史数据无 ts 字段时按 0 兜底（自动排到最后）
+                            });
                             cursor.continue();
-                        } else { resolve(); }
+                        } else {
+                            // 最新加入的错词排最前（最近记忆最需巩固）；ts 相同（同一毫秒加入）时按 key 字典序兜底，保证顺序稳定
+                            pending.sort((a, b) => (b.ts - a.ts) || String(a.key).localeCompare(String(b.key)));
+                            wrongWordsList = pending.map(item => item.data);
+                            resolve();
+                        }
                     };
                     req.onerror = () => resolve();
                 });
@@ -934,7 +946,8 @@
                     // 连带音标一起存储：从全词库索引取完整词条（含 usphone/ukphone/phonetic），找不到时用传入数据兜底
                     const storeData = allWordsMap.get(key) || wordData;
                     const transaction = db.transaction([STORE_WRONG], 'readwrite');
-                    transaction.objectStore(STORE_WRONG).put({ wordKey: key, data: storeData });
+                    // ts = 加入错词本的时间戳，供 cacheWrongWordsKeys 按时间序排列（最新加入的排最前）
+                    transaction.objectStore(STORE_WRONG).put({ wordKey: key, data: storeData, ts: Date.now() });
                     transaction.oncomplete = async () => {
                         await cacheWrongWordsKeys();
                         self.postMessage({ type: 'wrongUpdated', totalWrong: wrongWordIdsSet.size, isWrong: true });
