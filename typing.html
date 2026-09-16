@@ -689,57 +689,28 @@ function getWordPhonetic(wordObj) {
 }
 
 // ============================================================
-// 键盘打字音效（Web Audio 合成，零外部资源）
+// 键盘打字音效（播放本地声音文件 /Default.wav，音量跟随滑块）
 // ============================================================
-let audioCtx = null; // 全局共享的 AudioContext
+let keyClickAudio = null; // 预加载的按键音效实例（懒加载，首次按键时创建）
 
-function ensureAudioCtx() {
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+// 获取/创建按键音效实例（懒加载，避免页面启动时额外请求）
+function getKeyClickAudio() {
+    if (!keyClickAudio) {
+        keyClickAudio = new Audio('/Default.wav');
+        keyClickAudio.preload = 'auto';
     }
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume().catch(() => {}); // 首次按键的用户手势内即可恢复
-    }
-    return audioCtx;
+    return keyClickAudio;
 }
 
-// 模拟机械键盘敲击声：高频噪声咔哒 + 低频键帽冲击
-// volume: 音量系数，1 = 100%（默认），范围 0~2（200%），与界面滑块联动
+// 播放按键音效：直接播放 /Default.wav，不再用 Web Audio 合成
+// volume: 音量系数，1 = 100%（默认）。浏览器音量上限为 1，超出部分钳制到 1
 function playKeyClick(volume = 1) {
     try {
-        const ctx = ensureAudioCtx();
-        const now = ctx.currentTime;
-        const dur = 0.035;
-        const v = Math.max(0, Math.min(2, volume)); // 限制在 0~2
-
-        // 1) 白噪声层（高频咔哒感）
-        const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate);
-        const d = buf.getChannelData(0);
-        for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        const bp = ctx.createBiquadFilter();
-        bp.type = 'bandpass';
-        bp.frequency.value = 2200;
-        bp.Q.value = 0.8;
-        const g = ctx.createGain();
-        g.gain.setValueAtTime(0.45 * v, now);
-        g.gain.exponentialRampToValueAtTime(0.001, now + dur);
-        src.connect(bp).connect(g).connect(ctx.destination);
-        src.start(now);
-        src.stop(now + dur);
-
-        // 2) 低频层（键帽下压的闷响）
-        const osc = ctx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(180, now);
-        osc.frequency.exponentialRampToValueAtTime(90, now + dur);
-        const og = ctx.createGain();
-        og.gain.setValueAtTime(0.28 * v, now);
-        og.gain.exponentialRampToValueAtTime(0.001, now + dur);
-        osc.connect(og).connect(ctx.destination);
-        osc.start(now);
-        osc.stop(now + dur);
+        const audio = getKeyClickAudio();
+        const v = Math.max(0, Math.min(1, volume)); // 浏览器音量范围 0~1
+        audio.volume = v;
+        audio.currentTime = 0; // 快速连按时从头重播，避免声音排队积压
+        audio.play().catch(() => {});
     } catch (e) { /* 音频不可用时静默 */ }
 }
 
