@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>例句打字游戏 - 照着例句打字</title>
+<style>
+    :root {
+        --primary: #4A90E2;
+        --accent: #E24A4A;
+        --success: #2EA44F;
+        --bg: #F5F7FA;
+        --card-bg: #FFFFFF;
+        --text-main: #333333;
+        --text-sub: #888888;
+        --ch-ok: #2EA44F;
+        --ch-bad: #E24A4A;
+        --ch-cur: #4A90E2;
+        --ch-normal: #B0B8C4;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--bg);
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #ui-container {
+        text-align: center;
+        width: 100%;
+        max-width: 720px;
+        padding: 20px;
+    }
+
+    /* ---------- 顶部控制栏 ---------- */
+    .top-bar {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+        margin-bottom: 14px;
+        background: #fff;
+        padding: 12px 16px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    }
+    .top-bar-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+    }
+    .app-title {
+        font-size: 17px;
+        font-weight: 600;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .app-title a {
+        font-size: 13px;
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 400;
+        border-bottom: 1px dashed var(--primary);
+    }
+    .app-title a:hover { opacity: 0.7; }
+
+    .stats-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+        font-size: 13px;
+        color: var(--text-sub);
+    }
+    .stat {
+        background: var(--bg);
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-weight: 500;
+        color: var(--text-main);
+    }
+    .stat b { color: var(--primary); }
+
+    /* ---------- 游戏卡片 ---------- */
+    #game-area { width: 100%; }
+
+    .sentence-card {
+        background: var(--card-bg);
+        border-radius: 16px;
+        padding: 22px 24px 18px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.07);
+        margin-bottom: 14px;
+        cursor: text;
+        user-select: none;
+    }
+
+    .word-info {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 6px;
+    }
+    .word-info .word {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+    .word-info .phonetic {
+        font-size: 13px;
+        color: var(--text-sub);
+    }
+    .word-info .pos {
+        font-size: 12px;
+        color: #fff;
+        background: var(--primary);
+        border-radius: 4px;
+        padding: 1px 6px;
+        font-weight: 600;
+    }
+    .word-info .meaning {
+        font-size: 13px;
+        color: var(--text-sub);
+    }
+
+    .sentence-zh {
+        font-size: 14px;
+        color: #5a6472;
+        background: #F1F5FB;
+        border-left: 3px solid var(--primary);
+        padding: 6px 10px;
+        border-radius: 0 6px 6px 0;
+        margin-bottom: 16px;
+        text-align: left;
+    }
+
+    /* 打字目标区 */
+    .typing-zone {
+        background: #FAFBFD;
+        border: 2px solid #E3E8EF;
+        border-radius: 12px;
+        padding: 14px 16px;
+        min-height: 78px;
+        position: relative;
+        transition: border-color 0.2s;
+        margin-bottom: 10px;
+    }
+    .typing-zone.focused { border-color: var(--primary); }
+    .typing-zone.shake { animation: shake 0.25s; }
+
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+
+    #typing-target {
+        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 22px;
+        line-height: 1.9;
+        white-space: pre-wrap;
+        word-break: break-word;
+        letter-spacing: 0.5px;
+    }
+
+    .ch { color: var(--ch-normal); transition: color 0.08s; border-radius: 3px; }
+    .ch.sp { text-decoration: underline; text-decoration-color: #CFD8E3; text-underline-offset: 5px; }
+    .ch.ok { color: var(--ch-ok); }
+    .ch.bad {
+        color: var(--ch-bad);
+        background: rgba(226, 74, 74, 0.12);
+        text-decoration: underline wavy var(--ch-bad);
+        text-underline-offset: 4px;
+    }
+    .ch.cur {
+        color: var(--ch-cur);
+        background: rgba(74, 144, 226, 0.18);
+        box-shadow: 0 2px 0 var(--ch-cur);
+    }
+
+    /* 隐藏输入框：捕获键盘焦点，不显示 */
+    #typed-input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        border: none;
+        outline: none;
+        left: -10px;
+        top: -10px;
+    }
+
+    .typing-hint {
+        font-size: 12px;
+        color: #A0A8B4;
+        text-align: left;
+        margin-top: 2px;
+    }
+
+    /* 进度条 */
+    .progress-wrap {
+        background: #E8EDF3;
+        border-radius: 8px;
+        height: 8px;
+        overflow: hidden;
+        margin-bottom: 14px;
+    }
+    .progress-bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, var(--primary), #6FA9EE);
+        border-radius: 8px;
+        transition: width 0.3s ease;
+    }
+
+    /* 按钮 */
+    .controls {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+    }
+    button {
+        border: none;
+        border-radius: 8px;
+        padding: 10px 22px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.15s, transform 0.1s;
+    }
+    button:hover { opacity: 0.88; }
+    button:active { transform: scale(0.97); }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-ghost { background: #E8EDF3; color: var(--text-main); }
+
+    /* 句子内错误提示 */
+    .sentence-result {
+        font-size: 13px;
+        margin-top: 4px;
+        min-height: 18px;
+        color: var(--text-sub);
+    }
+    .sentence-result.good { color: var(--success); }
+    .sentence-result.bad-line { color: var(--accent); }
+
+    /* ---------- 结束面板 ---------- */
+    #end-panel { display: none; }
+    .end-card {
+        background: var(--card-bg);
+        border-radius: 16px;
+        padding: 30px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.07);
+    }
+    .end-title { font-size: 22px; font-weight: 700; margin-bottom: 18px; color: var(--text-main); }
+    .end-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+    .end-item {
+        background: var(--bg);
+        border-radius: 10px;
+        padding: 12px;
+    }
+    .end-item .label { font-size: 12px; color: var(--text-sub); margin-bottom: 4px; }
+    .end-item .value { font-size: 22px; font-weight: 700; color: var(--primary); }
+    .end-item .value.green { color: var(--success); }
+
+    /* ---------- 空 / 加载状态 ---------- */
+    #empty-panel { display: none; }
+    .empty-card {
+        background: var(--card-bg);
+        border-radius: 16px;
+        padding: 36px 24px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.07);
+        text-align: center;
+    }
+    .empty-card .icon { font-size: 44px; margin-bottom: 12px; }
+    .empty-card .tip { font-size: 14px; color: var(--text-main); line-height: 1.8; }
+    .empty-card .tip code {
+        background: var(--bg);
+        border: 1px solid #E3E8EF;
+        border-radius: 4px;
+        padding: 1px 6px;
+        font-size: 13px;
+    }
+    .loading { padding: 40px; color: var(--text-sub); font-size: 15px; }
+</style>
+</head>
+<body>
+
+<div id="ui-container">
+    <!-- 顶部控制栏 -->
+    <div class="top-bar">
+        <div class="top-bar-row">
+            <div class="app-title">⌨️ 例句打字练习 <a href="fc.html" title="回闪卡游戏">↩ 闪卡</a></div>
+            <div id="source-count" class="stat">例句 0</div>
+        </div>
+        <div class="stats-bar">
+            <span class="stat">📌 第 <b id="stat-cur">0</b> / <span id="stat-total">0</span> 句</span>
+            <span class="stat">⏱ <b id="stat-time">00:00</b></span>
+            <span class="stat">🎯 准确率 <b id="stat-acc">100%</b></span>
+            <span class="stat">🚀 <b id="stat-wpm">0</b> WPM</span>
+        </div>
+    </div>
+
+    <div id="loading-panel" class="loading">⏳ 正在读取 IndexedDB 例句缓存...</div>
+
+    <!-- 游戏区域 -->
+    <div id="game-area" style="display:none;">
+        <div id="sentence-card" class="sentence-card">
+            <div class="word-info">
+                <span id="word" class="word"></span>
+                <span id="phonetic" class="phonetic"></span>
+                <span id="pos" class="pos"></span>
+                <span id="meaning" class="meaning"></span>
+            </div>
+            <div id="sentence-zh" class="sentence-zh"></div>
+            <div class="typing-zone" id="typing-zone">
+                <div id="typing-target"></div>
+                <input id="typed-input" type="text" autocomplete="off" autocorrect="off"
+                       autocapitalize="off" spellcheck="false" aria-label="打字输入框">
+            </div>
+            <div class="typing-hint">🖱 点击卡片聚焦 · <b>照打上方英文例句</b>，正确变绿、错误标红 · 输完自动下一句 · Enter 跳过等待</div>
+            <div id="sentence-result" class="sentence-result"></div>
+        </div>
+
+        <div class="progress-wrap"><div id="progress-bar" class="progress-bar"></div></div>
+
+        <div class="controls">
+            <button id="btn-restart" class="btn-primary">🔄 重新开始</button>
+            <button id="btn-skip" class="btn-ghost">⏭ 跳过本句</button>
+        </div>
+    </div>
+
+    <!-- 结束面板 -->
+    <div id="end-panel">
+        <div class="end-card">
+            <div class="end-title">🎉 全部完成！</div>
+            <div class="end-grid">
+                <div class="end-item"><div class="label">完成句子</div><div class="value"><span id="end-sentences">0</span> / <span id="end-sentences-total">0</span></div></div>
+                <div class="end-item"><div class="label">总字符</div><div class="value"><span id="end-chars">0</span></div></div>
+                <div class="end-item"><div class="label">准确率</div><div class="value green" id="end-acc">100%</div></div>
+                <div class="end-item"><div class="label">平均速度</div><div class="value green" id="end-wpm">0 WPM</div></div>
+                <div class="end-item"><div class="label">总用时</div><div class="value"><span id="end-time">00:00</span></div></div>
+                <div class="end-item"><div class="label">错误字符</div><div class="value" id="end-errors">0</div></div>
+            </div>
+            <button id="btn-again" class="btn-primary">🔁 再来一轮</button>
+        </div>
+    </div>
+
+    <!-- 空状态 -->
+    <div id="empty-panel">
+        <div class="empty-card">
+            <div class="icon">📭</div>
+            <div class="tip">
+                例句缓存为空，还没有可练的句子。<br>
+                请先到 <a href="fc.html" style="color:var(--primary);">闪卡游戏 <code>fc.html</code></a>，
+                点击 <code>📖 例句 (DeepSeek)</code> 生成并缓存例句，再回来开始打字练习。
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================================================
+// 例句打字游戏 —— 读取 fc.html / typing.html 共享的 IndexedDB（FlashcardDB）
+// example_cache 表：{ word, data: {word, phonetic, examples:[...] | 旧格式}, ts }
+// ============================================================================
+'use strict';
+
+const DB_NAME = 'FlashcardDB';
+const DB_VERSION = 5;          // 与 fc.html 保持一致（版本号 ≤ 5 不会触发升级，兼容更高版本）
+const STORE_EXAMPLE = 'example_cache';
+
+const $ = (id) => document.getElementById(id);
+
+// ------------------------------ IndexedDB 读取 ------------------------------
+function openDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error || new Error('IndexedDB 打开失败'));
+    });
+}
+
+// 读取 example_cache 全表，展开为扁平例句列表
+async function loadAllExamples() {
+    const db = await openDB();
+    if (!db.objectStoreNames.contains(STORE_EXAMPLE)) return [];
+    return new Promise((resolve) => {
+        const req = db.transaction(STORE_EXAMPLE, 'readonly').objectStore(STORE_EXAMPLE).getAll();
+        req.onsuccess = () => {
+            const records = req.result || [];
+            const list = [];
+            records.forEach((rec) => {
+                const data = (rec && rec.data) || {};
+                const word = String(rec.word || data.word || '').trim();
+                const phonetic = data.phonetic || '';
+                // 多词性格式：data.examples = [{partOfSpeech, meaning, exampleEnglish, exampleChinese}]
+                const examples = Array.isArray(data.examples) ? data.examples : null;
+                if (examples) {
+                    examples.forEach((ex) => {
+                        if (!ex || typeof ex !== 'object') return;
+                        const en = ex.exampleEnglish || ex.example_en || ex.example || '';
+                        const cn = ex.exampleChinese || ex.example_cn || '';
+                        const pos = ex.partOfSpeech || ex.pos || ex.part || '';
+                        const meaning = ex.meaning || ex.definition || '';
+                        if (en) {
+                            list.push({
+                                word, phonetic, pos, meaning,
+                                en: normalizeSentence(en),
+                                cn: cn || makeFallbackCn(word),
+                                ts: rec.ts || 0
+                            });
+                        }
+                    });
+                } else {
+                    // 旧版单例句格式
+                    const en = data.exampleEnglish || data.example_en || data.example || '';
+                    const cn = data.exampleChinese || data.example_cn || data.cn || '';
+                    if (en) {
+                        list.push({
+                            word, phonetic,
+                            pos: data.partOfSpeech || data.pos || '',
+                            meaning: data.explanation || data.note || '',
+                            en: normalizeSentence(en),
+                            cn: cn || makeFallbackCn(word),
+                            ts: rec.ts || 0
+                        });
+                    }
+                }
+            });
+            resolve(list);
+        };
+        req.onerror = () => resolve([]);
+    });
+}
+
+// 连续空白（含换行）统一为单个空格
+function normalizeSentence(s) {
+    return String(s || '').replace(/\s+/g, ' ').trim();
+}
+
+// 例句无中文翻译时的兜底文案
+function makeFallbackCn(word) {
+    return '（「' + word + '」例句，暂无中文翻译）';
+}
+
+// ------------------------------ 游戏状态 ------------------------------
+let items = [];          // 全部例句
+let queue = [];          // 本轮顺序（打乱后）
+let idx = 0;             // 当前句下标
+let startTime = 0;       // 本轮开始时间
+let totalKeystrokes = 0; // 输入字符总数
+let correctKeystrokes = 0;
+let doneSentences = 0;   // 已判定完成句数
+let currentTarget = '';
+let sentenceErrors = 0;  // 当前句错误字符数
+let advanceTimer = null;
+let finished = false;
+
+function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+function fmtTime(ms) {
+    const s = Math.floor(ms / 1000);
+    return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+
+function fmtWpm(ms) {
+    if (ms <= 0) return 0;
+    // 标准打字速度算法：5 字符 = 1 词
+    return Math.max(0, Math.round((correctKeystrokes / 5) / (ms / 60000)));
+}
+
+// ------------------------------ 渲染 ------------------------------
+function renderWordInfo(item) {
+    $('word').textContent = item.word;
+    $('phonetic').textContent = item.phonetic ? '[' + item.phonetic + ']' : '';
+    $('pos').textContent = item.pos || 'sentence';
+    $('pos').style.display = item.pos ? 'inline-block' : 'none';
+    $('meaning').textContent = item.meaning || '';
+    $('sentence-zh').textContent = item.cn || '';
+    $('sentence-zh').style.display = (item.cn && item.cn !== makeFallbackCn(item.word)) ? 'block' : 'block';
+}
+
+// 逐字符渲染目标句
+function renderTypingTarget(target) {
+    const box = $('typing-target');
+    box.innerHTML = '';
+    for (let i = 0; i < target.length; i++) {
+        const ch = document.createElement('span');
+        ch.className = 'ch' + (target[i] === ' ' ? ' sp' : '');
+        ch.textContent = target[i];
+        box.appendChild(ch);
+    }
+}
+
+// 根据当前输入重刷字符颜色 + 完成判定
+function renderTyping() {
+    const chs = $('typing-target').children;
+    const val = $('typed-input').value;
+    for (let i = 0; i < chs.length; i++) {
+        const ch = chs[i];
+        ch.className = 'ch' + (currentTarget[i] === ' ' ? ' sp' : '');
+        if (i < val.length) {
+            ch.classList.add(val[i] === currentTarget[i] ? 'ok' : 'bad');
+        } else if (i === val.length) {
+            ch.classList.add('cur');
+        }
+    }
+    if (val.length >= currentTarget.length) scheduleAdvance();
+}
+
+function updateStats() {
+    $('stat-cur').textContent = doneSentences + 1;
+    $('stat-total').textContent = queue.length;
+    const elapsed = startTime ? Date.now() - startTime : 0;
+    $('stat-time').textContent = fmtTime(elapsed);
+    const acc = totalKeystrokes > 0 ? Math.round(correctKeystrokes / totalKeystrokes * 100) : 100;
+    $('stat-acc').textContent = acc + '%';
+    $('stat-wpm').textContent = fmtWpm(elapsed);
+    $('progress-bar').style.width = (doneSentences / queue.length * 100) + '%';
+}
+
+function focusInput() {
+    $('typed-input').focus();
+}
+
+// ------------------------------ 游戏流程 ------------------------------
+function loadSentence() {
+    clearTimeout(advanceTimer);
+    const item = queue[idx];
+    currentTarget = item.en;
+    sentenceErrors = 0;
+    const input = $('typed-input');
+    input.value = '';
+    renderWordInfo(item);
+    renderTypingTarget(currentTarget);
+    renderTyping();
+    $('sentence-result').textContent = '';
+    $('sentence-result').className = 'sentence-result';
+    updateStats();
+    focusInput();
+}
+
+function onSentenceDone() {
+    if (finished || idx >= queue.length) return;
+    clearTimeout(advanceTimer);
+    // 统计本句表现
+    const val = $('typed-input').value;
+    let correct = 0;
+    for (let i = 0; i < currentTarget.length; i++) {
+        if (i < val.length && val[i] === currentTarget[i]) correct++;
+    }
+    const wrong = currentTarget.length - correct; // 错位含缺失
+    correctKeystrokes += correct;
+    totalKeystrokes += currentTarget.length;
+    doneSentences++;
+    sentenceErrors = wrong;
+
+    const resEl = $('sentence-result');
+    if (wrong > 0) {
+        resEl.textContent = '⚠️ 本句 ' + wrong + ' 处错误，看一眼原句，下句加油！';
+        resEl.className = 'sentence-result bad-line';
+    } else {
+        resEl.textContent = '✅ 完美！';
+        resEl.className = 'sentence-result good';
+    }
+    updateStats();
+
+    if (doneSentences >= queue.length) {
+        finishGame();
+        return;
+    }
+    // 短暂停留展示反馈后进入下一句（Enter 可跳过等待）
+    advanceTimer = setTimeout(() => {
+        idx++;
+        loadSentence();
+    }, 1200);
+}
+
+function finishGame() {
+    finished = true;
+    clearTimeout(advanceTimer);
+    const elapsed = Date.now() - startTime;
+    $('end-sentences').textContent = doneSentences;
+    $('end-sentences-total').textContent = queue.length;
+    $('end-chars').textContent = totalKeystrokes;
+    $('end-errors').textContent = totalKeystrokes - correctKeystrokes;
+    $('end-time').textContent = fmtTime(elapsed);
+    const acc = totalKeystrokes > 0 ? Math.round(correctKeystrokes / totalKeystrokes * 100) : 100;
+    $('end-acc').textContent = acc + '%';
+    $('end-wpm').textContent = fmtWpm(elapsed) + ' WPM';
+
+    $('game-area').style.display = 'none';
+    $('end-panel').style.display = 'block';
+}
+
+function startGame() {
+    if (!items.length) return;
+    queue = shuffle(items);
+    idx = 0;
+    doneSentences = 0;
+    totalKeystrokes = 0;
+    correctKeystrokes = 0;
+    finished = false;
+    startTime = Date.now();
+    $('end-panel').style.display = 'none';
+    $('game-area').style.display = 'block';
+    loadSentence();
+}
+
+function scheduleAdvance() {
+    clearTimeout(advanceTimer);
+    advanceTimer = setTimeout(onSentenceDone, 350);
+}
+
+// ------------------------------ 初始化 ------------------------------
+$('typed-input').addEventListener('input', () => {
+    // 禁止输入比目标更长的内容（粘贴超长会被截断）
+    if ($('typed-input').value.length > currentTarget.length) {
+        $('typed-input').value = $('typed-input').value.slice(0, currentTarget.length);
+    }
+    renderTyping();
+    updateStats();
+});
+
+$('typed-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        if (idx < queue.length && $('typed-input').value.length >= currentTarget.length) {
+            clearTimeout(advanceTimer);
+            onSentenceDone();
+        }
+    }
+});
+
+$('sentence-card').addEventListener('click', focusInput);
+
+$('typed-input').addEventListener('focus', () => $('typing-zone').classList.add('focused'));
+$('typed-input').addEventListener('blur', () => $('typing-zone').classList.remove('focused'));
+
+$('btn-restart').addEventListener('click', startGame);
+$('btn-again').addEventListener('click', startGame);
+$('btn-skip').addEventListener('click', () => {
+    if (finished || !queue.length) return;
+    clearTimeout(advanceTimer);
+    // 跳过也算完成（统计上记为 0 正确）
+    totalKeystrokes += currentTarget.length;
+    doneSentences++;
+    updateStats();
+    if (doneSentences >= queue.length) { finishGame(); return; }
+    idx++;
+    loadSentence();
+});
+
+// 启动
+(async function init() {
+    try {
+        items = await loadAllExamples();
+        $('source-count').textContent = '例句 ' + items.length;
+        if (items.length === 0) {
+            $('loading-panel').style.display = 'none';
+            $('empty-panel').style.display = 'block';
+            return;
+        }
+        $('loading-panel').style.display = 'none';
+        startGame();
+    } catch (err) {
+        $('loading-panel').innerHTML = '❌ 加载失败：' + (err && err.message ? err.message : String(err)) +
+            '<br><span style="font-size:13px;color:#888;">请确认已用 fc.html 打开过本站（同一域名）以创建 IndexedDB。</span>';
+    }
+})();
+</script>
+</body>
+</html>
