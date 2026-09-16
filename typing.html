@@ -163,6 +163,15 @@
             font-size: 12px;
             border-radius: 6px;
         }
+        .question-actions .icon-btn {
+            padding: 6px 10px;
+            font-size: 15px;
+            line-height: 1;
+            min-width: 34px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
         .trans-reveal {
             margin-top: 12px;
             padding: 10px 14px;
@@ -444,9 +453,9 @@
                 <div class="word" id="word-display">—</div>
                 <div class="prompt" id="prompt-text"></div>
                 <div class="question-actions">
-                    <button id="btn-replay" class="btn btn-primary btn-sm hidden">🔊 重听发音</button>
-                    <button id="btn-toggle-trans" class="btn btn-plain btn-sm hidden">👁 查看释义</button>
-                    <button id="btn-toggle-example" class="btn btn-plain btn-sm hidden">📖 查看例句</button>
+                    <button id="btn-replay" class="btn btn-primary btn-sm icon-btn hidden" title="重听发音" aria-label="重听发音">🔊</button>
+                    <button id="btn-toggle-trans" class="btn btn-plain btn-sm icon-btn hidden" title="查看释义" aria-label="查看释义">👁</button>
+                    <button id="btn-toggle-example" class="btn btn-plain btn-sm icon-btn hidden" title="查看例句" aria-label="查看例句">📖</button>
                 </div>
                 <div class="trans-reveal hidden" id="trans-reveal"></div>
                 <div class="example-reveal hidden" id="example-reveal"></div>
@@ -1158,23 +1167,27 @@ function renderQuestion() {
     // 重置释义查看状态
     els.transReveal.classList.add('hidden');
     els.transReveal.textContent = '';
-    els.btnToggleTrans.textContent = '👁 查看释义';
+    els.btnToggleTrans.textContent = '👁';
+    els.btnToggleTrans.title = '查看释义';
     // 重置例句查看状态（例句按钮在听写/跟打两种模式下均可用）
     els.exampleReveal.classList.add('hidden');
     els.exampleReveal.textContent = '';
     els.btnToggleExample.classList.remove('hidden');
-    els.btnToggleExample.textContent = '📖 查看例句';
+    els.btnToggleExample.textContent = '📖';
+    els.btnToggleExample.title = '查看例句';
 
     if (currentMode === 'copy') {
         // 照词跟打：显示单词，隐藏音标与释义按钮
         els.wordDisplay.textContent = currentWord;
+        els.promptText.classList.remove('hidden');
         els.promptText.textContent = '照着上方单词输入一遍';
         els.btnReplay.classList.add('hidden');
         els.btnToggleTrans.classList.add('hidden');
     } else {
-        // 听写模式：大字显示音标，中文释义默认隐藏，可随时点击查看
+        // 听写模式：大字显示音标，中文释义默认隐藏，提示文字隐藏（听写应凭听力完成），可随时点击查看
         els.wordDisplay.textContent = currentPhonetic || '（暂无音标）';
-        els.promptText.textContent = '🎧 听读音，拼出单词';
+        els.promptText.classList.add('hidden');
+        els.promptText.textContent = '';
         els.btnReplay.classList.remove('hidden');
         els.btnToggleTrans.classList.remove('hidden');
     }
@@ -1249,10 +1262,12 @@ function toggleTransReveal() {
     if (isHidden) {
         els.transReveal.textContent = currentTrans || '（暂无释义）';
         els.transReveal.classList.remove('hidden');
-        els.btnToggleTrans.textContent = '🙈 隐藏释义';
+        els.btnToggleTrans.textContent = '🙈';
+        els.btnToggleTrans.title = '隐藏释义';
     } else {
         els.transReveal.classList.add('hidden');
-        els.btnToggleTrans.textContent = '👁 查看释义';
+        els.btnToggleTrans.textContent = '👁';
+        els.btnToggleTrans.title = '查看释义';
     }
 }
 
@@ -1400,7 +1415,8 @@ function toggleExampleReveal() {
     if (isHidden) {
         els.exampleReveal.textContent = '⏳ 正在请求 DeepSeek 生成例句...';
         els.exampleReveal.classList.remove('hidden');
-        els.btnToggleExample.textContent = '🙈 隐藏例句';
+        els.btnToggleExample.textContent = '🙈';
+        els.btnToggleExample.title = '隐藏例句';
         exampleRequestWord = currentWord;
         fetchExamplesFromModel(currentWord).then((result) => {
             // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
@@ -1414,7 +1430,8 @@ function toggleExampleReveal() {
         });
     } else {
         els.exampleReveal.classList.add('hidden');
-        els.btnToggleExample.textContent = '📖 查看例句';
+        els.btnToggleExample.textContent = '📖';
+        els.btnToggleExample.title = '查看例句';
     }
 }
 
