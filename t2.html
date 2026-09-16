@@ -132,7 +132,14 @@
             color: var(--primary);
             letter-spacing: 1px;
             word-break: break-all;
+            display: inline-block;
+            cursor: pointer;
+            user-select: none;
+            border-radius: 8px;
+            padding: 2px 10px;
+            transition: background 0.15s;
         }
+        .question .word:hover { background: rgba(74, 144, 226, 0.08); }
         .question .phonetic {
             font-size: 14px;
             color: var(--text-sub);
@@ -140,6 +147,38 @@
             word-break: break-all;
         }
         .question .prompt { font-size: 13px; color: var(--text-sub); margin-top: 6px; }
+
+        /* ---------- 点击单词展示的释义浮层 ---------- */
+        .word-trans {
+            margin: 12px auto 0;
+            max-width: 540px;
+            padding: 10px 16px;
+            background: #fff7e6;
+            border: 1px solid #ffd591;
+            border-radius: 10px;
+            font-size: 15px;
+            color: #ad4e00;
+            text-align: left;
+            line-height: 1.7;
+            word-break: break-all;
+            animation: wordTransIn 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .word-trans .tag {
+            display: inline-block;
+            background: #ffa940;
+            color: #fff;
+            border-radius: 4px;
+            padding: 1px 8px;
+            font-size: 12px;
+            margin-right: 8px;
+            vertical-align: 1px;
+        }
+        @keyframes wordTransIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
         .question-actions {
             display: flex;
             justify-content: center;
@@ -355,9 +394,10 @@
         <!-- 题目区 -->
         <div class="panel">
             <div class="question" id="question-area">
-                <div class="word" id="word-display">—</div>
+                <div class="word" id="word-display" title="点击查看释义，再次点击隐藏">—</div>
                 <div class="phonetic" id="phonetic-text"></div>
                 <div class="prompt" id="prompt-text"></div>
+                <div class="word-trans hidden" id="word-trans-display" title="点击上方单词可隐藏释义"></div>
                 <div class="question-actions">
                     <button id="btn-replay" class="btn btn-primary btn-sm icon-btn hidden" title="重听发音" aria-label="重听发音">🔊</button>
                 </div>
@@ -750,6 +790,7 @@ const els = {
     wordDisplay: document.getElementById('word-display'),
     phoneticText: document.getElementById('phonetic-text'),
     promptText: document.getElementById('prompt-text'),
+    wordTransDisplay: document.getElementById('word-trans-display'),
     btnReplay: document.getElementById('btn-replay'),
     answerInput: document.getElementById('answer-input'),
     btnClear: document.getElementById('btn-clear'),
@@ -859,6 +900,8 @@ function bindEvents() {
     els.btnPrevWord.addEventListener('click', goPrevWord);
     els.btnNextWord.addEventListener('click', goNextWord);
     els.btnReplay.addEventListener('click', () => { if (currentWord) playWordAudio(currentWord); });
+    // 点击单词（或听读音模式下的音标）：显示/隐藏释义
+    els.wordDisplay.addEventListener('click', toggleWordTrans);
     els.btnAgain.addEventListener('click', () => {
         const groupIdx = parseInt(els.groupSelect.value) || 0;
         const totalGroups = els.groupSelect.options.length;
@@ -992,7 +1035,9 @@ function renderQuestion() {
         els.phoneticText.textContent = currentPhonetic;
         els.btnReplay.classList.add('hidden');
     }
-    els.promptText.textContent = (currentTrans ? '💡 输入释义中的任意关键词（输入内容出现在释义里即算对）' : '（该单词暂无释义，请直接回车跳过）');
+    els.promptText.textContent = (currentTrans ? '💡 输入释义中的任意关键词（输入内容出现在释义里即算对）｜👆 点击单词可查看释义' : '（该单词暂无释义，请直接回车跳过）');
+
+    els.wordTransDisplay.classList.add('hidden'); // 切题后自动收起释义浮层
 
     els.answerInput.value = '';
     els.answerInput.focus();
@@ -1017,6 +1062,18 @@ function tryAutoAdvance() {
 
 function clearInput() {
     els.answerInput.value = '';
+}
+
+// 点击单词区域：切换释义浮层显示/隐藏（看单词/听读音两种模式都支持）
+function toggleWordTrans() {
+    if (isFinished) return;
+    if (!currentTrans) return;
+    if (els.wordTransDisplay.classList.contains('hidden')) {
+        els.wordTransDisplay.innerHTML = '<span class="tag">📖 释义</span>' + escapeHtml(currentTrans);
+        els.wordTransDisplay.classList.remove('hidden');
+    } else {
+        els.wordTransDisplay.classList.add('hidden');
+    }
 }
 
 // ============================================================
@@ -1062,6 +1119,7 @@ function showFlashAnswer() {
     const obj = sessionWords[sessionIndex];
     const ph = getWordPhonetic(obj);
     els.resultPanel.classList.remove('hidden');
+    els.wordTransDisplay.classList.add('hidden'); // 已展示正确答案，先收起释义浮层
     els.resultWord.innerHTML = '<span class="word-tag">❌ 正确答案</span>' + escapeHtml(getWordKey(obj));
     els.resultWord.style.color = 'var(--text-main)';
     els.resultTrans.textContent = (ph ? ph + '　' : '') + getWordTrans(obj);
