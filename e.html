@@ -297,6 +297,37 @@
         font-size: 13px;
     }
     .loading { padding: 40px; color: var(--text-sub); font-size: 15px; }
+
+    /* ---------- 页尾工具区：导入 / 导出 ---------- */
+    .footer-toolbar {
+        margin-top: 20px;
+        padding-top: 14px;
+        border-top: 1px dashed #DFE5EC;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        font-size: 13px;
+        color: var(--text-sub);
+    }
+    .btn-mini {
+        border: 1px solid #DFE5EC;
+        background: #fff;
+        color: var(--text-main);
+        border-radius: 8px;
+        padding: 7px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.15s, transform 0.1s, border-color 0.15s, color 0.15s;
+    }
+    .btn-mini:hover { opacity: 0.88; border-color: var(--primary); color: var(--primary); }
+    .btn-mini:active { transform: scale(0.97); }
+    #import-file-input { display: none; }
+    #toolbar-msg { width: 100%; text-align: center; font-size: 12px; min-height: 16px; color: var(--text-sub); }
+    #toolbar-msg.ok { color: var(--success); }
+    #toolbar-msg.err { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -371,6 +402,14 @@
                 点击 <code>📖 例句 (DeepSeek)</code> 生成并缓存例句，再回来开始打字练习。
             </div>
         </div>
+    </div>
+
+    <!-- 页尾工具区：导入 / 导出 -->
+    <div class="footer-toolbar">
+        <button id="btn-export" class="btn-mini">⬇ 导出例句</button>
+        <button id="btn-import" class="btn-mini">⬆ 导入例句</button>
+        <input id="import-file-input" type="file" accept=".json,application/json">
+        <div id="toolbar-msg"></div>
     </div>
 </div>
 
@@ -740,6 +779,119 @@ $('btn-skip').addEventListener('click', () => {
     if (doneSentences >= queue.length) { finishGame(); return; }
     idx++;
     loadSentence();
+});
+
+// ------------------------------ 导出 / 导入 ------------------------------
+const EXPORT_FORMAT_VERSION = 1;
+
+function showToolbarMsg(text, type) {
+    const el = $('toolbar-msg');
+    el.textContent = text;
+    el.className = 'toolbar-msg' + (type ? ' ' + type : '');
+    clearTimeout(showToolbarMsg._t);
+    if (type) showToolbarMsg._t = setTimeout(() => { el.textContent = ''; el.className = 'toolbar-msg'; }, 4000);
+}
+
+// 读取 example_cache 全表的原始记录（word + data + ts）
+function loadAllRecords() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onsuccess = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(STORE_EXAMPLE)) { db.close(); resolve([]); return; }
+            const treq = db.transaction(STORE_EXAMPLE, 'readonly').objectStore(STORE_EXAMPLE).getAll();
+            treq.onsuccess = () => { db.close(); resolve(treq.result || []); };
+            treq.onerror = () => { db.close(); resolve([]); };
+        };
+        req.onerror = () => reject(req.error || new Error('IndexedDB 打开失败'));
+    });
+}
+
+// 把记录写回 example_cache（覆盖同名 word）
+function saveRecords(records) {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onsuccess = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(STORE_EXAMPLE)) { db.close(); reject(new Error('IndexedDB 中缺少 example_cache 表，请先用 fc.html 打开本站')); return; }
+            const tx = db.transaction(STORE_EXAMPLE, 'readwrite');
+            const store = tx.objectStore(STORE_EXAMPLE);
+            records.forEach((rec) => store.put(rec));
+            tx.oncomplete = () => { db.close(); resolve(); };
+            tx.onerror = () => { db.close(); reject(tx.error || new Error('写入 IndexedDB 失败')); };
+        };
+        req.onerror = () => reject(req.error || new Error('IndexedDB 打开失败'));
+    });
+}
+
+// 下载文件
+function downloadFile(filename, text) {
+    const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// 导出：把 example_cache 原始记录打包为 JSON 文件
+$('btn-export').addEventListener('click', async () => {
+    try {
+        const records = await loadAllRecords();
+        if (!records.length) { showToolbarMsg('⚠️ 当前没有例句可导出（缓存为空）', 'err'); return; }
+        const payload = {
+            app: 'example-typing',
+            format: EXPORT_FORMAT_VERSION,
+            exportedAt: new Date().toISOString(),
+            count: records.length,
+            records: records.map((r) => ({ word: r.word, data: r.data, ts: r.ts }))
+        };
+        const stamp = new Date().toISOString().slice(0, 10);
+        downloadFile('example-sentences-' + stamp + '.json', JSON.stringify(payload, null, 2));
+        showToolbarMsg('✅ 已导出 ' + records.length + ' 条例句：example-sentences-' + stamp + '.json');
+    } catch (err) {
+        showToolbarMsg('❌ 导出失败：' + (err && err.message ? err.message : String(err)), 'err');
+    }
+});
+
+// 导入：选择 JSON 文件 → 解析 → 全量覆盖写入 IndexedDB → 刷新页面
+$('btn-import').addEventListener('click', () => $('import-file-input').click());
+
+$('import-file-input').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ''; // 允许连续导入同一个文件
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+        try {
+            const parsed = JSON.parse(String(reader.result || ''));
+            // 兼容两种格式：本工具导出的 { records: [...] }，或裸记录数组
+            const records = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.records) ? parsed.records : null);
+            if (!records || !records.length) throw new Error('文件中没有例句记录');
+            const clean = [];
+            records.forEach((r) => {
+                if (!r || typeof r !== 'object' || r.data == null) return;
+                const word = String(r.word || (r.data && r.data.word) || '').trim();
+                if (!word) return;
+                clean.push({
+                    word: word,
+                    data: r.data,
+                    ts: typeof r.ts === 'number' ? r.ts : Date.now()
+                });
+            });
+            if (!clean.length) throw new Error('文件中没有可用的例句记录');
+            await saveRecords(clean);
+            showToolbarMsg('✅ 导入成功：' + clean.length + ' 条例句已写入，正在刷新…', 'ok');
+            setTimeout(() => location.reload(), 600);
+        } catch (err) {
+            showToolbarMsg('❌ 导入失败：' + (err && err.message ? err.message : String(err)), 'err');
+        }
+    };
+    reader.onerror = () => showToolbarMsg('❌ 读取文件失败', 'err');
+    reader.readAsText(file, 'utf-8');
 });
 
 // 页面关闭前兜底保存一次（避免最后一次判定丢失）
