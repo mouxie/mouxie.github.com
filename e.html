@@ -239,8 +239,9 @@
         cursor: pointer;
         transition: opacity 0.15s, transform 0.1s;
     }
-    button:hover { opacity: 0.88; }
-    button:active { transform: scale(0.97); }
+    button:hover:not(:disabled) { opacity: 0.88; }
+    button:active:not(:disabled) { transform: scale(0.97); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-ghost { background: #E8EDF3; color: var(--text-main); }
 
@@ -372,7 +373,8 @@
 
         <div class="controls">
             <button id="btn-restart" class="btn-primary">🔄 重新开始</button>
-            <button id="btn-skip" class="btn-ghost">⏭ 跳过本句</button>
+            <button id="btn-prev" class="btn-ghost">⏮ 上一句</button>
+            <button id="btn-next" class="btn-ghost">⏭ 下一句</button>
         </div>
     </div>
 
@@ -515,6 +517,7 @@ let startTime = 0;       // 本轮开始时间
 let totalKeystrokes = 0; // 输入字符总数
 let correctKeystrokes = 0;
 let doneSentences = 0;   // 已判定完成句数
+let completed = new Set(); // 已完成句子的下标集合（防止来回跳转时重复计数）
 let currentTarget = '';
 let sentenceErrors = 0;  // 当前句错误字符数
 let advanceTimer = null;
@@ -530,6 +533,7 @@ function saveProgress(isFinished) {
         const state = {
             queueKeys: queue.map((it) => it.key),
             idx: idx,
+            completedKeys: queue.filter((_, i) => completed.has(i)).map((it) => it.key),
             doneSentences: doneSentences,
             totalKeystrokes: totalKeystrokes,
             correctKeystrokes: correctKeystrokes,
@@ -565,7 +569,17 @@ function restoreProgress() {
 
     queue = rebuilt;
     idx = Math.min(state.idx || 0, queue.length - 1);
-    doneSentences = Math.min(state.doneSentences || 0, queue.length);
+    // 重建已完成句集合（按 key 匹配，队列增删也不错位）
+    completed = new Set();
+    if (Array.isArray(state.completedKeys)) {
+        const doneKeys = new Set(state.completedKeys);
+        queue.forEach((it, i) => { if (doneKeys.has(it.key)) completed.add(i); });
+    } else {
+        // 兼容旧版进度：只有 doneSentences 数字时，视为前 N 句已完成
+        const n = Math.min(state.doneSentences || 0, queue.length);
+        for (let i = 0; i < n; i++) completed.add(i);
+    }
+    doneSentences = completed.size;
     totalKeystrokes = state.totalKeystrokes || 0;
     correctKeystrokes = state.correctKeystrokes || 0;
     if (totalKeystrokes > 0 && correctKeystrokes > totalKeystrokes) correctKeystrokes = totalKeystrokes;
@@ -636,14 +650,14 @@ function renderTyping() {
 }
 
 function updateStats() {
-    $('stat-cur').textContent = doneSentences + 1;
+    $('stat-cur').textContent = queue.length ? Math.min(idx + 1, queue.length) : 0;
     $('stat-total').textContent = queue.length;
     const elapsed = startTime ? Date.now() - startTime : 0;
     $('stat-time').textContent = fmtTime(elapsed);
     const acc = totalKeystrokes > 0 ? Math.round(correctKeystrokes / totalKeystrokes * 100) : 100;
     $('stat-acc').textContent = acc + '%';
     $('stat-wpm').textContent = fmtWpm(elapsed);
-    $('progress-bar').style.width = (doneSentences / queue.length * 100) + '%';
+    $('progress-bar').style.width = (queue.length ? doneSentences / queue.length * 100 : 0) + '%';
 }
 
 function focusInput() {
@@ -663,6 +677,8 @@ function loadSentence() {
     renderTyping();
     $('sentence-result').textContent = '';
     $('sentence-result').className = 'sentence-result';
+    $('btn-prev').disabled = idx <= 0;
+    $('btn-next').disabled = idx >= queue.length - 1;
     updateStats();
     saveProgress(false);
     focusInput();
@@ -678,10 +694,14 @@ function onSentenceDone() {
         if (i < val.length && val[i] === currentTarget[i]) correct++;
     }
     const wrong = currentTarget.length - correct; // 错位含缺失
-    correctKeystrokes += correct;
-    totalKeystrokes += currentTarget.length;
-    doneSentences++;
     sentenceErrors = wrong;
+    // 已完成的句子重打不重复计数
+    if (!completed.has(idx)) {
+        correctKeystrokes += correct;
+        totalKeystrokes += currentTarget.length;
+        completed.add(idx);
+        doneSentences = completed.size;
+    }
 
     const resEl = $('sentence-result');
     if (wrong > 0) {
@@ -694,13 +714,19 @@ function onSentenceDone() {
 
     // 立即推进索引并保存（刷新发生在反馈等待窗口时也能定位到下一句）
     idx++;
-    saveProgress(false);
-    updateStats();
-
     if (doneSentences >= queue.length) {
+        saveProgress(false);
         finishGame();
         return;
     }
+    if (idx >= queue.length) {
+        // 已到末尾但还有被“下一句”跳过的句子 → 回到第一个未完成句
+        idx = queue.findIndex((_, i) => !completed.has(i));
+        if (idx < 0) { saveProgress(false); finishGame(); return; }
+    }
+    saveProgress(false);
+    updateStats();
+
     // 短暂停留展示反馈后进入下一句（Enter 可跳过等待）
     advanceTimer = setTimeout(loadSentence, 1200);
 }
@@ -728,6 +754,7 @@ function startGame() {
     queue = shuffle(items);
     idx = 0;
     doneSentences = 0;
+    completed = new Set();
     totalKeystrokes = 0;
     correctKeystrokes = 0;
     finished = false;
@@ -769,14 +796,17 @@ $('typed-input').addEventListener('blur', () => $('typing-zone').classList.remov
 
 $('btn-restart').addEventListener('click', startGame);
 $('btn-again').addEventListener('click', startGame);
-$('btn-skip').addEventListener('click', () => {
-    if (finished || !queue.length) return;
+// 上一句：纯导航，回退查看/重打，不改动统计
+$('btn-prev').addEventListener('click', () => {
+    if (finished || !queue.length || idx <= 0) return;
     clearTimeout(advanceTimer);
-    // 跳过也算完成（统计上记为 0 正确）
-    totalKeystrokes += currentTarget.length;
-    doneSentences++;
-    updateStats();
-    if (doneSentences >= queue.length) { finishGame(); return; }
+    idx--;
+    loadSentence();
+});
+// 下一句：纯导航，跳过本句（不计入完成），之后打完末尾会自动回到未完成句
+$('btn-next').addEventListener('click', () => {
+    if (finished || !queue.length || idx >= queue.length - 1) return;
+    clearTimeout(advanceTimer);
     idx++;
     loadSentence();
 });
