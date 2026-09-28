@@ -21,10 +21,13 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
+            /* 移动端修复：不再固定 100vh + overflow:hidden（iPhone 上溢出内容被裁切且无法滚动）
+               改用 min-height + 可滚动；100dvh 兼容 iOS Safari 地址栏动态高度 */
+            min-height: 100vh;
+            min-height: 100dvh;
             margin: 0;
-            overflow: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         #ui-container {
@@ -33,6 +36,9 @@
             max-width: 520px;
             padding: 20px;
             box-sizing: border-box;
+            /* margin:auto 代替 justify-content:center：空间足够时垂直居中，
+               内容溢出时不会裁切顶部且可正常滚动 */
+            margin: auto;
         }
 
         /* 顶部控制栏 */
@@ -241,6 +247,8 @@
 
         .type-input:focus { border-color: var(--primary); }
         .type-input:disabled { background: #f2f2f2; color: #aaa; }
+        /* 判定锁定期间用 readOnly（iOS 上 disabled 会强制收起键盘且无法在定时器中重新 focus） */
+        .type-input[readonly] { background: #f7f7f7; }
 
         .type-status {
             min-height: 20px;
@@ -1530,6 +1538,7 @@
         function resetTyping() {
             resolvingWord = false;
             typeInput.disabled = false;
+            typeInput.readOnly = false;
             typeInput.value = '';
             meaningCard.classList.remove('is-success', 'is-error');
             typeStatus.textContent = '';
@@ -1540,7 +1549,9 @@
         // 输入完成且完全正确：成功反馈，短暂延迟后自动进入下一词
         function onWordCorrect() {
             resolvingWord = true;
-            typeInput.disabled = true;
+            // 用 readOnly 而非 disabled：iOS Safari 上 disabled 会立即收起键盘并丢失焦点，
+            // 之后在 setTimeout 里 focus() 属于非用户手势，无法重新唤起键盘
+            typeInput.readOnly = true;
             meaningCard.classList.add('is-success');
             typeStatus.textContent = '✅ 正确！即将进入下一词...';
             typeStatus.className = 'type-status success';
@@ -1552,7 +1563,7 @@
         // 输入长度满但结果错误：错误反馈，清空后重打（不统计对错，只要求打对）
         function onWordWrong() {
             resolvingWord = true;
-            typeInput.disabled = true;
+            typeInput.readOnly = true; // 同 onWordCorrect：避免 iOS 键盘被强制收起
             meaningCard.classList.remove('is-success');
             void meaningCard.offsetWidth; // 重新触发 shake 动画
             meaningCard.classList.add('is-error');
@@ -1560,7 +1571,7 @@
             typeStatus.className = 'type-status error';
             setTimeout(() => {
                 resolvingWord = false;
-                typeInput.disabled = false;
+                typeInput.readOnly = false;
                 typeInput.value = '';
                 meaningCard.classList.remove('is-error');
                 typeStatus.textContent = '';
@@ -1749,10 +1760,24 @@
             worker.postMessage({ type: 'getDbStats' });
         });
 
+        // iOS 上点击按钮会使输入框失焦收起键盘，而后续定时器中的 focus() 非用户手势无法重新唤起；
+        // 因此在点击手势内同步 focus（并用 preventDefault 阻止 mousedown/touchstart 默认行为，避免输入框先失焦）
+        [btnNext, btnPrev, btnSpeak, btnToggleWrong].forEach((btn) => {
+            ['mousedown', 'touchstart'].forEach((evt) => {
+                btn.addEventListener(evt, (e) => {
+                    if (!typeInput.disabled) {
+                        e.preventDefault(); // 阻止焦点转移到按钮，输入框保持聚焦、键盘不收起
+                    }
+                }, { passive: false });
+            });
+        });
+
         btnNext.addEventListener('click', () => {
+            if (!typeInput.disabled) typeInput.focus(); // 手势内同步聚焦（iOS 可唤起键盘）
             goNextWord();
         });
         btnPrev.addEventListener('click', () => {
+            if (!typeInput.disabled) typeInput.focus();
             if (currentRelativeIndex > 0) {
                 currentRelativeIndex--;
                 loadCard(currentRelativeIndex);
