@@ -132,7 +132,7 @@
         }
 
         .card__meaning {
-            font-size: 23px;
+            font-size: 12px;
             font-weight: 600;
             color: var(--text-main);
             text-align: center;
@@ -140,6 +140,18 @@
             max-height: 90px;
             overflow-y: auto;
         }
+
+        .card__meaning.is-hidden { display: none; }
+
+        /* 释义隐藏时的点击提示 */
+        .card__tap-hint {
+            font-size: 13px;
+            color: var(--text-sub);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .meaning-card { cursor: pointer; }
 
         .card__phonetic {
             margin-top: 12px;
@@ -535,9 +547,10 @@
 
         <div id="init-status-text">⏳ 正在初始化本地数据库...</div>
         
-        <!-- 释义卡片：显示中文释义与音标，打字区给出英文 -->
-        <div class="meaning-card" id="meaning-card" style="display: none;">
-            <div class="card__meaning" id="word-cn">加载中...</div>
+        <!-- 释义卡片：默认只显示音标，点击卡片才显示中文释义 -->
+        <div class="meaning-card" id="meaning-card" style="display: none;" title="点击显示/隐藏释义">
+            <div class="card__tap-hint" id="word-cn-hint">👆 点击显示释义</div>
+            <div class="card__meaning is-hidden" id="word-cn">加载中...</div>
             <div class="card__phonetic" id="word-phonetic"></div>
         </div>
 
@@ -1177,6 +1190,7 @@
         const hintText = document.getElementById('hint-text');
         
         const elWordCn = document.getElementById('word-cn');
+        const elWordCnHint = document.getElementById('word-cn-hint');
         const elWordPhonetic = document.getElementById('word-phonetic');
         const btnPrev = document.getElementById('btn-prev');
         const btnNext = document.getElementById('btn-next');
@@ -1404,6 +1418,8 @@
                 else if (typeof wordObj === 'string') cn = escapeHtml(wordObj);
 
                 elWordCn.innerHTML = cn;
+                // 新词默认隐藏释义，只显示音标；点击卡片才展开
+                hideMeaning();
 
                 // 音标展示：优先英/美双音标，其次通用 phonetic 字段
                 const usPhone = wordObj.usphone || '';
@@ -1454,6 +1470,24 @@
         function getWordKeyLocal(wordObj) {
             return wordObj.name || wordObj.word || wordObj.title || "";
         }
+
+        // 隐藏释义，显示点击提示
+        function hideMeaning() {
+            elWordCn.classList.add('is-hidden');
+            elWordCnHint.style.display = 'block';
+        }
+
+        // 显示释义，隐藏点击提示
+        function showMeaning() {
+            elWordCn.classList.remove('is-hidden');
+            elWordCnHint.style.display = 'none';
+        }
+
+        // 点击释义卡片：切换释义显示/隐藏
+        meaningCard.addEventListener('click', () => {
+            if (elWordCn.classList.contains('is-hidden')) showMeaning();
+            else hideMeaning();
+        });
 
         // 生成目标单词的字母格子（每个字符一个格子，空格用虚线格子 + · 占位）
         function buildLetters(word) {
@@ -1569,6 +1603,7 @@
             currentWordString = "";
             meaningCard.classList.remove('is-success', 'is-error');
             elWordCn.innerHTML = "📭 分组空空";
+            showMeaning(); // 空状态提示直接可见，无需点击
             elWordPhonetic.innerText = '';
             elWordPhonetic.style.display = 'none';
             lettersBox.innerHTML = '';
