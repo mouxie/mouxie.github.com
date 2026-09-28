@@ -325,6 +325,49 @@
     }
     .btn-mini:hover { opacity: 0.88; border-color: var(--primary); color: var(--primary); }
     .btn-mini:active { transform: scale(0.97); }
+
+    /* ---------- 朗读（系统 TTS） ---------- */
+    .btn-speak {
+        border: 1px solid #DFE5EC;
+        background: #fff;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        padding: 0;
+        font-size: 15px;
+        line-height: 1;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: border-color 0.15s, background 0.15s, transform 0.1s;
+    }
+    .btn-speak:hover { border-color: var(--primary); background: rgba(74,144,226,0.08); opacity: 1; }
+    .btn-speak:active { transform: scale(0.92); }
+    .btn-speak.speaking {
+        border-color: var(--primary);
+        background: rgba(74,144,226,0.15);
+        animation: pulse 1s ease-in-out infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(74,144,226,0.35); }
+        50% { box-shadow: 0 0 0 6px rgba(74,144,226,0); }
+    }
+    .autospeak-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        color: var(--text-sub);
+        cursor: pointer;
+        user-select: none;
+        background: var(--bg);
+        padding: 3px 10px;
+        border-radius: 20px;
+    }
+    .autospeak-label input { cursor: pointer; margin: 0; }
+
     #import-file-input { display: none; }
     #toolbar-msg { width: 100%; text-align: center; font-size: 12px; min-height: 16px; color: var(--text-sub); }
     #toolbar-msg.ok { color: var(--success); }
@@ -345,6 +388,9 @@
             <span class="stat">⏱ <b id="stat-time">00:00</b></span>
             <span class="stat">🎯 准确率 <b id="stat-acc">100%</b></span>
             <span class="stat">🚀 <b id="stat-wpm">0</b> WPM</span>
+            <label class="autospeak-label" title="切换句子时自动朗读（使用系统自带语音）">
+                <input id="autospeak-toggle" type="checkbox"> 🔊 自动朗读
+            </label>
         </div>
     </div>
 
@@ -358,6 +404,8 @@
                 <span id="phonetic" class="phonetic"></span>
                 <span id="pos" class="pos"></span>
                 <span id="meaning" class="meaning"></span>
+                <button id="btn-speak" class="btn-speak" type="button"
+                        title="朗读英文例句（系统语音）">🔊</button>
             </div>
             <div id="sentence-zh" class="sentence-zh"></div>
             <div class="typing-zone" id="typing-zone">
@@ -365,7 +413,7 @@
                 <input id="typed-input" type="text" autocomplete="off" autocorrect="off"
                        autocapitalize="off" spellcheck="false" aria-label="打字输入框">
             </div>
-            <div class="typing-hint">🖱 点击卡片聚焦 · <b>照打上方英文例句</b>，正确变绿、错误标红 · 输完自动下一句 · Enter 跳过等待</div>
+            <div class="typing-hint">🖱 点击卡片聚焦 · <b>照打上方英文例句</b>，正确变绿、错误标红 · 输完自动下一句 · Enter 跳过等待 · 🔊 朗读例句</div>
             <div id="sentence-result" class="sentence-result"></div>
         </div>
 
@@ -664,6 +712,74 @@ function focusInput() {
     $('typed-input').focus();
 }
 
+// ------------------------------ 朗读（Web Speech API，调用系统自带 TTS） ------------------------------
+// iOS Safari 用系统“语音”里的英文嗓音；Windows 用 Edge/系统 TTS；无需联网、无需第三方库
+const TTS_KEY = 'example_typing_autospeak_v1';
+let ttsVoice = null;       // 缓存选中的英文嗓音
+let ttsSupported = ('speechSynthesis' in window);
+
+function pickEnglishVoice() {
+    if (!ttsSupported) return null;
+    const voices = window.speechSynthesis.getVoices() || [];
+    if (!voices.length) return null;
+    const en = voices.filter((v) => /^en([-_]|$)/i.test(v.lang || ''));
+    if (!en.length) return null;
+    // 优先级：en-US 默认 > 名字含 Siri/Google/自然嗓音 > en-US > en-GB > 第一个英文嗓音
+    const pref = (re) => en.find((v) => re.test(v.name || ''));
+    return en.find((v) => v.default && /en[-_]US/i.test(v.lang))
+        || pref(/siri|google us|natural|premium|enhanced/i)
+        || en.find((v) => /en[-_]US/i.test(v.lang))
+        || en.find((v) => /en[-_]GB/i.test(v.lang))
+        || en[0];
+}
+
+if (ttsSupported) {
+    ttsVoice = pickEnglishVoice();
+    // 部分浏览器（Chrome/Safari）嗓音列表异步加载
+    window.speechSynthesis.onvoiceschanged = () => { ttsVoice = pickEnglishVoice(); };
+}
+
+function speakSentence(text) {
+    if (!ttsSupported || !text) return;
+    const synth = window.speechSynthesis;
+    synth.cancel(); // 打断上一句，避免叠音
+    const u = new SpeechSynthesisUtterance(text);
+    if (!ttsVoice) ttsVoice = pickEnglishVoice();
+    if (ttsVoice) u.voice = ttsVoice;
+    u.lang = (ttsVoice && ttsVoice.lang) || 'en-US';
+    u.rate = 0.9;   // 稍慢，便于听清
+    u.pitch = 1;
+    const btn = $('btn-speak');
+    u.onstart = () => btn.classList.add('speaking');
+    u.onend = u.onerror = () => btn.classList.remove('speaking');
+    synth.speak(u);
+    // iOS Safari 偶发不触发 onend，兼做超时清理（按句长估算 + 5s 冗余）
+    clearTimeout(speakSentence._t);
+    speakSentence._t = setTimeout(() => btn.classList.remove('speaking'), text.length * 90 + 5000);
+}
+
+function stopSpeak() {
+    if (!ttsSupported) return;
+    window.speechSynthesis.cancel();
+    $('btn-speak').classList.remove('speaking');
+}
+
+// 自动朗读开关（持久化）
+function isAutoSpeak() {
+    try { return localStorage.getItem(TTS_KEY) === '1'; } catch (e) { return false; }
+}
+$('autospeak-toggle').checked = isAutoSpeak();
+$('autospeak-toggle').addEventListener('change', (e) => {
+    try { localStorage.setItem(TTS_KEY, e.target.checked ? '1' : '0'); } catch (err) { /* 忽略 */ }
+    if (e.target.checked && currentTarget) speakSentence(currentTarget);
+    else stopSpeak();
+});
+$('btn-speak').addEventListener('click', (e) => {
+    e.stopPropagation(); // 避免冒泡到卡片点击聚焦
+    speakSentence(currentTarget);
+    focusInput();
+});
+
 // ------------------------------ 游戏流程 ------------------------------
 function loadSentence() {
     clearTimeout(advanceTimer);
@@ -681,6 +797,7 @@ function loadSentence() {
     $('btn-next').disabled = idx >= queue.length - 1;
     updateStats();
     saveProgress(false);
+    if (isAutoSpeak()) speakSentence(currentTarget);
     focusInput();
 }
 
@@ -924,9 +1041,9 @@ $('import-file-input').addEventListener('change', (e) => {
     reader.readAsText(file, 'utf-8');
 });
 
-// 页面关闭前兜底保存一次（避免最后一次判定丢失）
-window.addEventListener('pagehide', () => saveProgress(finished));
-window.addEventListener('beforeunload', () => saveProgress(finished));
+// 页面关闭前兜底保存一次（避免最后一次判定丢失），并停止朗读
+window.addEventListener('pagehide', () => { saveProgress(finished); stopSpeak(); });
+window.addEventListener('beforeunload', () => { saveProgress(finished); stopSpeak(); });
 
 // 启动
 (async function init() {
