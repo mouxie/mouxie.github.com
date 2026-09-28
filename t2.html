@@ -329,7 +329,7 @@
     <!-- 标题 -->
     <div class="header">
         <h1>🗒️ 释义听写</h1>
-        <p>读取「闪卡游戏 fc.html」的错词本，看单词（或听读音），输入对应的中文释义 (IndexedDB: FlashcardDB / wrong_words)</p>
+        <p>读取「闪卡游戏 fc.html」的错词本，看单词（或听读音），输入对应的中文释义 (IndexedDB: FlashcardDB / wrong_words)/p>
     </div>
 
     <!-- 状态区：初始化中 / 无错词 / 错误 -->
@@ -679,7 +679,8 @@ function saveProgress() {
     try {
         localStorage.setItem(PROGRESS_KEY, JSON.stringify({
             pageSize: currentSize(),
-            groupIdx: parseInt(els.groupSelect.value) || 0
+            groupIdx: parseInt(els.groupSelect.value) || 0,
+            wordIdx: Math.max(sessionIndex || 0, 0)   // 组内当前词序（0 基），用于下次续练
         }));
     } catch (e) {}
 }
@@ -825,6 +826,7 @@ let sessionResults = [];  // 每题作答状态: null=未作答, true=答对, fa
 let flashTimer = null;    // 答错后闪答自动前进的定时器
 let isFinished = false;
 let pendingGroupIdx = null; // 首次开局待恢复的组别（进度持久化）
+let pendingWordIdx = null;  // 首次开局待恢复的组内词序（进度持久化）
 
 // ============================================================
 // 初始化
@@ -853,6 +855,7 @@ async function init() {
                 els.sizeSelect.value = String(saved.pageSize);
             }
             pendingGroupIdx = Math.max(parseInt(saved.groupIdx) || 0, 0);
+            pendingWordIdx = Math.max(parseInt(saved.wordIdx) || 0, 0);
         }
 
         els.statusPanel.classList.add('hidden');
@@ -980,6 +983,15 @@ function startSession(resetStats = true) {
     const offset = groupIdx * size;
     sessionWords = wrongWords.slice(offset, offset + size);
     sessionIndex = 0;
+    // 恢复上次练习到的组内词序（越界或本组已练完则从第 1 词开始）
+    let restoredIdx = 0;
+    if (pendingWordIdx !== null) {
+        if (pendingWordIdx > 0 && pendingWordIdx < sessionWords.length) {
+            sessionIndex = pendingWordIdx;
+            restoredIdx = pendingWordIdx;
+        }
+        pendingWordIdx = null;
+    }
     retryWords = [];
     sessionResults = new Array(sessionWords.length).fill(null);
     if (resetStats) {
@@ -995,6 +1007,12 @@ function startSession(resetStats = true) {
 
     renderQuestion();
     saveProgress();
+
+    // 续练提示（4 秒后自动消失）
+    if (restoredIdx > 0) {
+        els.promptText.textContent = `⏮ 已续上次进度：组内第 ${restoredIdx + 1} / ${sessionWords.length} 词`;
+        setTimeout(() => { els.promptText.textContent = ''; }, 4000);
+    }
 }
 
 // ============================================================
@@ -1046,6 +1064,8 @@ function renderQuestion() {
     if (els.audioSwitch.checked) {
         playWordAudio(currentWord);
     }
+
+    saveProgress(); // 每次切题即写入进度，刷新/关闭后可续练
 }
 
 // 输入命中释义子串时自动跳转（输入过程中实时判定）
@@ -1249,6 +1269,7 @@ function finishSession() {
     const absoluteTotal = ((parseInt(els.groupSelect.value) || 0) * currentSize()) + sessionWords.length;
     els.roundText.textContent = `组内: ${sessionWords.length}/${sessionWords.length} (总第${absoluteTotal}词)`;
     els.answerInput.focus();
+    saveProgress(); // 本组练完：记录末尾词序，下次打开自动回到本组第 1 词
 }
 
 // ============================================================
