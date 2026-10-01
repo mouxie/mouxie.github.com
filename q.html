@@ -399,7 +399,7 @@
             cursor: pointer; color: #999; padding: 2px 6px; border-radius: 6px;
         }
         .modal-close:hover { background: #eee; color: #333; }
-        .modal-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+        .modal-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; max-height: 65vh; overflow-y: auto; }
         .form-field { display: flex; flex-direction: column; gap: 5px; }
         .form-field label { font-size: 13px; font-weight: 600; color: var(--text-label); }
         .form-field input, .form-field select {
@@ -510,6 +510,33 @@
         }
         .example-refresh:hover { color: #2a6db8; }
 
+        /* ==================== 词库管理 ==================== */
+        .dict-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border: 1px solid #e3e6ea;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        .dict-item.is-active { border-color: var(--primary); background: #eef5fc; }
+        .dict-item__name { font-weight: 600; color: var(--text-main); }
+        .dict-item__meta { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+        .dict-item__actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .btn-mini {
+            padding: 4px 10px;
+            font-size: 12px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: pointer;
+            color: var(--text-main);
+        }
+        .btn-mini--primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .btn-mini--danger { background: #ffeaea; border-color: #ffcccc; color: var(--accent); }
+
         /* ==================== 夜间模式 ==================== */
         html[data-theme="dark"] {
             color-scheme: dark; /* 原生控件/滚动条同步深色 */
@@ -577,6 +604,12 @@
         html[data-theme="dark"] .meaning-card.is-success {
             box-shadow: 0 0 0 4px rgba(76, 196, 111, 0.2), 0 6px 18px rgba(0,0,0,0.45);
         }
+
+        html[data-theme="dark"] .dict-item { border-color: #3A4354; }
+        html[data-theme="dark"] .dict-item.is-active { background: #1D2C3E; }
+        html[data-theme="dark"] .btn-mini { background: #232B38; border-color: #3A4354; color: var(--text-main); }
+        html[data-theme="dark"] .btn-mini--primary { background: var(--primary); color: #12161F; }
+        html[data-theme="dark"] .btn-mini--danger { background: #3A2226; border-color: #553036; color: var(--accent); }
     </style>
     <script>
         // 尽早应用主题，避免夜间模式下页面加载时白屏闪烁；首次访问跟随系统偏好
@@ -595,8 +628,13 @@
     <div id="ui-container">
         <div class="top-bar" id="top-bar" style="display: none;">
             <div class="control-row">
+                <select id="dict-select" title="选择当前词库"></select>
+                <button id="btn-dict-manage" class="btn-settings">📚 词库管理</button>
+            </div>
+
+            <div class="control-row">
                 <select id="mode-select">
-                    <option value="all">📚 全部词库</option>
+                    <option value="all">📖 当前词库</option>
                     <option value="wrong">❌ 我的错词本 (0)</option>
                 </select>
                 <div id="status-text">⏳ 加载中...</div>
@@ -725,6 +763,41 @@
         </div>
     </div>
 
+    <!-- 词库管理面板 -->
+    <div id="dict-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h3>📚 词库管理</h3>
+                <button id="btn-close-dict" class="modal-close" title="关闭">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-field">
+                    <label>已安装词库</label>
+                    <div id="dict-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+                </div>
+                <div class="form-field">
+                    <label>在线导入预设词库</label>
+                    <div id="dict-presets" style="display:flex; flex-direction:column; gap:8px;"></div>
+                </div>
+                <div class="form-field">
+                    <label for="dict-custom-url">自定义 URL 导入</label>
+                    <input type="text" id="dict-custom-name" placeholder="词库名称，如：考研词汇" spellcheck="false">
+                    <input type="text" id="dict-custom-url" placeholder="https://.../xxx.json" spellcheck="false">
+                    <div class="form-hint">JSON 需为数组，或含 words/data 字段；词条格式与默认词库一致（word/name + translation/trans）</div>
+                    <button id="btn-dict-import-url" class="btn-nav" style="margin-top:6px; padding:8px 16px; font-size:13px;">⬇️ 从 URL 导入</button>
+                </div>
+                <div class="form-field">
+                    <label for="dict-file-input">本地 JSON 文件导入</label>
+                    <input type="file" id="dict-file-input" accept=".json,application/json">
+                </div>
+                <div id="dict-status" class="form-status"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-dict-done" class="btn-nav">完成</button>
+            </div>
+        </div>
+    </div>
+
     <audio id="global-audio" autoplay></audio>
 
     <script>
@@ -750,6 +823,7 @@
         function saveProgress() {
             try {
                 const state = {
+                    dictId: activeDictId,
                     mode: currentMode(),
                     pageSize: currentSize(),
                     groupIdx: parseInt(groupSelect.value) || 0,
@@ -764,12 +838,24 @@
         // ------------------------------------------------------------------
         const workerScript = `
             const DB_NAME = 'FlashcardDB';
-            const DB_VERSION = 5; // v5: 与 fc.html/typing.html 统一建 4 张表
+            const DB_VERSION = 6; // v6: 新增 dictionaries 表支持多词库；words 主键改为 "dictId#序号"（旧数据自动迁移）
             const STORE_ALL = 'words';
             const STORE_WRONG = 'wrong_words';
             const STORE_AUDIO = 'audio_cache';
             const STORE_EXAMPLE = 'example_cache';
+            const STORE_DICTS = 'dictionaries';
             let db = null;
+
+            // 多词库状态：dicts = [{id, name, count, ts, isDefault}]，activeDictId = 当前选中词库
+            let dicts = [];
+            let activeDictId = null;
+
+            function dictKeyPrefix(dictId) { return dictId + '#'; }
+            function makeWordKey(dictId, idx) { return dictId + '#' + String(idx).padStart(7, '0'); }
+            function getActiveDictCount() {
+                const d = dicts.find((x) => x.id === activeDictId);
+                return d ? (d.count || 0) : 0;
+            }
             
             let currentMode = 'all'; 
             let wrongWordIdsSet = new Set(); 
@@ -801,6 +887,9 @@
                         }
                         if (!upgradedDb.objectStoreNames.contains(STORE_EXAMPLE)) {
                             upgradedDb.createObjectStore(STORE_EXAMPLE, { keyPath: 'word' });
+                        }
+                        if (!upgradedDb.objectStoreNames.contains(STORE_DICTS)) {
+                            upgradedDb.createObjectStore(STORE_DICTS, { keyPath: 'id' });
                         }
                     };
                     request.onsuccess = function(e) { db = e.target.result; resolve(db); };
@@ -868,15 +957,105 @@
                 }
             }
 
+            // ---------- 多词库管理（dictionaries 表 + words 按 dictId 前缀分区） ----------
+            function loadDicts() {
+                return new Promise((resolve) => {
+                    dicts = [];
+                    if (!db || !db.objectStoreNames.contains(STORE_DICTS)) { resolve(); return; }
+                    const req = db.transaction([STORE_DICTS], 'readonly').objectStore(STORE_DICTS).openCursor();
+                    req.onsuccess = (e) => {
+                        const c = e.target.result;
+                        if (c) { dicts.push(c.value); c.continue(); }
+                        else {
+                            dicts.sort((a, b) => (a.ts || 0) - (b.ts || 0)); // 按导入时间排序，默认词库在最前
+                            resolve();
+                        }
+                    };
+                    req.onerror = () => resolve();
+                });
+            }
+
+            function saveDictRecord(rec) {
+                return new Promise((resolve) => {
+                    const tx = db.transaction([STORE_DICTS], 'readwrite');
+                    tx.objectStore(STORE_DICTS).put(rec);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                    tx.onabort = () => resolve();
+                });
+            }
+
+            function deleteDictRecord(id) {
+                return new Promise((resolve) => {
+                    const tx = db.transaction([STORE_DICTS], 'readwrite');
+                    tx.objectStore(STORE_DICTS).delete(id);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                    tx.onabort = () => resolve();
+                });
+            }
+
+            // 批量写入某词库的全部单词（主键 = dictId#7位序号，保证同库内游标顺序 = 导入顺序）
+            function writeDictWords(dictId, list) {
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction([STORE_ALL], 'readwrite');
+                    const store = tx.objectStore(STORE_ALL);
+                    for (let j = 0; j < list.length; j++) {
+                        store.put({ id: makeWordKey(dictId, j), dictId: dictId, data: list[j] });
+                    }
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(new Error('词库写入失败'));
+                    tx.onabort = () => reject(new Error('词库写入被中止'));
+                });
+            }
+
+            function deleteDictWords(dictId) {
+                return new Promise((resolve) => {
+                    const tx = db.transaction([STORE_ALL], 'readwrite');
+                    const range = IDBKeyRange.bound(dictKeyPrefix(dictId), dictKeyPrefix(dictId) + '\uffff');
+                    const req = tx.objectStore(STORE_ALL).openCursor(range);
+                    req.onsuccess = (e) => {
+                        const c = e.target.result;
+                        if (c) { c.delete(); c.continue(); }
+                    };
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                    tx.onabort = () => resolve();
+                });
+            }
+
+            // 旧版（v5）单库数据迁移：数字主键 -> "default#序号"，并登记默认词库记录
+            async function migrateLegacyWords() {
+                const records = [];
+                await new Promise((resolve) => {
+                    const req = db.transaction([STORE_ALL], 'readonly').objectStore(STORE_ALL).openCursor();
+                    req.onsuccess = (e) => {
+                        const c = e.target.result;
+                        if (c) { records.push(c.value.data); c.continue(); }
+                        else resolve();
+                    };
+                    req.onerror = () => resolve();
+                });
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction([STORE_ALL], 'readwrite');
+                    tx.objectStore(STORE_ALL).clear();
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(new Error('清空旧词库失败'));
+                    tx.onabort = () => reject(new Error('清空旧词库被中止'));
+                });
+                await writeDictWords('default', records);
+                await saveDictRecord({ id: 'default', name: '默认词库', count: records.length, ts: Date.now(), isDefault: true });
+            }
+
             // 多源依次尝试下载并导入词库（单一源失败/被墙时自动切换下一个）
-            async function seedDictionary(urls) {
+            async function seedDict(dictId, name, urls) {
                 if (!urls || urls.length === 0) throw new Error('词库地址缺失，无法初始化数据');
                 if (!db || !db.objectStoreNames.contains(STORE_ALL)) throw new Error('词库表不存在，无法导入');
 
                 let lastError = null;
                 for (let i = 0; i < urls.length; i++) {
                     try {
-                        self.postMessage({ type: 'initProgress', message: '📥 正在从源 ' + (i + 1) + '/' + urls.length + ' 下载词库 ...' });
+                        self.postMessage({ type: 'initProgress', message: '📥 正在从源 ' + (i + 1) + '/' + urls.length + ' 下载「' + name + '」...' });
                         const payload = await fetchJsonWithProgress(urls[i]);
                         const list = normalizeDictionaryList(payload)
                             .map(normalizeWordItem)
@@ -884,16 +1063,8 @@
                         if (list.length === 0) throw new Error('词库文件为空或格式不支持');
 
                         self.postMessage({ type: 'initProgress', message: '💾 正在写入本地数据库 (' + list.length + ' 词) ...' });
-                        await new Promise((resolve, reject) => {
-                            const tx = db.transaction([STORE_ALL], 'readwrite');
-                            const store = tx.objectStore(STORE_ALL);
-                            for (let j = 0; j < list.length; j++) {
-                                store.put({ id: j, data: list[j] });
-                            }
-                            tx.oncomplete = () => resolve();
-                            tx.onerror = () => reject(new Error('词库写入失败'));
-                            tx.onabort = () => reject(new Error('词库写入被中止'));
-                        });
+                        await writeDictWords(dictId, list);
+                        await saveDictRecord({ id: dictId, name: name, count: list.length, ts: Date.now(), isDefault: dictId === 'default' });
                         return list.length;
                     } catch (e) {
                         lastError = e;
@@ -978,17 +1149,18 @@
                 });
             }
 
-            // 一次性构建 全词库 key -> 完整词条（含音标） 的内存索引，供错词数据补全
+            // 一次性构建 当前词库 key -> 完整词条（含音标） 的内存索引，供错词数据补全
             function buildAllWordsMap() {
                 return new Promise((resolve) => {
                     allWordsMap.clear();
-                    if (!db || !db.objectStoreNames.contains(STORE_ALL)) {
+                    if (!db || !db.objectStoreNames.contains(STORE_ALL) || !activeDictId) {
                         resolve();
                         return;
                     }
                     const transaction = db.transaction([STORE_ALL], 'readonly');
                     const store = transaction.objectStore(STORE_ALL);
-                    const req = store.openCursor();
+                    const range = IDBKeyRange.bound(dictKeyPrefix(activeDictId), dictKeyPrefix(activeDictId) + '\uffff');
+                    const req = store.openCursor(range);
                     req.onsuccess = function(event) {
                         const cursor = event.target.result;
                         if (cursor) {
@@ -1050,7 +1222,8 @@
                         }
                         const transaction = db.transaction([STORE_ALL], 'readonly');
                         const store = transaction.objectStore(STORE_ALL);
-                        const range = IDBKeyRange.bound(offset, offset + pageSize - 1);
+                        // 主键为 "dictId#7位序号"：同前缀字典序 = 数字序，可安全用 bound 分页
+                        const range = IDBKeyRange.bound(makeWordKey(activeDictId, offset), makeWordKey(activeDictId, offset + pageSize - 1));
                         const req = store.openCursor(range);
                         req.onsuccess = function(e) {
                             const cursor = e.target.result;
@@ -1076,18 +1249,28 @@
                 if (msg.type === 'init') {
                     try {
                         await initDB();
+                        await loadDicts();
+                        if (dicts.length === 0) {
+                            const totalLegacy = await getCount(STORE_ALL);
+                            if (totalLegacy > 0) {
+                                // 已有 v5 单库数据：迁移为「默认词库」，不重新下载
+                                self.postMessage({ type: 'initProgress', message: '📦 检测到旧版词库数据，正在迁移 (' + totalLegacy + ' 词) ...' });
+                                await migrateLegacyWords();
+                            } else {
+                                const urls = (msg.urls && msg.urls.length) ? msg.urls : (msg.url ? [msg.url] : []);
+                                await seedDict('default', '默认词库', urls);
+                            }
+                            await loadDicts();
+                        }
+                        // 恢复上次选中的词库（无效时回退到第一个）
+                        activeDictId = (msg.activeDictId && dicts.some((d) => d.id === msg.activeDictId)) ? msg.activeDictId : dicts[0].id;
                         await buildAllWordsMap();
                         await cacheWrongWordsKeys();
-                        let totalAll = await getCount(STORE_ALL);
-                        if (totalAll === 0) {
-                            const urls = (msg.urls && msg.urls.length) ? msg.urls : (msg.url ? [msg.url] : []);
-                            await seedDictionary(urls);
-                            totalAll = await getCount(STORE_ALL);
-                        }
+                        const totalAll = getActiveDictCount();
                         if (totalAll <= 0) {
-                            throw new Error('词库导入失败，请检查网络后重试');
+                            throw new Error('当前词库为空，请在「词库管理」中导入或删除该词库');
                         }
-                        self.postMessage({ type: 'ready', totalAll, totalWrong: wrongWordIdsSet.size });
+                        self.postMessage({ type: 'ready', dicts: dicts, activeDictId: activeDictId, totalAll: totalAll, totalWrong: wrongWordIdsSet.size });
                     } catch (error) { self.postMessage({ type: 'error', message: error.message }); }
                 }
 
@@ -1098,10 +1281,72 @@
 
                     if (currentMode === 'wrong') await cacheWrongWordsKeys();
 
-                    const totalCount = currentMode === 'all' ? await getCount(STORE_ALL) : wrongWordsList.length;
+                    const totalCount = currentMode === 'all' ? getActiveDictCount() : wrongWordsList.length;
                     await loadCurrentGroupData();
 
-                    self.postMessage({ type: 'filterApplied', totalCount: totalCount, groupWordsCount: currentGroupWords.length });
+                    self.postMessage({ type: 'filterApplied', totalCount: totalCount, groupWordsCount: currentGroupWords.length, groupIdx: currentGroupIdx });
+                }
+
+                else if (msg.type === 'setDict') {
+                    if (dicts.some((d) => d.id === msg.id) && msg.id !== activeDictId) {
+                        activeDictId = msg.id;
+                        await buildAllWordsMap();
+                        await cacheWrongWordsKeys(); // 错词音标补全索引依赖当前词库
+                    }
+                    self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId });
+                }
+
+                else if (msg.type === 'importDict') {
+                    try {
+                        if (msg.name && dicts.some((d) => d.name === msg.name)) {
+                            self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId, status: '⚠️ 已存在同名词库「' + msg.name + '」，未重复导入' });
+                            return;
+                        }
+                        const id = 'dict_' + Date.now();
+                        let list = null;
+                        if (msg.list) {
+                            list = normalizeDictionaryList(msg.list).map(normalizeWordItem).filter(Boolean);
+                        } else {
+                            const urls = (msg.urls && msg.urls.length) ? msg.urls : (msg.url ? [msg.url] : []);
+                            if (urls.length === 0) throw new Error('未提供词库地址或数据');
+                            let lastError = null;
+                            for (let i = 0; i < urls.length; i++) {
+                                try {
+                                    self.postMessage({ type: 'dictStatus', message: '📥 正在从源 ' + (i + 1) + '/' + urls.length + ' 下载「' + msg.name + '」...' });
+                                    const payload = await fetchJsonWithProgress(urls[i]);
+                                    list = normalizeDictionaryList(payload).map(normalizeWordItem).filter(Boolean);
+                                    if (list.length > 0) break;
+                                    lastError = new Error('词库文件为空或格式不支持');
+                                } catch (e) { lastError = e; }
+                            }
+                            if (!list || list.length === 0) throw lastError || new Error('词库下载失败');
+                        }
+                        self.postMessage({ type: 'dictStatus', message: '💾 正在写入「' + msg.name + '」(' + list.length + ' 词) ...' });
+                        await writeDictWords(id, list);
+                        const rec = { id: id, name: msg.name || ('新词库 ' + (dicts.length + 1)), count: list.length, ts: Date.now() };
+                        await saveDictRecord(rec);
+                        dicts.push(rec);
+                        self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId, status: '✅ 导入成功：' + rec.name + '（' + list.length + ' 词）' });
+                    } catch (e) {
+                        self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId, status: '❌ 导入失败：' + (e && e.message ? e.message : String(e)) });
+                    }
+                }
+
+                else if (msg.type === 'deleteDict') {
+                    if (dicts.length <= 1) {
+                        self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId, status: '❌ 至少需保留一个词库' });
+                        return;
+                    }
+                    const target = dicts.find((d) => d.id === msg.id);
+                    await deleteDictWords(msg.id);
+                    await deleteDictRecord(msg.id);
+                    dicts = dicts.filter((d) => d.id !== msg.id);
+                    if (activeDictId === msg.id) {
+                        activeDictId = dicts[0].id;
+                        await buildAllWordsMap();
+                        await cacheWrongWordsKeys();
+                    }
+                    self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId, status: '🗑️ 已删除「' + (target ? target.name : msg.id) + '」' });
                 }
 
                 else if (msg.type === 'getCard') {
@@ -1305,8 +1550,15 @@
         let exampleCacheSeq = 0;             // 例句缓存请求序号（用于匹配 worker 回包）
         const pendingExampleCacheRequests = new Map(); // seq -> resolve 回调
 
-        // 初始化（语音代理地址已固定为默认值，无需设置）
-        worker.postMessage({ type: 'init', urls: JSON_URLS });
+        // 多词库前端状态
+        let dictList = [];            // [{id, name, count, ts, isDefault}]
+        let activeDictId = null;      // 当前选中词库 ID
+        let activeDictCount = 0;      // 当前词库总词数
+        let wrongCountLocal = 0;      // 错词本数量（本地同步，供分组重建使用）
+        let lastAppliedDictId = null; // 已应用筛选的词库 ID（dictsUpdated 时判断是否需要重建分组）
+
+        // 初始化（语音代理地址已固定为默认值，无需设置）；带上上次选中的词库 ID
+        worker.postMessage({ type: 'init', urls: JSON_URLS, activeDictId: (loadProgress() || {}).dictId || null });
 
         worker.onmessage = function(e) {
             const msg = e.data;
@@ -1318,7 +1570,14 @@
                 actionBar.style.display = 'block';
                 controls.style.display = 'flex';
                 hintText.style.display = 'block';
-                
+
+                // 多词库状态初始化
+                dictList = msg.dicts || [];
+                activeDictId = msg.activeDictId;
+                activeDictCount = msg.totalAll || 0;
+                lastAppliedDictId = activeDictId;
+                renderDictSelect();
+
                 // 恢复上次浏览进度（模式 / 每组数量 / 组别 / 组内单词索引）
                 const saved = loadProgress();
                 if (saved) {
@@ -1343,6 +1602,8 @@
             else if (msg.type === 'filterApplied') {
                 totalWordsInGroup = msg.groupWordsCount;
                 updateWrongCountUI(currentMode() === 'wrong' ? msg.totalCount : null);
+                // 同步组选择器（上一组/下一组自动跳组时 worker 会钳制越界的 groupIdx）
+                if (msg.groupIdx !== undefined) groupSelect.value = String(msg.groupIdx);
                 if (pendingWordIndex !== null) {
                     // 首次加载：跳到上次记录的单词索引（越界时自动钳制到组内最后一张）
                     currentRelativeIndex = Math.min(pendingWordIndex, Math.max(totalWordsInGroup - 1, 0));
@@ -1368,6 +1629,28 @@
             else if (msg.type === 'initProgress') {
                 initStatusText.innerText = msg.message;
             }
+            else if (msg.type === 'dictStatus') {
+                setDictStatus(msg.message, '');
+            }
+            else if (msg.type === 'dictsUpdated') {
+                dictList = msg.dicts || [];
+                const prevDictId = activeDictId;
+                activeDictId = msg.activeDictId;
+                const activeRec = dictList.find((d) => d.id === activeDictId);
+                activeDictCount = activeRec ? (activeRec.count || 0) : 0;
+                renderDictSelect();
+                renderDictManageList();
+                if (msg.status) setDictStatus(msg.status, msg.status.indexOf('❌') === 0 ? '#d9534f' : '');
+                // 当前词库发生变化（切换/删除）：重建分组并重新加载单词
+                if (prevDictId !== null && prevDictId !== activeDictId) {
+                    lastAppliedDictId = activeDictId;
+                    modeSelect.value = 'all';
+                    groupSelect.value = '0';
+                    rebuildGroupOptions(activeDictCount, currentSize());
+                    applyFilters(0);
+                    saveProgress();
+                }
+            }
             else if (msg.type === 'error') {
                 initStatusText.innerText = '⚠️ ' + msg.message + '（点击此处重试）';
                 initStatusText.style.color = '#d9534f';
@@ -1377,7 +1660,7 @@
                     initStatusText.style.cursor = '';
                     initStatusText.style.color = '';
                     initStatusText.innerText = '⏳ 正在初始化本地数据库...';
-                    worker.postMessage({ type: 'init', urls: JSON_URLS });
+                    worker.postMessage({ type: 'init', urls: JSON_URLS, activeDictId: activeDictId });
                 };
             }
             else if (msg.type === 'wrongExportData') {
@@ -1715,7 +1998,10 @@
         }
 
         function updateWrongCountUI(count) {
-            if (count !== null) modeSelect.options[1].text = `❌ 我的错词本 (${count})`;
+            if (count !== null) {
+                wrongCountLocal = count;
+                modeSelect.options[1].text = `❌ 我的错词本 (${count})`;
+            }
         }
 
         function updateWrongButtonUI(isWrong) {
@@ -1727,22 +2013,6 @@
                 btnToggleWrong.className = "btn-action btn-add-wrong";
                 btnToggleWrong.innerText = "✨ 加强 (加入错词本)";
             }
-        }
-
-        function getStoreCountSafe(storeName, onCount) {
-            const request = indexedDB.open('FlashcardDB');
-            request.onsuccess = (event) => {
-                const db = event.target.result;
-                if (!db.objectStoreNames.contains(storeName)) {
-                    db.close();
-                    onCount(0);
-                    return;
-                }
-                const tx = db.transaction([storeName], 'readonly');
-                tx.objectStore(storeName).count().onsuccess = (ev) => { db.close(); onCount(ev.target.result || 0); };
-                tx.onerror = () => { db.close(); onCount(0); };
-            };
-            request.onerror = () => onCount(0);
         }
 
         // --- 打字输入事件 ---
@@ -1792,24 +2062,21 @@
         btnSpeak.addEventListener('click', playAudio);
 
         modeSelect.addEventListener('change', () => {
-            // 统一刷新路径：先按新模式统计数量并重建组选项，再一次性下发筛选
-            const name = currentMode() === 'all' ? 'words' : 'wrong_words';
-            getStoreCountSafe(name, (count) => {
-                groupSelect.value = '0';
-                rebuildGroupOptions(count, currentSize());
-                applyFilters(0);
-                saveProgress();
-            });
+            // 统一刷新路径：按新模式取总数重建组选项，再一次性下发筛选
+            // （多词库下 words 表含全部词库，不能直接 count 整表，改用前端同步的计数）
+            const count = currentMode() === 'all' ? activeDictCount : wrongCountLocal;
+            groupSelect.value = '0';
+            rebuildGroupOptions(count, currentSize());
+            applyFilters(0);
+            saveProgress();
         });
 
         sizeSelect.addEventListener('change', (e) => {
             const newSize = parseInt(e.target.value);
-            const storeName = currentMode() === 'all' ? 'words' : 'wrong_words';
-            getStoreCountSafe(storeName, (count) => {
-                rebuildGroupOptions(count, newSize);
-                applyFilters(0);
-                saveProgress();
-            });
+            const count = currentMode() === 'all' ? activeDictCount : wrongCountLocal;
+            rebuildGroupOptions(count, newSize);
+            applyFilters(0);
+            saveProgress();
         });
 
         groupSelect.addEventListener('change', (e) => {
@@ -2194,6 +2461,164 @@
         });
 
         btnCloseExample.addEventListener('click', () => { exampleArea.style.display = 'none'; });
+
+        // ------------------------------------------------------------------
+        // 多词库管理（顶部词库下拉 + 管理弹窗：预设/URL/文件导入、切换、删除）
+        // ------------------------------------------------------------------
+        const dictSelect = document.getElementById('dict-select');
+        const dictModal = document.getElementById('dict-modal');
+        const dictListBox = document.getElementById('dict-list');
+        const dictPresets = document.getElementById('dict-presets');
+        const dictStatusEl = document.getElementById('dict-status');
+        const btnDictManage = document.getElementById('btn-dict-manage');
+        const btnCloseDict = document.getElementById('btn-close-dict');
+        const btnDictDone = document.getElementById('btn-dict-done');
+        const btnDictImportUrl = document.getElementById('btn-dict-import-url');
+        const inputDictName = document.getElementById('dict-custom-name');
+        const inputDictUrl = document.getElementById('dict-custom-url');
+        const dictFileInput = document.getElementById('dict-file-input');
+
+        // 预设词库（与默认词库同源：GitHub raw → jsDelivr 镜像依次尝试）
+        const PRESET_DICTS = [
+            {
+                name: '四级词汇 (CET-4)',
+                urls: [
+                    'https://raw.githubusercontent.com/mouxie/qwerty-learner/refs/heads/master/public/dicts/CET4_T.json',
+                    'https://cdn.jsdelivr.net/gh/mouxie/qwerty-learner@master/public/dicts/CET4_T.json'
+                ]
+            },
+            {
+                name: '六级词汇 (CET-6)',
+                urls: [
+                    'https://raw.githubusercontent.com/mouxie/qwerty-learner/refs/heads/master/public/dicts/CET6_T.json',
+                    'https://cdn.jsdelivr.net/gh/mouxie/qwerty-learner@master/public/dicts/CET6_T.json'
+                ]
+            }
+        ];
+
+        function setDictStatus(text, color) {
+            dictStatusEl.innerHTML = text || '';
+            dictStatusEl.style.color = color || '';
+        }
+
+        // 顶部词库下拉框
+        function renderDictSelect() {
+            dictSelect.innerHTML = '';
+            dictList.forEach((d) => {
+                const opt = document.createElement('option');
+                opt.value = d.id;
+                opt.text = '📚 ' + d.name + ' (' + (d.count || 0) + ')';
+                dictSelect.appendChild(opt);
+            });
+            dictSelect.value = activeDictId;
+        }
+
+        dictSelect.addEventListener('change', () => {
+            worker.postMessage({ type: 'setDict', id: dictSelect.value });
+            saveProgress();
+        });
+
+        // 管理弹窗：已安装词库列表（切换 / 删除）
+        function renderDictManageList() {
+            dictListBox.innerHTML = '';
+            dictList.forEach((d) => {
+                const row = document.createElement('div');
+                row.className = 'dict-item' + (d.id === activeDictId ? ' is-active' : '');
+                const info = document.createElement('div');
+                info.innerHTML = '<div class="dict-item__name">' + escapeHtml(d.name) +
+                    (d.id === activeDictId ? ' <span style="color:var(--primary); font-size:11px;">● 当前</span>' : '') +
+                    '</div><div class="dict-item__meta">' + (d.count || 0) + ' 词 · ' + formatTs(d.ts) + ' 导入</div>';
+                const actions = document.createElement('div');
+                actions.className = 'dict-item__actions';
+                if (d.id !== activeDictId) {
+                    const btnUse = document.createElement('button');
+                    btnUse.className = 'btn-mini btn-mini--primary';
+                    btnUse.textContent = '切换';
+                    btnUse.onclick = () => worker.postMessage({ type: 'setDict', id: d.id });
+                    actions.appendChild(btnUse);
+                }
+                const btnDel = document.createElement('button');
+                btnDel.className = 'btn-mini btn-mini--danger';
+                btnDel.textContent = '删除';
+                btnDel.onclick = () => {
+                    if (confirm('确定删除词库「' + d.name + '」及其全部 ' + (d.count || 0) + ' 个单词吗？（错词本不受影响）')) {
+                        worker.postMessage({ type: 'deleteDict', id: d.id });
+                    }
+                };
+                actions.appendChild(btnDel);
+                row.appendChild(info);
+                row.appendChild(actions);
+                dictListBox.appendChild(row);
+            });
+        }
+
+        // 管理弹窗：预设词库导入按钮
+        function renderDictPresets() {
+            dictPresets.innerHTML = '';
+            PRESET_DICTS.forEach((p) => {
+                const row = document.createElement('div');
+                row.className = 'dict-item';
+                const info = document.createElement('div');
+                info.innerHTML = '<div class="dict-item__name">' + escapeHtml(p.name) + '</div>';
+                const actions = document.createElement('div');
+                actions.className = 'dict-item__actions';
+                const btn = document.createElement('button');
+                btn.className = 'btn-mini btn-mini--primary';
+                btn.textContent = '⬇️ 导入';
+                btn.onclick = () => {
+                    setDictStatus('⏳ 正在导入「' + p.name + '」，请勿关闭...', '');
+                    worker.postMessage({ type: 'importDict', name: p.name, urls: p.urls });
+                };
+                actions.appendChild(btn);
+                row.appendChild(info);
+                row.appendChild(actions);
+                dictPresets.appendChild(row);
+            });
+        }
+
+        function openDictPanel() {
+            renderDictManageList();
+            renderDictPresets();
+            setDictStatus('', '');
+            dictModal.style.display = 'flex';
+        }
+        function closeDictPanel() { dictModal.style.display = 'none'; }
+
+        btnDictManage.addEventListener('click', openDictPanel);
+        btnCloseDict.addEventListener('click', closeDictPanel);
+        btnDictDone.addEventListener('click', closeDictPanel);
+        dictModal.addEventListener('click', (e) => { if (e.target === dictModal) closeDictPanel(); });
+
+        // 自定义 URL 导入
+        btnDictImportUrl.addEventListener('click', () => {
+            const name = inputDictName.value.trim();
+            const url = inputDictUrl.value.trim();
+            if (!name) { setDictStatus('⚠️ 请填写词库名称', '#d9534f'); return; }
+            if (!/^https?:\/\//i.test(url)) { setDictStatus('⚠️ 请填写合法的 http(s) URL', '#d9534f'); return; }
+            setDictStatus('⏳ 正在导入「' + name + '」，请勿关闭...', '');
+            worker.postMessage({ type: 'importDict', name: name, urls: [url] });
+        });
+
+        // 本地 JSON 文件导入（主线程读文件后把数组交给 worker 写库）
+        dictFileInput.addEventListener('change', () => {
+            const file = dictFileInput.files && dictFileInput.files[0];
+            if (!file) return;
+            const name = inputDictName.value.trim() || file.name.replace(/\.json$/i, '');
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const parsed = JSON.parse(reader.result);
+                    setDictStatus('⏳ 正在写入「' + name + '」...', '');
+                    worker.postMessage({ type: 'importDict', name: name, list: parsed });
+                } catch (e) {
+                    setDictStatus('❌ JSON 解析失败：' + e.message, '#d9534f');
+                } finally {
+                    dictFileInput.value = ''; // 允许重复选同一文件
+                }
+            };
+            reader.onerror = () => setDictStatus('❌ 文件读取失败', '#d9534f');
+            reader.readAsText(file, 'utf-8');
+        });
     </script>
 </body>
 </html>
