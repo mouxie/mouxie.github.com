@@ -11,25 +11,71 @@
         --success: #2EA44F;
         --bg: #F5F7FA;
         --card-bg: #FFFFFF;
+        --bar-bg: #FFFFFF;
+        --chip-bg: #F5F7FA;
         --text-main: #333333;
         --text-sub: #888888;
         --ch-ok: #2EA44F;
         --ch-bad: #E24A4A;
         --ch-cur: #4A90E2;
         --ch-normal: #B0B8C4;
+        --zh-bg: #F1F5FB;
+        --zh-text: #5a6472;
+        --zone-bg: #FAFBFD;
+        --zone-border: #E3E8EF;
+        --sp-line: #CFD8E3;
+        --track: #E8EDF3;
+        --line: #DFE5EC;
+        color-scheme: light;
     }
+
+    /* ---------- 夜间模式 ---------- */
+    [data-theme="dark"] {
+        --primary: #6FA9EE;
+        --accent: #F07171;
+        --success: #4CC36B;
+        --bg: #14181F;
+        --card-bg: #1C222B;
+        --bar-bg: #1C222B;
+        --chip-bg: #232B36;
+        --text-main: #E6EAF0;
+        --text-sub: #98A2B3;
+        --ch-ok: #4CC36B;
+        --ch-bad: #F07171;
+        --ch-cur: #6FA9EE;
+        --ch-normal: #6B7686;
+        --zh-bg: #232B36;
+        --zh-text: #B9C2D0;
+        --zone-bg: #171C24;
+        --zone-border: #2C3542;
+        --sp-line: #3A4453;
+        --track: #2C3542;
+        --line: #2C3542;
+        color-scheme: dark;
+    }
+    [data-theme="dark"] .top-bar { box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+    [data-theme="dark"] .sentence-card,
+    [data-theme="dark"] .end-card,
+    [data-theme="dark"] .empty-card { box-shadow: 0 10px 25px rgba(0,0,0,0.45); }
+    [data-theme="dark"] .ch.cur { background: rgba(111,169,238,0.22); }
+    [data-theme="dark"] .ch.bad { background: rgba(240,113,113,0.16); }
+    [data-theme="dark"] .btn-speak:hover { background: rgba(111,169,238,0.14); }
+    [data-theme="dark"] .btn-speak.speaking { background: rgba(111,169,238,0.22); }
+    [data-theme="dark"] .progress-bar { background: linear-gradient(90deg, var(--primary), #9CC5F5); }
 
     * { box-sizing: border-box; }
 
     body {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         background-color: var(--bg);
+        color: var(--text-main);
         margin: 0;
         min-height: 100vh;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        transition: background-color 0.25s ease, color 0.25s ease;
     }
 
     #ui-container {
@@ -46,16 +92,22 @@
         gap: 8px;
         width: 100%;
         margin-bottom: 14px;
-        background: #fff;
+        background: var(--bar-bg);
         padding: 12px 16px;
         border-radius: 12px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        transition: background-color 0.25s ease, box-shadow 0.25s ease;
     }
     .top-bar-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
         gap: 10px;
+    }
+    .top-bar-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
     .app-title {
         font-size: 17px;
@@ -84,7 +136,7 @@
         color: var(--text-sub);
     }
     .stat {
-        background: var(--bg);
+        background: var(--chip-bg);
         padding: 3px 10px;
         border-radius: 20px;
         font-weight: 500;
@@ -103,6 +155,7 @@
         margin-bottom: 14px;
         cursor: text;
         user-select: none;
+        transition: background-color 0.25s ease, box-shadow 0.25s ease;
     }
 
     .word-info {
@@ -136,8 +189,8 @@
 
     .sentence-zh {
         font-size: 14px;
-        color: #5a6472;
-        background: #F1F5FB;
+        color: var(--zh-text);
+        background: var(--zh-bg);
         border-left: 3px solid var(--primary);
         padding: 6px 10px;
         border-radius: 0 6px 6px 0;
@@ -147,13 +200,13 @@
 
     /* 打字目标区 */
     .typing-zone {
-        background: #FAFBFD;
-        border: 2px solid #E3E8EF;
+        background: var(--zone-bg);
+        border: 2px solid var(--zone-border);
         border-radius: 12px;
         padding: 14px 16px;
         min-height: 78px;
         position: relative;
-        transition: border-color 0.2s;
+        transition: border-color 0.2s, background-color 0.25s ease;
         margin-bottom: 10px;
     }
     .typing-zone.focused { border-color: var(--primary); }
@@ -175,7 +228,7 @@
     }
 
     .ch { color: var(--ch-normal); transition: color 0.08s; border-radius: 3px; }
-    .ch.sp { text-decoration: underline; text-decoration-color: #CFD8E3; text-underline-offset: 5px; }
+    .ch.sp { text-decoration: underline; text-decoration-color: var(--sp-line); text-underline-offset: 5px; }
     .ch.ok { color: var(--ch-ok); }
     .ch.bad {
         color: var(--ch-bad);
@@ -210,7 +263,7 @@
 
     /* 进度条 */
     .progress-wrap {
-        background: #E8EDF3;
+        background: var(--track);
         border-radius: 8px;
         height: 8px;
         overflow: hidden;
@@ -243,7 +296,7 @@
     button:active:not(:disabled) { transform: scale(0.97); }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
     .btn-primary { background: var(--primary); color: #fff; }
-    .btn-ghost { background: #E8EDF3; color: var(--text-main); }
+    .btn-ghost { background: var(--track); color: var(--text-main); }
 
     /* 句子内错误提示 */
     .sentence-result {
@@ -262,6 +315,7 @@
         border-radius: 16px;
         padding: 30px;
         box-shadow: 0 10px 25px rgba(0,0,0,0.07);
+        transition: background-color 0.25s ease, box-shadow 0.25s ease;
     }
     .end-title { font-size: 22px; font-weight: 700; margin-bottom: 18px; color: var(--text-main); }
     .end-grid {
@@ -271,7 +325,7 @@
         margin-bottom: 24px;
     }
     .end-item {
-        background: var(--bg);
+        background: var(--chip-bg);
         border-radius: 10px;
         padding: 12px;
     }
@@ -287,12 +341,13 @@
         padding: 36px 24px;
         box-shadow: 0 10px 25px rgba(0,0,0,0.07);
         text-align: center;
+        transition: background-color 0.25s ease, box-shadow 0.25s ease;
     }
     .empty-card .icon { font-size: 44px; margin-bottom: 12px; }
     .empty-card .tip { font-size: 14px; color: var(--text-main); line-height: 1.8; }
     .empty-card .tip code {
-        background: var(--bg);
-        border: 1px solid #E3E8EF;
+        background: var(--chip-bg);
+        border: 1px solid var(--zone-border);
         border-radius: 4px;
         padding: 1px 6px;
         font-size: 13px;
@@ -303,7 +358,7 @@
     .footer-toolbar {
         margin-top: 20px;
         padding-top: 14px;
-        border-top: 1px dashed #DFE5EC;
+        border-top: 1px dashed var(--line);
         display: flex;
         justify-content: center;
         align-items: center;
@@ -313,8 +368,8 @@
         color: var(--text-sub);
     }
     .btn-mini {
-        border: 1px solid #DFE5EC;
-        background: #fff;
+        border: 1px solid var(--line);
+        background: var(--bar-bg);
         color: var(--text-main);
         border-radius: 8px;
         padding: 7px 14px;
@@ -328,8 +383,8 @@
 
     /* ---------- 朗读（系统 TTS） ---------- */
     .btn-speak {
-        border: 1px solid #DFE5EC;
-        background: #fff;
+        border: 1px solid var(--line);
+        background: var(--bar-bg);
         border-radius: 50%;
         width: 32px;
         height: 32px;
@@ -362,7 +417,7 @@
         color: var(--text-sub);
         cursor: pointer;
         user-select: none;
-        background: var(--bg);
+        background: var(--chip-bg);
         padding: 3px 10px;
         border-radius: 20px;
     }
@@ -373,6 +428,17 @@
     #toolbar-msg.ok { color: var(--success); }
     #toolbar-msg.err { color: var(--accent); }
 </style>
+<script>
+// 尽早应用已保存的主题，避免刷新时闪白
+(function () {
+    try {
+        var saved = localStorage.getItem('example_typing_theme_v1');
+        var dark = saved ? saved === 'dark'
+            : !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) { /* 隐私模式等读取失败时保持日间 */ }
+})();
+</script>
 </head>
 <body>
 
@@ -381,7 +447,10 @@
     <div class="top-bar">
         <div class="top-bar-row">
             <div class="app-title">⌨️ 例句打字练习 <a href="fc.html" title="回闪卡游戏">↩ 闪卡</a></div>
-            <div id="source-count" class="stat">例句 0</div>
+            <div class="top-bar-right">
+                <div id="source-count" class="stat">例句 0</div>
+                <button id="btn-theme" class="btn-speak" type="button" title="切换夜间模式">🌙</button>
+            </div>
         </div>
         <div class="stats-bar">
             <span class="stat">📌 第 <b id="stat-cur">0</b> / <span id="stat-total">0</span> 句</span>
@@ -509,10 +578,13 @@ async function loadAllExamples() {
                         const meaning = ex.meaning || ex.definition || '';
                         if (en) {
                             const nEn = normalizeSentence(en);
+                            const tEn = stripTrailingPeriod(nEn); // 打字/朗读用：去结尾句号
                             list.push({
-                                key: makeItemKey(word, pos, nEn),
+                                key: makeItemKey(word, pos, tEn),
+                                // 旧进度存档的 key 基于带句号原文，保留用于兼容迁移
+                                legacyKey: tEn !== nEn ? makeItemKey(word, pos, nEn) : null,
                                 word, phonetic, pos, meaning,
-                                en: nEn,
+                                en: tEn,
                                 cn: cn || makeFallbackCn(word),
                                 ts: rec.ts || 0
                             });
@@ -524,12 +596,15 @@ async function loadAllExamples() {
                     const cn = data.exampleChinese || data.example_cn || data.cn || '';
                     if (en) {
                         const nEn = normalizeSentence(en);
+                        const tEn = stripTrailingPeriod(nEn); // 打字/朗读用：去结尾句号
+                        const oPos = data.partOfSpeech || data.pos || '';
                         list.push({
-                            key: makeItemKey(word, data.partOfSpeech || data.pos || '', nEn),
+                            key: makeItemKey(word, oPos, tEn),
+                            legacyKey: tEn !== nEn ? makeItemKey(word, oPos, nEn) : null,
                             word, phonetic,
-                            pos: data.partOfSpeech || data.pos || '',
+                            pos: oPos,
                             meaning: data.explanation || data.note || '',
-                            en: nEn,
+                            en: tEn,
                             cn: cn || makeFallbackCn(word),
                             ts: rec.ts || 0
                         });
@@ -545,6 +620,12 @@ async function loadAllExamples() {
 // 连续空白（含换行）统一为单个空格
 function normalizeSentence(s) {
     return String(s || '').replace(/\s+/g, ' ').trim();
+}
+
+// 去掉句末单个句号（允许其后跟收尾引号/括号，如 ." 或 .'）
+// 省略号（... / …）与句中缩写点（Mr. / Inc. / 3.14）不受影响
+function stripTrailingPeriod(s) {
+    return String(s || '').replace(/(^|[^.])\.((?:["')\]\u201d\u2019]\s*)*)$/, '$1$2');
 }
 
 // 例句唯一 key：单词 + 词性 + 例句原文（用不可见分隔符避免内容冲突）
@@ -604,15 +685,19 @@ function restoreProgress() {
     const state = loadProgress();
     if (!state || !Array.isArray(state.queueKeys) || state.queueKeys.length === 0) return false;
 
-    const byKey = new Map(items.map((it) => [it.key, it]));
-    const rebuilt = [];
-    state.queueKeys.forEach((k) => {
-        if (byKey.has(k)) {
-            rebuilt.push(byKey.get(k));
-            byKey.delete(k);
-        }
+    // key 兼容迁移：新 key（去句号）与旧存档 key（带句号）都映射到同一 item
+    const byKey = new Map();
+    items.forEach((it) => {
+        byKey.set(it.key, it);
+        if (it.legacyKey && !byKey.has(it.legacyKey)) byKey.set(it.legacyKey, it);
     });
-    byKey.forEach((it) => rebuilt.push(it)); // 新增例句补到末尾
+    const rebuilt = [];
+    const used = new Set();
+    state.queueKeys.forEach((k) => {
+        const it = byKey.get(k);
+        if (it && !used.has(it)) { rebuilt.push(it); used.add(it); }
+    });
+    items.forEach((it) => { if (!used.has(it)) rebuilt.push(it); }); // 新增例句补到末尾
     if (rebuilt.length === 0) return false;
 
     queue = rebuilt;
@@ -621,7 +706,10 @@ function restoreProgress() {
     completed = new Set();
     if (Array.isArray(state.completedKeys)) {
         const doneKeys = new Set(state.completedKeys);
-        queue.forEach((it, i) => { if (doneKeys.has(it.key)) completed.add(i); });
+        queue.forEach((it, i) => {
+            // 新旧 key 任一命中即视为已完成，统计不重置
+            if (doneKeys.has(it.key) || (it.legacyKey && doneKeys.has(it.legacyKey))) completed.add(i);
+        });
     } else {
         // 兼容旧版进度：只有 doneSentences 数字时，视为前 N 句已完成
         const n = Math.min(state.doneSentences || 0, queue.length);
@@ -710,6 +798,42 @@ function updateStats() {
 
 function focusInput() {
     $('typed-input').focus();
+}
+
+// ------------------------------ 夜间模式 ------------------------------
+const THEME_KEY = 'example_typing_theme_v1';
+
+function isDarkTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'dark';
+}
+
+// persist=false 用于跟随系统主题，不写入 localStorage（保留“未手动设置”状态）
+function setTheme(dark, persist) {
+    if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+    else document.documentElement.removeAttribute('data-theme');
+    const btn = $('btn-theme');
+    if (btn) {
+        btn.textContent = dark ? '☀️' : '🌙';
+        btn.title = dark ? '切换到日间模式' : '切换到夜间模式';
+    }
+    if (persist) {
+        try { localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light'); } catch (e) { /* 忽略 */ }
+    }
+}
+
+function hasSavedTheme() {
+    try { return !!localStorage.getItem(THEME_KEY); } catch (e) { return false; }
+}
+
+setTheme(isDarkTheme(), false); // 同步按钮图标到 head 里已应用的主题
+$('btn-theme').addEventListener('click', () => setTheme(!isDarkTheme(), true));
+
+// 用户未手动选择时，实时跟随系统深浅色
+if (window.matchMedia) {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onSysTheme = (e) => { if (!hasSavedTheme()) setTheme(e.matches, false); };
+    if (mq.addEventListener) mq.addEventListener('change', onSysTheme);
+    else if (mq.addListener) mq.addListener(onSysTheme); // Safari < 14
 }
 
 // ------------------------------ 朗读（Web Speech API，调用系统自带 TTS） ------------------------------
