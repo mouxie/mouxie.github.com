@@ -13,11 +13,69 @@
             --card-bg: #FFFFFF;
             --text-main: #333333;
             --text-sub: #888888;
+            --bar-bg: #FFFFFF;
+            --input-bg: #FFFFFF;
+            --input-border: #CCCCCC;
+            --muted: #555555;
+            --line: #EEEEEE;
+            --panel-head: #F8F9FB;
+            --disabled-bg: #CCCCCC;
+            --settings-bg: #F0F0F0;
+            --settings-border: #DDDDDD;
+            --settings-hover: #E4E4E4;
+            --item-bg: #FAFBFD;
+            --note-bg: #F7F7F7;
+            --close-color: #999999;
+            --close-hover-bg: #EEEEEE;
+            color-scheme: light;
         }
+
+        /* ---------- 夜间模式（与 e.html 共用 example_typing_theme_v1） ---------- */
+        [data-theme="dark"] {
+            --primary: #6FA9EE;
+            --accent: #F07171;
+            --success: #4CC36B;
+            --bg: #14181F;
+            --card-bg: #1C222B;
+            --text-main: #E6EAF0;
+            --text-sub: #98A2B3;
+            --bar-bg: #1C222B;
+            --input-bg: #232B36;
+            --input-border: #3A4453;
+            --muted: #B9C2D0;
+            --line: #2C3542;
+            --panel-head: #232B36;
+            --disabled-bg: #3A4453;
+            --settings-bg: #232B36;
+            --settings-border: #3A4453;
+            --settings-hover: #2C3542;
+            --item-bg: #232B36;
+            --note-bg: #232B36;
+            --close-color: #98A2B3;
+            --close-hover-bg: #2C3542;
+            color-scheme: dark;
+        }
+        [data-theme="dark"] .top-bar,
+        [data-theme="dark"] .example-area { box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+        [data-theme="dark"] .card { box-shadow: 0 10px 25px rgba(0,0,0,0.45); }
+        [data-theme="dark"] .modal-panel { box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
+        [data-theme="dark"] .modal-overlay { background-color: rgba(0,0,0,0.6); }
+        [data-theme="dark"] .btn-audio { background-color: rgba(111,169,238,0.12); border-color: rgba(111,169,238,0.35); }
+        [data-theme="dark"] .btn-audio:hover { background-color: rgba(111,169,238,0.2); }
+        [data-theme="dark"] .btn-add-wrong { background-color: rgba(240,113,113,0.12); border-color: rgba(240,113,113,0.35); }
+        [data-theme="dark"] .btn-add-wrong:hover { background-color: rgba(240,113,113,0.2); }
+        [data-theme="dark"] .btn-remove-wrong { background-color: rgba(76,195,107,0.12); border-color: rgba(76,195,107,0.35); }
+        [data-theme="dark"] .btn-remove-wrong:hover { background-color: rgba(76,195,107,0.2); }
+        [data-theme="dark"] .btn-nav { box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        [data-theme="dark"] .btn-nav:disabled { color: var(--text-sub); }
+        [data-theme="dark"] .example-refresh:hover { color: #9CC5F5; }
+        [data-theme="dark"] .example-error { color: var(--accent); }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg);
+            color: var(--text-main);
+            transition: background-color 0.25s ease, color 0.25s ease;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -42,10 +100,11 @@
             gap: 10px;
             width: 100%;
             margin-bottom: 15px;
-            background: #fff;
+            background: var(--bar-bg);
             padding: 12px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            transition: background-color 0.25s ease, box-shadow 0.25s ease;
         }
 
         .control-row {
@@ -63,9 +122,10 @@
         select {
             padding: 6px 10px;
             border-radius: 6px;
-            border: 1px solid #ccc;
+            border: 1px solid var(--input-border);
             font-size: 13px;
-            background-color: white;
+            background-color: var(--input-bg);
+            color: var(--text-main);
             cursor: pointer;
             outline: none;
             max-width: 60%;
@@ -247,7 +307,7 @@
 
         .btn-nav:active { transform: scale(0.96); }
         .btn-nav:disabled {
-            background-color: #cccccc;
+            background-color: var(--disabled-bg);
             box-shadow: none;
             cursor: not-allowed;
             transform: none;
@@ -261,9 +321,9 @@
 
         /* 设置按钮 */
         .btn-settings {
-            background-color: #f0f0f0;
-            border: 1px solid #ddd;
-            color: #555;
+            background-color: var(--settings-bg);
+            border: 1px solid var(--settings-border);
+            color: var(--muted);
             padding: 6px 14px;
             border-radius: 8px;
             font-size: 13px;
@@ -273,7 +333,7 @@
             align-items: center;
             gap: 5px;
         }
-        .btn-settings:hover { background-color: #e4e4e4; color: #333; }
+        .btn-settings:hover { background-color: var(--settings-hover); color: var(--text-main); }
 
         /* 设置模态框 */
         .modal-overlay {
@@ -286,7 +346,7 @@
             z-index: 1000;
         }
         .modal-panel {
-            background: #fff;
+            background: var(--card-bg);
             border-radius: 14px;
             width: 90%;
             max-width: 400px;
@@ -298,23 +358,25 @@
             justify-content: space-between;
             align-items: center;
             padding: 14px 18px;
-            background: #f8f9fb;
-            border-bottom: 1px solid #eee;
+            background: var(--panel-head);
+            border-bottom: 1px solid var(--line);
         }
         .modal-header h3 { margin: 0; font-size: 16px; color: var(--text-main); }
         .modal-close {
             background: none; border: none; font-size: 18px;
-            cursor: pointer; color: #999; padding: 2px 6px; border-radius: 6px;
+            cursor: pointer; color: var(--close-color); padding: 2px 6px; border-radius: 6px;
         }
-        .modal-close:hover { background: #eee; color: #333; }
+        .modal-close:hover { background: var(--close-hover-bg); color: var(--text-main); }
         .modal-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
         .form-field { display: flex; flex-direction: column; gap: 5px; }
-        .form-field label { font-size: 13px; font-weight: 600; color: #555; }
+        .form-field label { font-size: 13px; font-weight: 600; color: var(--muted); }
         .form-field input, .form-field select {
             padding: 8px 10px;
-            border: 1px solid #ccc;
+            border: 1px solid var(--input-border);
             border-radius: 6px;
             font-size: 14px;
+            background-color: var(--input-bg);
+            color: var(--text-main);
             outline: none;
             transition: border-color 0.2s;
         }
@@ -326,8 +388,8 @@
             justify-content: flex-end;
             gap: 10px;
             padding: 12px 18px;
-            border-top: 1px solid #eee;
-            background: #f8f9fb;
+            border-top: 1px solid var(--line);
+            background: var(--panel-head);
         }
         .modal-footer .btn-nav { padding: 8px 20px; font-size: 14px; }
         .btn-cancel { background-color: #9e9e9e; box-shadow: none; }
@@ -341,7 +403,7 @@
         }
         .btn-example:hover { filter: brightness(1.08); }
         .btn-example:disabled {
-            background: #cccccc;
+            background: var(--disabled-bg);
             filter: none;
             cursor: not-allowed;
         }
@@ -349,9 +411,10 @@
         /* 例句显示区域 */
         .example-area {
             width: 100%;
-            background: #fff;
+            background: var(--bar-bg);
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            transition: background-color 0.25s ease, box-shadow 0.25s ease;
             padding: 14px 16px;
             box-sizing: border-box;
             margin-bottom: 12px;
@@ -366,8 +429,8 @@
             color: var(--text-main);
             margin-bottom: 10px;
         }
-        .example-close { background: none; border: none; cursor: pointer; color: #999; font-size: 15px; }
-        .example-close:hover { color: #333; }
+        .example-close { background: none; border: none; cursor: pointer; color: var(--close-color); font-size: 15px; }
+        .example-close:hover { color: var(--text-main); }
         .example-area__content { font-size: 14px; line-height: 1.7; color: var(--text-main); }
         .example-loading, .example-error { color: var(--text-sub); text-align: center; padding: 8px 0; }
         .example-error { color: #d9534f; }
@@ -376,7 +439,7 @@
         .example-item {
             margin: 10px 0;
             padding: 10px 12px;
-            background: #fafbfd;
+            background: var(--item-bg);
             border-left: 3px solid var(--primary);
             border-radius: 6px;
         }
@@ -394,8 +457,8 @@
         }
         .example-meaning { font-size: 13px; font-weight: 600; color: var(--text-main); }
         .example-en { font-size: 16px; margin: 6px 0; }
-        .example-cn { color: #555; }
-        .example-note { margin-top: 8px; font-size: 13px; color: #888; background: #f7f7f7; border-radius: 6px; padding: 6px 8px; }
+        .example-cn { color: var(--muted); }
+        .example-note { margin-top: 8px; font-size: 13px; color: var(--text-sub); background: var(--note-bg); border-radius: 6px; padding: 6px 8px; }
         .example-empty { color: var(--text-sub); text-align: center; padding: 8px 0; }
         .example-source-badge {
             display: inline-block;
@@ -418,6 +481,17 @@
         }
         .example-refresh:hover { color: #2a6db8; }
     </style>
+    <script>
+    // 尽早应用已保存的主题，避免刷新时闪白（与 e.html 共用同一份设置）
+    (function () {
+        try {
+            var saved = localStorage.getItem('example_typing_theme_v1');
+            var dark = saved ? saved === 'dark'
+                : !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+        } catch (e) { /* 隐私模式等读取失败时保持日间 */ }
+    })();
+    </script>
 </head>
 <body>
 
@@ -433,7 +507,7 @@
             
             <div class="control-row">
                 <div>
-                    <span style="font-size: 12px; color: #555;">每组:</span>
+                    <span style="font-size: 12px; color: var(--muted);">每组:</span>
                     <select id="size-select">
                         <option value="10">10 个</option>
                         <option value="20" selected>20 个</option>
@@ -442,7 +516,7 @@
                     </select>
                 </div>
                 <div>
-                    <span style="font-size: 12px; color: #555;">选择组别:</span>
+                    <span style="font-size: 12px; color: var(--muted);">选择组别:</span>
                     <select id="group-select">
                         <option value="0">第 1 组</option>
                     </select>
@@ -454,6 +528,7 @@
                     <input type="checkbox" id="auto-speak-switch">
                     🔊 切换单词时自动发音
                 </label>
+                <button id="btn-theme" class="btn-settings" type="button" title="切换夜间模式">🌙</button>
                 <button id="btn-settings" class="btn-settings">⚙️ 设置</button>
             </div>
 
@@ -505,8 +580,8 @@
         <div class="hint" id="hint-text" style="display: none;">💡 提示：点击卡片翻面 | ➔ 下一词 | ← 上一词 | 空格翻转 | V 键听发音 | 回车标记错词</div>
 
         <div class="hint" id="db-stats-bar" style="display: none;">
-            <span id="db-stats-text" title="点击刷新统计" style="cursor: pointer; border-bottom: 1px dashed #aaa;">🗄️ IndexedDB: 词库 0 | 错词本 0 | 语音缓存 0 | 例句缓存 0 | 总占用 0 B</span>
-            <span id="audio-cache-badge" title="点击清空全部本地语音缓存" style="cursor: pointer; border-bottom: 1px dashed #aaa; margin-left: 12px;">🗑️ 清空语音缓存</span>
+            <span id="db-stats-text" title="点击刷新统计" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub);">🗄️ IndexedDB: 词库 0 | 错词本 0 | 语音缓存 0 | 例句缓存 0 | 总占用 0 B</span>
+            <span id="audio-cache-badge" title="点击清空全部本地语音缓存" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub); margin-left: 12px;">🗑️ 清空语音缓存</span>
         </div>
     </div>
 
@@ -581,6 +656,44 @@
                 };
                 localStorage.setItem(PROGRESS_KEY, JSON.stringify(state));
             } catch (e) { /* 忽略写入失败（如隐私模式） */ }
+        }
+
+        // ------------------------------------------------------------------
+        // 夜间模式（与 e.html 共用 example_typing_theme_v1）
+        // ------------------------------------------------------------------
+        const THEME_KEY = 'example_typing_theme_v1';
+
+        function isDarkTheme() {
+            return document.documentElement.getAttribute('data-theme') === 'dark';
+        }
+
+        // persist=false 用于跟随系统主题，不写入 localStorage（保留“未手动设置”状态）
+        function setTheme(dark, persist) {
+            if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+            else document.documentElement.removeAttribute('data-theme');
+            const btn = document.getElementById('btn-theme');
+            if (btn) {
+                btn.textContent = dark ? '☀️' : '🌙';
+                btn.title = dark ? '切换到日间模式' : '切换到夜间模式';
+            }
+            if (persist) {
+                try { localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light'); } catch (e) { /* 忽略 */ }
+            }
+        }
+
+        function hasSavedTheme() {
+            try { return !!localStorage.getItem(THEME_KEY); } catch (e) { return false; }
+        }
+
+        setTheme(isDarkTheme(), false); // 同步按钮图标到 head 里已应用的主题
+        document.getElementById('btn-theme').addEventListener('click', () => setTheme(!isDarkTheme(), true));
+
+        // 用户未手动选择时，实时跟随系统深浅色
+        if (window.matchMedia) {
+            const mq = window.matchMedia('(prefers-color-scheme: dark)');
+            const onSysTheme = (e) => { if (!hasSavedTheme()) setTheme(e.matches, false); };
+            if (mq.addEventListener) mq.addEventListener('change', onSysTheme);
+            else if (mq.addListener) mq.addListener(onSysTheme); // Safari < 14
         }
 
         // ------------------------------------------------------------------
@@ -1188,7 +1301,7 @@
             }
             else if (msg.type === 'error') {
                 initStatusText.innerText = '⚠️ ' + msg.message + '（点击此处重试）';
-                initStatusText.style.color = '#d9534f';
+                initStatusText.style.color = 'var(--accent)';
                 initStatusText.style.cursor = 'pointer';
                 initStatusText.onclick = () => {
                     initStatusText.onclick = null;
@@ -1592,12 +1705,12 @@
             };
             if (!settings.apiKey) {
                 settingsStatus.innerText = '⚠️ API Key 不能为空';
-                settingsStatus.style.color = '#d9534f';
+                settingsStatus.style.color = 'var(--accent)';
                 return;
             }
             saveDSSettings(settings);
             settingsStatus.innerText = '✅ 设置已保存';
-            settingsStatus.style.color = '#2ea44f';
+            settingsStatus.style.color = 'var(--success)';
             setTimeout(closeSettingsPanel, 600);
         });
 
