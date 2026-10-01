@@ -532,6 +532,8 @@
     </div>
 </div>
 
+<!-- 数据库核心（库名/版本/建表/版本探测）：5 个页面共用，升级版本只改 db-core.js 一处 -->
+<script src="db-core.js"></script>
 <script>
 // ============================================================================
 // 例句打字游戏 —— 读取 fc.html / typing.html 共享的 IndexedDB（FlashcardDB）
@@ -539,55 +541,12 @@
 // ============================================================================
 'use strict';
 
-const DB_NAME = 'FlashcardDB';
-const DB_VERSION = 6;          // v6: 与 q.html/fc.html/typing.html 统一（新增 dictionaries 表支持多词库）
-const STORE_ALL = 'words';
-const STORE_WRONG = 'wrong_words';
-const STORE_AUDIO = 'audio_cache';
-const STORE_EXAMPLE = 'example_cache';
-const STORE_DICTS = 'dictionaries';
+// 常量与打开逻辑全部来自 db-core.js，本页只做别名解构，不再各自维护副本
+const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_DICTS } = window.FlashcardDB;
+// reader 模式：不带版本号探测打开，避免 VersionError（建库/升级由 fc.html/q.html 负责）
+const openDB = () => window.FlashcardDB.openFlashcardDB({ mode: 'reader' });
 
 const $ = (id) => document.getElementById(id);
-
-// ------------------------------ IndexedDB 读取 ------------------------------
-// 建表逻辑：与其他页面保持一致（本页只用 example_cache，但升级时必须一并补齐全部表）
-function ensureStores(db) {
-    if (!db.objectStoreNames.contains(STORE_ALL)) db.createObjectStore(STORE_ALL, { keyPath: 'id' });
-    if (!db.objectStoreNames.contains(STORE_WRONG)) db.createObjectStore(STORE_WRONG, { keyPath: 'wordKey' });
-    if (!db.objectStoreNames.contains(STORE_AUDIO)) db.createObjectStore(STORE_AUDIO, { keyPath: 'word' });
-    if (!db.objectStoreNames.contains(STORE_EXAMPLE)) db.createObjectStore(STORE_EXAMPLE, { keyPath: 'word' });
-    if (!db.objectStoreNames.contains(STORE_DICTS)) db.createObjectStore(STORE_DICTS, { keyPath: 'id' });
-}
-
-// 统一打开数据库。
-// 关键：不能再用固定的 indexedDB.open(DB_NAME, 5)——q.html/fc.html 已把库升到 v6，
-// 用更低版本打开会直接抛 VersionError，导致例句缓存完全读不出来。
-// 改为「先不带版本号探测 → 表齐全就直接用 → 仅在版本过低时升级」，
-// 这样其他页面将来升到 v7/v8 时本页也不会被卡死。
-function openDB() {
-    return new Promise((resolve, reject) => {
-        if (!('indexedDB' in window)) { reject(new Error('当前浏览器不支持 IndexedDB')); return; }
-
-        const probe = indexedDB.open(DB_NAME); // 不带版本号：以库当前版本打开，不会触发 VersionError
-        probe.onerror = () => reject(probe.error || new Error('IndexedDB 打开失败'));
-        probe.onblocked = () => reject(new Error('数据库被其他标签页占用，请关闭其他打开过本页面的标签页后刷新'));
-        probe.onupgradeneeded = (e) => { ensureStores(e.target.result); }; // 库不存在时（新建 v1）顺手建表
-        probe.onsuccess = () => {
-            const db = probe.result;
-            // 表齐全，或库版本已不低于 DB_VERSION（由其他页面建好）：直接使用
-            if (db.objectStoreNames.contains(STORE_EXAMPLE) || db.version >= DB_VERSION) { resolve(db); return; }
-
-            // 旧版低版本库且缺表：关闭后按 DB_VERSION 重新打开触发升级建表
-            const oldVersion = db.version;
-            db.close();
-            const req = indexedDB.open(DB_NAME, Math.max(DB_VERSION, oldVersion + 1));
-            req.onerror = () => reject(req.error || new Error('IndexedDB 升级失败'));
-            req.onblocked = () => reject(new Error('数据库升级被其他标签页阻塞，请关闭其他打开过本页面的标签页后刷新'));
-            req.onupgradeneeded = (e) => { ensureStores(e.target.result); };
-            req.onsuccess = () => resolve(req.result);
-        };
-    });
-}
 
 // 读取 example_cache 全表，展开为扁平例句列表
 async function loadAllExamples() {
