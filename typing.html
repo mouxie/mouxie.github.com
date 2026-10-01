@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>错词打字练习 - 基于闪卡错词本</title>
+    <script>
+        // 尽早应用夜间模式（在 CSS 渲染前加 .dark 类），避免暗色用户加载时白屏闪烁
+        // 无保存值时跟随系统 prefers-color-scheme
+        try {
+            var savedTheme = localStorage.getItem('typingTheme');
+            var isDarkTheme = savedTheme ? savedTheme === 'dark'
+                : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDarkTheme) document.documentElement.classList.add('dark');
+        } catch (e) { /* localStorage 不可用时忽略 */ }
+    </script>
     <style>
         :root {
             --primary: #4A90E2;
@@ -376,6 +386,55 @@
         }
         .footer-note a { color: var(--primary); cursor: pointer; text-decoration: none; }
 
+        /* ---------- 夜间模式（html.dark，由 head 内联脚本或开关切换） ---------- */
+        :root.dark {
+            --primary: #6aa9e8;
+            --accent: #ff7b7b;
+            --success: #56c474;
+            --bg: #16181d;
+            --card-bg: #21242b;
+            --text-main: #e6e8ec;
+            --text-sub: #98a0ab;
+            color-scheme: dark; /* 原生控件（下拉/滚动条）同步暗色 */
+        }
+        :root.dark select,
+        :root.dark input[type="number"] {
+            background-color: #2a2e37;
+            border-color: #3c424d;
+            color: var(--text-main);
+        }
+        :root.dark .settings-row { color: #c3c9d2; }
+        :root.dark .progress-track { background: #31363f; }
+        :root.dark .trans-reveal { background: #322e1e; border-color: #4a4327; }
+        :root.dark .example-reveal { background: #1d2635; border-color: #2d3b52; }
+        :root.dark .example-cn { color: #a6aeb9; }
+        :root.dark .example-cache-tip { border-bottom-color: #354154; }
+        :root.dark .char-item { background: #2a2e37; }
+        :root.dark .char-item.pending { color: #c3c9d2; }
+        :root.dark .char-item.pending-hidden { color: #454b55; }
+        :root.dark .char-item.active {
+            background: #22364c;
+            border-color: var(--primary);
+            box-shadow: 0 2px 6px rgba(106,169,232,0.25);
+        }
+        :root.dark .char-item.correct { background: #1d3324; border-color: #2b4a33; }
+        :root.dark .char-item.wrong { background: #3a2325; border-color: #553134; }
+        :root.dark .input-area input {
+            background: #2a2e37;
+            border-color: #3c424d;
+            color: var(--text-main);
+        }
+        :root.dark .input-area input:focus { border-color: var(--primary); }
+        :root.dark .hint-row button {
+            background: #2a2e37;
+            border-color: #3c424d;
+            color: #c3c9d2;
+        }
+        :root.dark .hint-row button:hover { background: #343945; }
+        :root.dark .btn-plain { background: #31363f; color: #c3c9d2; }
+        :root.dark .retry-chip { background: #3a2325; border-color: #553134; }
+        :root.dark .retry-chip:hover { background: #4a2c2f; }
+
         .hidden { display: none !important; }
     </style>
 </head>
@@ -434,6 +493,10 @@
                     <span>音量</span>
                     <input type="range" id="key-volume" min="0" max="200" value="140" style="width:90px; margin:0;">
                     <b id="key-volume-label">140%</b>
+                </label>
+                <label class="switch-label" title="切换夜间/白天模式（自动保存，默认跟随系统）">
+                    <input type="checkbox" id="theme-switch">
+                    🌙 夜间模式
                 </label>
             </div>
         </div>
@@ -745,6 +808,25 @@ function restoreKeyVolume() {
 }
 
 // ============================================================
+// 夜间模式（localStorage: typingTheme，head 内联脚本已防闪烁预应用）
+// ============================================================
+const THEME_STORAGE = 'typingTheme';
+
+// 应用主题：切换 html.dark 类 + 同步开关状态 + 持久化选择
+function applyTheme(dark) {
+    document.documentElement.classList.toggle('dark', dark);
+    els.themeSwitch.checked = dark;
+    try {
+        localStorage.setItem(THEME_STORAGE, dark ? 'dark' : 'light');
+    } catch (e) { /* localStorage 不可用（如隐私模式）时忽略 */ }
+}
+
+// 初始化：head 内联脚本已根据保存值/系统偏好加了 .dark 类，这里只同步开关状态
+function restoreTheme() {
+    els.themeSwitch.checked = document.documentElement.classList.contains('dark');
+}
+
+// ============================================================
 // 练习进度持久化（localStorage: typingProgress，恢复每组数量与组别）
 // ============================================================
 const PROGRESS_KEY = 'typing_progress_v1';
@@ -908,7 +990,8 @@ const els = {
     statAccuracy: document.getElementById('stat-accuracy'),
     statHeat: document.getElementById('stat-heat'),
     linkFc: document.getElementById('link-fc'),
-    audioCacheBadge: document.getElementById('audio-cache-badge')
+    audioCacheBadge: document.getElementById('audio-cache-badge'),
+    themeSwitch: document.getElementById('theme-switch')
 };
 
 let wrongWords = [];      // 全部错词（原始数据）
@@ -1687,6 +1770,8 @@ document.addEventListener('keydown', (e) => {
 // ============================================================
 // 启动
 // ============================================================
+restoreTheme();
+els.themeSwitch.addEventListener('change', () => applyTheme(els.themeSwitch.checked));
 init();
 </script>
 </body>
