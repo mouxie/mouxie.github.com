@@ -2109,14 +2109,14 @@
         });
 
         // iOS 上点击按钮会使输入框失焦收起键盘，而后续定时器中的 focus() 非用户手势无法重新唤起；
-        // 因此在点击手势内同步 focus（并用 preventDefault 阻止 mousedown/touchstart 默认行为，避免输入框先失焦）
+        // 因此只在 mousedown 上 preventDefault（阻止焦点转移到按钮，输入框保持聚焦、键盘不收起）。
+        // ⚠️ 不能对 touchstart preventDefault：iOS Safari 会因此取消后续合成的 click 事件，
+        //    导致「上一词 / 下一词」等按钮在 iPhone 上点击完全失效。
         [btnNext, btnPrev, btnSpeak, btnToggleWrong].forEach((btn) => {
-            ['mousedown', 'touchstart'].forEach((evt) => {
-                btn.addEventListener(evt, (e) => {
-                    if (!typeInput.disabled) {
-                        e.preventDefault(); // 阻止焦点转移到按钮，输入框保持聚焦、键盘不收起
-                    }
-                }, { passive: false });
+            btn.addEventListener('mousedown', (e) => {
+                if (!typeInput.disabled) {
+                    e.preventDefault(); // 阻止焦点转移到按钮，输入框保持聚焦、键盘不收起
+                }
             });
         });
 
