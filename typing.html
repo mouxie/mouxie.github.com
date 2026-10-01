@@ -578,70 +578,18 @@
     </div>
 </div>
 
+<!-- 数据库核心（库名/版本/建表/版本探测）：5 个页面共用，升级版本只改 db-core.js 一处 -->
+<script src="db-core.js"></script>
 <script>
 'use strict';
 
 // ============================================================
 // 数据来源：与 fc.html 共用的 IndexedDB (FlashcardDB / wrong_words)
+// 常量与打开逻辑全部来自 db-core.js，本页只做别名，不再各自维护副本
 // ============================================================
-const DB_NAME = 'FlashcardDB';
-const DB_VERSION = 6; // v6: 与 q.html/fc.html 统一（新增 dictionaries 表支持多词库，words 主键改为 "dictId#序号"）
-const STORE_ALL = 'words';        // 全词库（与 fc.html 共用，用于音标补全；多词库同表按 dictId 前缀分区）
-const STORE_WRONG = 'wrong_words';
-const STORE_AUDIO = 'audio_cache';
-const STORE_EXAMPLE = 'example_cache';
-const STORE_DICTS = 'dictionaries'; // 词库注册表（本页只读不写，但必须随升级一并建表，保持结构一致）
-
-// 建表逻辑：与 q.html/fc.html 的 onupgradeneeded 保持完全一致
-function ensureStores(db) {
-    if (!db.objectStoreNames.contains(STORE_ALL)) {
-        db.createObjectStore(STORE_ALL, { keyPath: 'id' });
-    }
-    if (!db.objectStoreNames.contains(STORE_WRONG)) {
-        db.createObjectStore(STORE_WRONG, { keyPath: 'wordKey' });
-    }
-    if (!db.objectStoreNames.contains(STORE_AUDIO)) {
-        db.createObjectStore(STORE_AUDIO, { keyPath: 'word' });
-    }
-    if (!db.objectStoreNames.contains(STORE_EXAMPLE)) {
-        db.createObjectStore(STORE_EXAMPLE, { keyPath: 'word' });
-    }
-    if (!db.objectStoreNames.contains(STORE_DICTS)) {
-        db.createObjectStore(STORE_DICTS, { keyPath: 'id' });
-    }
-}
-
-// 统一打开数据库。
-// 关键：不能再用固定的 indexedDB.open(DB_NAME, 5)——q.html/fc.html 已把库升到 v6，
-// 用更低版本打开会直接抛 VersionError，导致本页错词本完全读不出来。
-// 改为「先不带版本号探测 → 表齐全就直接用 → 仅在版本过低时升级到 DB_VERSION」，
-// 这样其他页面将来升到 v7/v8 时本页也不会被卡死（绝不主动把版本抬到 DB_VERSION 以上）。
-function openFlashcardDB() {
-    return new Promise((resolve, reject) => {
-        if (!('indexedDB' in window)) { reject(new Error('当前浏览器不支持 IndexedDB')); return; }
-
-        const probe = indexedDB.open(DB_NAME); // 不带版本号：以库当前版本打开，不会触发 VersionError
-        probe.onerror = () => reject(new Error('无法打开错词本数据库 (FlashcardDB)'));
-        probe.onblocked = () => reject(new Error('数据库被其他标签页占用，请关闭其他打开过本页面的标签页后刷新'));
-        probe.onupgradeneeded = (e) => { ensureStores(e.target.result); }; // 库不存在时（新建 v1）顺手建表
-        probe.onsuccess = (e) => {
-            const db = e.target.result;
-            const ready = db.objectStoreNames.contains(STORE_WRONG) && db.objectStoreNames.contains(STORE_ALL);
-            // 表齐全，或库版本已不低于 DB_VERSION（由 q.html/fc.html 建好）：直接使用
-            // 注：各读写函数内部都有 objectStoreNames.contains 兜底，缺表时降级为空结果而非报错
-            if (ready || db.version >= DB_VERSION) { resolve(db); return; }
-
-            // 旧版低版本库且缺表：关闭后按 DB_VERSION 重新打开触发升级建表
-            const oldVersion = db.version;
-            db.close();
-            const request = indexedDB.open(DB_NAME, Math.max(DB_VERSION, oldVersion + 1));
-            request.onerror = () => reject(new Error('无法升级错词本数据库 (FlashcardDB)'));
-            request.onblocked = () => reject(new Error('数据库升级被其他标签页阻塞，请关闭其他打开过本页面的标签页后刷新'));
-            request.onupgradeneeded = (ev) => { ensureStores(ev.target.result); };
-            request.onsuccess = (ev) => resolve(ev.target.result);
-        };
-    });
-}
+const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_DICTS } = window.FlashcardDB;
+// reader 模式：不带版本号探测打开，避免 VersionError（建库/升级由 fc.html/q.html 负责）
+const openFlashcardDB = () => window.FlashcardDB.openFlashcardDB({ mode: 'reader' });
 
 // 从 IndexedDB 中读取全部错词
 // 与 fc.html 保持一致：优先用全词库 (words 表) 中的完整词条（含音标），
@@ -857,9 +805,11 @@ function restoreTheme() {
 }
 
 // ============================================================
-// 练习进度持久化（localStorage: typingProgress，恢复每组数量与组别）
+// 练习进度持久化（localStorage，恢复每组数量与组别）
+// 注意：必须用独立 key——q.html 也用 'typing_progress_v1' 且带 dictId 字段，
+// 共用会互相覆盖（本页写入时抹掉 q.html 的词库选择）
 // ============================================================
-const PROGRESS_KEY = 'typing_progress_v1';
+const PROGRESS_KEY = 'typing_wrong_progress_v1';
 
 function loadProgress() {
     try {
