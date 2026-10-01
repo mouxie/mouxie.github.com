@@ -526,34 +526,61 @@
 // 数据来源：与 fc.html 共用的 IndexedDB (FlashcardDB / wrong_words)
 // ============================================================
 const DB_NAME = 'FlashcardDB';
-const DB_VERSION = 5;
-const STORE_ALL = 'words';        // 全词库（与 fc.html 共用，用于音标补全）
+const DB_VERSION = 6; // v6: 与 q.html/fc.html/typing.html 统一（新增 dictionaries 表支持多词库，words 主键改为 "dictId#序号"）
+const STORE_ALL = 'words';        // 全词库（与 fc.html 共用，用于音标补全；多词库同表按 dictId 前缀分区）
 const STORE_WRONG = 'wrong_words';
 const STORE_AUDIO = 'audio_cache';
 const STORE_EXAMPLE = 'example_cache';
+const STORE_DICTS = 'dictionaries'; // 词库注册表（本页只读不写，但必须随升级一并建表，保持结构一致）
 
-// 统一打开数据库（升级时自动补齐缺失的表；与 fc.html 保持完全一致的结构）
+// 建表逻辑：与 q.html/fc.html 的 onupgradeneeded 保持完全一致
+function ensureStores(db) {
+    if (!db.objectStoreNames.contains(STORE_ALL)) {
+        db.createObjectStore(STORE_ALL, { keyPath: 'id' });
+    }
+    if (!db.objectStoreNames.contains(STORE_WRONG)) {
+        db.createObjectStore(STORE_WRONG, { keyPath: 'wordKey' });
+    }
+    if (!db.objectStoreNames.contains(STORE_AUDIO)) {
+        db.createObjectStore(STORE_AUDIO, { keyPath: 'word' });
+    }
+    if (!db.objectStoreNames.contains(STORE_EXAMPLE)) {
+        db.createObjectStore(STORE_EXAMPLE, { keyPath: 'word' });
+    }
+    if (!db.objectStoreNames.contains(STORE_DICTS)) {
+        db.createObjectStore(STORE_DICTS, { keyPath: 'id' });
+    }
+}
+
+// 统一打开数据库。
+// 关键：不能再用固定的 indexedDB.open(DB_NAME, 5)——q.html/fc.html 已把库升到 v6，
+// 用更低版本打开会直接抛 VersionError，导致本页错词本完全读不出来。
+// 改为「先不带版本号探测 → 表齐全就直接用 → 仅在版本过低时升级到 DB_VERSION」，
+// 这样其他页面将来升到 v7/v8 时本页也不会被卡死（绝不主动把版本抬到 DB_VERSION 以上）。
 function openFlashcardDB() {
     return new Promise((resolve, reject) => {
         if (!('indexedDB' in window)) { reject(new Error('当前浏览器不支持 IndexedDB')); return; }
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-        request.onerror = () => reject(new Error('无法打开错词本数据库 (FlashcardDB)'));
-        request.onupgradeneeded = (e) => {
+
+        const probe = indexedDB.open(DB_NAME); // 不带版本号：以库当前版本打开，不会触发 VersionError
+        probe.onerror = () => reject(new Error('无法打开错词本数据库 (FlashcardDB)'));
+        probe.onblocked = () => reject(new Error('数据库被其他标签页占用，请关闭其他打开过本页面的标签页后刷新'));
+        probe.onupgradeneeded = (e) => { ensureStores(e.target.result); }; // 库不存在时（新建 v1）顺手建表
+        probe.onsuccess = (e) => {
             const db = e.target.result;
-            if (!db.objectStoreNames.contains(STORE_ALL)) {
-                db.createObjectStore(STORE_ALL, { keyPath: 'id' });
-            }
-            if (!db.objectStoreNames.contains(STORE_WRONG)) {
-                db.createObjectStore(STORE_WRONG, { keyPath: 'wordKey' });
-            }
-            if (!db.objectStoreNames.contains(STORE_AUDIO)) {
-                db.createObjectStore(STORE_AUDIO, { keyPath: 'word' });
-            }
-            if (!db.objectStoreNames.contains(STORE_EXAMPLE)) {
-                db.createObjectStore(STORE_EXAMPLE, { keyPath: 'word' });
-            }
+            const ready = db.objectStoreNames.contains(STORE_WRONG) && db.objectStoreNames.contains(STORE_ALL);
+            // 表齐全，或库版本已不低于 DB_VERSION（由 q.html/fc.html 建好）：直接使用
+            // 注：各读写函数内部都有 objectStoreNames.contains 兜底，缺表时降级为空结果而非报错
+            if (ready || db.version >= DB_VERSION) { resolve(db); return; }
+
+            // 旧版低版本库且缺表：关闭后按 DB_VERSION 重新打开触发升级建表
+            const oldVersion = db.version;
+            db.close();
+            const request = indexedDB.open(DB_NAME, Math.max(DB_VERSION, oldVersion + 1));
+            request.onerror = () => reject(new Error('无法升级错词本数据库 (FlashcardDB)'));
+            request.onblocked = () => reject(new Error('数据库升级被其他标签页阻塞，请关闭其他打开过本页面的标签页后刷新'));
+            request.onupgradeneeded = (ev) => { ensureStores(ev.target.result); };
+            request.onsuccess = (ev) => resolve(ev.target.result);
         };
-        request.onsuccess = (e) => resolve(e.target.result);
     });
 }
 
@@ -562,6 +589,8 @@ async function loadWrongWordsFromDB() {
     const db = await openFlashcardDB();
 
     // 1) 构建全词库 key -> 完整词条 索引（用于音标补全）
+    //    多词库下 words 表含全部词库的记录（主键 "dictId#序号"），这里跨库全量扫描：
+    //    错词本本身是跨词库共享的，同一个单词在任一库中的音标都可用于补全
     const allWordsMap = new Map();
     if (db.objectStoreNames.contains(STORE_ALL)) {
         await new Promise((resolve) => {
@@ -570,7 +599,8 @@ async function loadWrongWordsFromDB() {
                 const cursor = e.target.result;
                 if (cursor) {
                     const key = getWordKey(cursor.value && cursor.value.data);
-                    if (key) allWordsMap.set(key, cursor.value.data);
+                    // 已有同名词条时不覆盖：保留先扫到的（默认词库通常排在最前），避免多库重复词条互相顶替
+                    if (key && !allWordsMap.has(key)) allWordsMap.set(key, cursor.value.data);
                     cursor.continue();
                 } else { resolve(); }
             };
@@ -853,554 +883,4 @@ async function updateAudioCacheBadge() {
     } catch (e) {}
 }
 
-// ============================================================
-// 游戏状态
-// ============================================================
-const els = {
-    statusPanel: document.getElementById('status-panel'),
-    statusText: document.getElementById('status-text'),
-    gameArea: document.getElementById('game-area'),
-    modeSelect: document.getElementById('mode-select'),
-    sizeSelect: document.getElementById('size-select'),
-    groupSelect: document.getElementById('group-select'),
-    audioSwitch: document.getElementById('audio-switch'),
-    keySoundSwitch: document.getElementById('key-sound-switch'),
-    themeSwitch: document.getElementById('theme-switch'),
-    keyVolume: document.getElementById('key-volume'),
-    keyVolumeLabel: document.getElementById('key-volume-label'),
-    roundText: document.getElementById('round-text'),
-    scoreText: document.getElementById('score-text'),
-    progressFill: document.getElementById('progress-fill'),
-    wordDisplay: document.getElementById('word-display'),
-    phoneticText: document.getElementById('phonetic-text'),
-    promptText: document.getElementById('prompt-text'),
-    wordTransDisplay: document.getElementById('word-trans-display'),
-    btnReplay: document.getElementById('btn-replay'),
-    answerInput: document.getElementById('answer-input'),
-    btnClear: document.getElementById('btn-clear'),
-    btnPrevWord: document.getElementById('btn-prev-word'),
-    btnNextWord: document.getElementById('btn-next-word'),
-    totalCount: document.getElementById('total-count'),
-    resultPanel: document.getElementById('result-panel'),
-    resultWord: document.getElementById('result-word'),
-    resultTrans: document.getElementById('result-trans'),
-    btnAgain: document.getElementById('btn-again'),
-    retryList: document.getElementById('retry-list'),
-    statsPanel: document.getElementById('stats-panel'),
-    statTotal: document.getElementById('stat-total'),
-    statCorrect: document.getElementById('stat-correct'),
-    statWrong: document.getElementById('stat-wrong'),
-    statAccuracy: document.getElementById('stat-accuracy'),
-    statHeat: document.getElementById('stat-heat'),
-    linkFc: document.getElementById('link-fc'),
-    audioCacheBadge: document.getElementById('audio-cache-badge')
-};
-
-let wrongWords = [];      // 全部错词（原始数据）
-let sessionWords = [];    // 本局抽取的单词（按错词本顺序切分组）
-let sessionIndex = 0;     // 当前题号
-let currentWord = '';     // 当前题的单词
-let currentTrans = '';    // 当前题的释义（答案）
-let currentPhonetic = ''; // 当前题的音标
-let currentMode = 'look'; // 当前的模式 (look / listen)
-let stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
-let retryWords = [];      // 本次答错的单词（用于再练）
-let sessionResults = [];  // 每题作答状态: null=未作答, true=答对, false=答错
-let flashTimer = null;    // 答错后闪答自动前进的定时器
-let isFinished = false;
-let pendingGroupIdx = null; // 首次开局待恢复的组别（进度持久化）
-let pendingWordIdx = null;  // 首次开局待恢复的组内词序（进度持久化）
-
-// ============================================================
-// 初始化
-// ============================================================
-async function init() {
-    try {
-        wrongWords = await loadWrongWordsFromDB();
-        if (wrongWords.length === 0) {
-            els.statusText.textContent = '📭 错词本是空的，还没有可练习的单词。';
-            els.statusText.classList.add('success');
-            return;
-        }
-        wrongWords = wrongWords.filter(w => getWordKey(w).trim() !== '');
-        if (wrongWords.length === 0) {
-            els.statusText.textContent = '📭 错词本中的单词无效（缺少 word/name/title 字段）。';
-            els.statusText.classList.add('success');
-            return;
-        }
-
-        els.totalCount.textContent = wrongWords.length;
-        restoreKeyVolume();
-        const saved = loadProgress();
-        if (saved) {
-            const sizeOptions = Array.from(els.sizeSelect.options).map(o => o.value);
-            if (sizeOptions.includes(String(saved.pageSize))) {
-                els.sizeSelect.value = String(saved.pageSize);
-            }
-            pendingGroupIdx = Math.max(parseInt(saved.groupIdx) || 0, 0);
-            pendingWordIdx = Math.max(parseInt(saved.wordIdx) || 0, 0);
-        }
-
-        els.statusPanel.classList.add('hidden');
-        els.gameArea.classList.remove('hidden');
-
-        bindEvents();
-        updateAudioCacheBadge();
-        startSession();
-    } catch (err) {
-        els.statusText.textContent = '⚠️ ' + err.message;
-        els.statusText.classList.add('error');
-    }
-}
-
-function bindEvents() {
-    els.modeSelect.addEventListener('change', () => {
-        currentMode = els.modeSelect.value;
-        if (!isFinished) renderQuestion();
-    });
-    els.sizeSelect.addEventListener('change', () => {
-        els.groupSelect.value = '0';
-        rebuildGroupOptions();
-        saveProgress();
-        startSession();
-    });
-    els.groupSelect.addEventListener('change', () => {
-        if (isFinished) {
-            isFinished = false;
-            els.answerInput.disabled = false;
-        }
-        saveProgress();
-        startSession();
-    });
-    // 输入过程：完全命中某个释义候选时自动跳转（不等 Enter）
-    // IME 组合输入中不判题：组合结束后由 compositionend 兜底触发
-    els.answerInput.addEventListener('input', (e) => {
-        if (e.isComposing || isFinished) return;
-        tryAutoAdvance();
-    });
-    // 中文输入法等 IME 组合结束时的兜底判题
-    els.answerInput.addEventListener('compositionend', () => {
-        tryAutoAdvance();
-    });
-    els.btnClear.addEventListener('click', clearInput);
-    els.btnPrevWord.addEventListener('click', goPrevWord);
-    els.btnNextWord.addEventListener('click', goNextWord);
-    els.btnReplay.addEventListener('click', () => { if (currentWord) playWordAudio(currentWord); });
-    // 点击单词（或听读音模式下的音标）：显示/隐藏释义
-    els.wordDisplay.addEventListener('click', toggleWordTrans);
-    els.btnAgain.addEventListener('click', () => {
-        const groupIdx = parseInt(els.groupSelect.value) || 0;
-        const totalGroups = els.groupSelect.options.length;
-        // 不是最后一个组别：切换到下一组，重新开局
-        if (groupIdx + 1 < totalGroups) {
-            els.groupSelect.value = String(groupIdx + 1);
-            saveProgress();
-            startSession();
-            return;
-        }
-        // 已是最后一组：有错词则只重练错词，无错词则重练本组
-        if (retryWords.length > 0) {
-            sessionWords = shuffle(retryWords.slice());
-            retryWords = [];
-            stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
-            startSession(false);
-        } else {
-            startSession();
-        }
-    });
-    els.linkFc.addEventListener('click', () => {
-        window.location.href = 'fc.html';
-    });
-    els.audioCacheBadge.addEventListener('click', async () => {
-        if (confirm('确定清空全部本地语音缓存吗？之后首次播放需要重新下载。')) {
-            await clearAudioCache();
-            updateAudioCacheBadge();
-        }
-    });
-    els.keyVolume.addEventListener('input', () => {
-        els.keyVolumeLabel.textContent = els.keyVolume.value + '%';
-    });
-    els.keyVolume.addEventListener('change', saveKeyVolume);
-    restoreTheme();
-    els.themeSwitch.addEventListener('change', () => applyTheme(els.themeSwitch.checked));
-}
-
-function shuffle(arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-}
-
-function currentSize() {
-    return parseInt(els.sizeSelect.value) || 20;
-}
-
-// 重建"选择组别"下拉选项（与 fc.html 一致：按每组数量切分错词本顺序）
-function rebuildGroupOptions(forceSelect) {
-    const selected = (forceSelect !== undefined) ? forceSelect : (parseInt(els.groupSelect.value) || 0);
-    const size = currentSize();
-    const totalGroups = Math.max(Math.ceil(wrongWords.length / size), 1);
-    els.groupSelect.innerHTML = '';
-    for (let i = 0; i < totalGroups; i++) {
-        const start = i * size + 1;
-        const end = Math.min((i + 1) * size, wrongWords.length);
-        const option = document.createElement('option');
-        option.value = i;
-        option.text = `第 ${i + 1} 组 (${start}-${end})`;
-        els.groupSelect.appendChild(option);
-    }
-    if (pendingGroupIdx !== null) {
-        if (pendingGroupIdx < totalGroups) els.groupSelect.value = String(pendingGroupIdx);
-        pendingGroupIdx = null;
-    } else if (selected < totalGroups) {
-        els.groupSelect.value = String(selected);
-    }
-}
-
-// 开始一局：按"每组数量 + 组别"从错词本顺序中取词
-function startSession(resetStats = true) {
-    rebuildGroupOptions();
-    const size = currentSize();
-    const groupIdx = parseInt(els.groupSelect.value) || 0;
-    const offset = groupIdx * size;
-    sessionWords = wrongWords.slice(offset, offset + size);
-    sessionIndex = 0;
-    // 恢复上次练习到的组内词序（越界或本组已练完则从第 1 词开始）
-    let restoredIdx = 0;
-    if (pendingWordIdx !== null) {
-        if (pendingWordIdx > 0 && pendingWordIdx < sessionWords.length) {
-            sessionIndex = pendingWordIdx;
-            restoredIdx = pendingWordIdx;
-        }
-        pendingWordIdx = null;
-    }
-    retryWords = [];
-    sessionResults = new Array(sessionWords.length).fill(null);
-    if (resetStats) {
-        stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
-    }
-    isFinished = false;
-
-    els.answerInput.disabled = false;
-    els.answerInput.value = '';
-    els.resultPanel.classList.add('hidden');
-    els.statsPanel.classList.add('hidden');
-    els.retryList.classList.add('hidden');
-
-    renderQuestion();
-    saveProgress();
-
-    // 续练提示（4 秒后自动消失）
-    if (restoredIdx > 0) {
-        els.promptText.textContent = `⏮ 已续上次进度：组内第 ${restoredIdx + 1} / ${sessionWords.length} 词`;
-        setTimeout(() => { els.promptText.textContent = ''; }, 4000);
-    }
-}
-
-// ============================================================
-// 渲染题目
-// ============================================================
-function renderQuestion() {
-    if (sessionIndex >= sessionWords.length) { finishSession(); return; }
-    if (flashTimer) { clearTimeout(flashTimer); flashTimer = null; }
-
-    const obj = sessionWords[sessionIndex];
-    currentWord = getWordKey(obj);
-    currentTrans = getWordTrans(obj);
-    currentPhonetic = getWordPhonetic(obj);
-    currentMode = els.modeSelect.value;
-
-    const absoluteIndex = ((parseInt(els.groupSelect.value) || 0) * currentSize()) + sessionIndex + 1;
-    els.roundText.textContent = `组内: ${sessionIndex + 1}/${sessionWords.length} (总第${absoluteIndex}词)`;
-    els.scoreText.textContent = `得分 ${stats.correct} (${Math.round((stats.correct / Math.max(stats.total, 1)) * 100)}%)`;
-    els.progressFill.style.width = `${(sessionIndex / sessionWords.length) * 100}%`;
-
-    // 上一词/下一词边界（支持跨组跳转）
-    const isFirstWordInGroup = (sessionIndex <= 0);
-    const curGroupIdx = parseInt(els.groupSelect.value) || 0;
-    const hasPrevGroup = (curGroupIdx > 0);
-    els.btnPrevWord.disabled = isFirstWordInGroup && !hasPrevGroup;
-    const isLastWordInGroup = (sessionIndex >= sessionWords.length - 1);
-    const hasNextGroup = (curGroupIdx + 1 < els.groupSelect.options.length);
-    els.btnNextWord.disabled = isLastWordInGroup && !hasNextGroup;
-
-    if (currentMode === 'listen') {
-        // 听读音模式：隐藏单词（防止看到拼写），大字显示音标作为联想提示，必须能重听
-        els.wordDisplay.textContent = currentPhonetic || '（暂无音标）';
-        els.phoneticText.textContent = '';
-        els.btnReplay.classList.remove('hidden');
-    } else {
-        // 看单词模式：大字显示单词，小字显示音标，释义为答案需隐藏
-        els.wordDisplay.textContent = currentWord;
-        els.phoneticText.textContent = currentPhonetic;
-        els.btnReplay.classList.add('hidden');
-    }
-    //els.promptText.textContent = (currentTrans ? '💡 输入释义中的任意关键词（输入内容出现在释义里即算对）' : '（该单词暂无释义，请直接回车跳过）');
-
-    els.wordTransDisplay.classList.add('hidden'); // 切题后自动收起释义浮层
-
-    els.answerInput.value = '';
-    els.answerInput.focus();
-
-    // 自动播放读音（两种模式都播，便于联想）
-    if (els.audioSwitch.checked) {
-        playWordAudio(currentWord);
-    }
-
-    saveProgress(); // 每次切题即写入进度，刷新/关闭后可续练
-}
-
-// 输入命中释义子串时自动跳转（输入过程中实时判定）
-// 与 Enter 判定一致：contains 即算对。最小长度 2 防抖，避免只输入一个字符就触发跳转
-function tryAutoAdvance() {
-    if (isFinished) return;
-    if (!els.resultPanel.classList.contains('hidden')) return; // 闪答展示期不判题
-    const input = els.answerInput.value.trim();
-    if (input.length < 2) return; // 避免单字符误跳
-    if (isMeaningMatch(input, currentTrans)) {
-        correctAnswer();
-    }
-}
-
-function clearInput() {
-    els.answerInput.value = '';
-}
-
-// 点击单词区域：切换释义浮层显示/隐藏（看单词/听读音两种模式都支持）
-function toggleWordTrans() {
-    if (isFinished) return;
-    if (!currentTrans) return;
-    if (els.wordTransDisplay.classList.contains('hidden')) {
-        els.wordTransDisplay.innerHTML = '<span class="tag">📖 释义</span>' + escapeHtml(currentTrans);
-        els.wordTransDisplay.classList.remove('hidden');
-    } else {
-        els.wordTransDisplay.classList.add('hidden');
-    }
-}
-
-// ============================================================
-// 提交 / 判定
-// ============================================================
-function submitAnswer() {
-    if (isFinished) return;
-    const input = els.answerInput.value.trim();
-    const isCorrect = isMeaningMatch(input, currentTrans);
-    if (isCorrect) {
-        correctAnswer();
-    } else {
-        wrongAnswer();
-    }
-}
-
-function correctAnswer() {
-    sessionResults[sessionIndex] = true;
-    stats.total++;
-    stats.correct++;
-    stats.heat++;
-    stats.maxHeat = Math.max(stats.maxHeat, stats.heat);
-
-    // 刻意不播"答对发音"：紧接着 renderQuestion() 会请求播放下一题读音，
-    // 若两段音频异步完成顺序错位，旧词声音会覆盖新词发音。
-
-    sessionIndex++;
-    renderQuestion();
-}
-
-function wrongAnswer() {
-    sessionResults[sessionIndex] = false;
-    stats.total++;
-    stats.wrong++;
-    stats.heat = 0;
-    retryWords.push(sessionWords[sessionIndex]);
-
-    showFlashAnswer();
-}
-
-// 闪示正确答案（完整释义），2 秒后自动进入下一题
-function showFlashAnswer() {
-    const obj = sessionWords[sessionIndex];
-    const ph = getWordPhonetic(obj);
-    els.resultPanel.classList.remove('hidden');
-    els.wordTransDisplay.classList.add('hidden'); // 已展示正确答案，先收起释义浮层
-    els.resultWord.innerHTML = '<span class="word-tag">❌ 正确答案</span>' + escapeHtml(getWordKey(obj));
-    els.resultWord.style.color = 'var(--text-main)';
-    els.resultTrans.textContent = (ph ? ph + '　' : '') + getWordTrans(obj);
-    els.btnAgain.classList.add('hidden');
-    els.retryList.classList.add('hidden');
-
-    const idx = sessionIndex;
-    flashTimer = setTimeout(() => {
-        els.resultPanel.classList.add('hidden');
-        if (idx === sessionIndex) {
-            sessionIndex++;
-            renderQuestion();
-        }
-    }, 2500);
-}
-
-// ============================================================
-// 上一词 / 下一词 导航（与 typing.html 行为一致）
-// ============================================================
-function goPrevWord() {
-    if (isFinished) return;
-    if (sessionIndex > 0) {
-        rollbackQuestionResult(sessionIndex);
-        sessionIndex--;
-        renderQuestion();
-        return;
-    }
-    // sessionIndex === 0：本组第一个单词，尝试跳转到上一组的最后一个单词
-    const groupIdx = parseInt(els.groupSelect.value) || 0;
-    if (groupIdx <= 0) return;
-    rollbackQuestionResult(sessionIndex);
-    els.groupSelect.value = String(groupIdx - 1);
-    saveProgress();
-    const prevSize = currentSize();
-    const prevOffset = (groupIdx - 1) * prevSize;
-    const prevGroupLen = Math.min(prevSize, wrongWords.length - prevOffset);
-    sessionWords = wrongWords.slice(prevOffset, prevOffset + prevSize);
-    sessionIndex = prevGroupLen - 1;
-    retryWords = [];
-    sessionResults = new Array(sessionWords.length).fill(null);
-    stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
-    isFinished = false;
-    els.answerInput.disabled = false;
-    els.answerInput.value = '';
-    els.resultPanel.classList.add('hidden');
-    els.statsPanel.classList.add('hidden');
-    els.retryList.classList.add('hidden');
-    renderQuestion();
-    saveProgress();
-}
-
-function goNextWord() {
-    if (isFinished) return;
-    const isLastWordInGroup = (sessionIndex >= sessionWords.length - 1);
-    if (isLastWordInGroup) {
-        const groupIdx = parseInt(els.groupSelect.value) || 0;
-        const hasNextGroup = (groupIdx + 1 < els.groupSelect.options.length);
-        if (!hasNextGroup) return;
-        els.groupSelect.value = String(groupIdx + 1);
-        saveProgress();
-        startSession();
-        return;
-    }
-    sessionIndex++;
-    renderQuestion();
-}
-
-// 回滚指定题目的作答统计（用于上一词回退后重新练习）
-function rollbackQuestionResult(idx) {
-    const r = sessionResults[idx];
-    if (r === true) {
-        stats.total--;
-        stats.correct--;
-        if (stats.heat > 0) stats.heat = 0;
-    } else if (r === false) {
-        stats.total--;
-        stats.wrong--;
-        const wordKey = getWordKey(sessionWords[idx]);
-        retryWords = retryWords.filter(w => getWordKey(w) !== wordKey);
-    }
-    sessionResults[idx] = null;
-}
-
-function renderRetryList() {
-    els.retryList.classList.remove('hidden');
-    els.retryList.innerHTML = '<h3>📋 本次答错的单词（点击可听发音）</h3>' +
-        retryWords.map(w => `<span class="retry-chip" title="${escapeHtml(getWordTrans(w))}">${escapeHtml(getWordKey(w))}</span>`).join('');
-    els.retryList.querySelectorAll('.retry-chip').forEach(chip => {
-        chip.addEventListener('click', () => playWordAudio(chip.textContent.trim()));
-    });
-}
-
-function escapeHtml(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-// ============================================================
-// 结算
-// ============================================================
-function finishSession() {
-    isFinished = true;
-    els.answerInput.disabled = true;
-    els.answerInput.value = '';
-    els.btnPrevWord.disabled = true;
-    els.btnNextWord.disabled = true;
-
-    els.statsPanel.classList.remove('hidden');
-    els.statTotal.textContent = stats.total;
-    els.statCorrect.textContent = stats.correct;
-    els.statWrong.textContent = stats.wrong;
-    els.statAccuracy.textContent = stats.total ? Math.round((stats.correct / stats.total) * 100) + '%' : '0%';
-    els.statHeat.textContent = stats.maxHeat;
-
-    els.resultPanel.classList.remove('hidden');
-    els.btnAgain.classList.remove('hidden');
-    els.resultWord.textContent = '🏁 本局结束!';
-    els.resultWord.style.color = 'var(--text-main)';
-    els.resultTrans.textContent = `共 ${stats.total} 题，答对 ${stats.correct} 题`;
-    if (retryWords.length > 0) {
-        els.resultTrans.textContent += `，还有 ${retryWords.length} 个单词需要复习`;
-        renderRetryList();
-    } else {
-        els.retryList.classList.add('hidden');
-    }
-
-    els.progressFill.style.width = '100%';
-    const absoluteTotal = ((parseInt(els.groupSelect.value) || 0) * currentSize()) + sessionWords.length;
-    els.roundText.textContent = `组内: ${sessionWords.length}/${sessionWords.length} (总第${absoluteTotal}词)`;
-    els.answerInput.focus();
-    saveProgress(); // 本组练完：记录末尾词序，下次打开自动回到本组第 1 词
-}
-
-// ============================================================
-// 键盘事件
-// ============================================================
-els.answerInput.addEventListener('keydown', (e) => {
-    // 键盘打字音效：仅普通字符键，排除修饰键与功能键
-    if (e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (els.keySoundSwitch && els.keySoundSwitch.checked) playKeyClick(getKeyVolume());
-    }
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        submitAnswer();
-    } else if (e.key === 'Escape' || (e.ctrlKey && e.key.toLowerCase() === 'z')) {
-        e.preventDefault();
-        clearInput();
-    }
-});
-
-// 全局：左右方向键 上一词/下一词
-document.addEventListener('keydown', (e) => {
-    if (isFinished) return;
-    if (e.target === els.answerInput) return;
-    if (e.code === 'ArrowLeft') {
-        e.preventDefault();
-        goPrevWord();
-    } else if (e.code === 'ArrowRight') {
-        e.preventDefault();
-        goNextWord();
-    }
-});
-
-// 全局：Enter / Space 聚焦输入框（游戏中随时可输入）
-document.addEventListener('keydown', (e) => {
-    if (isFinished) return;
-    if (e.target === els.answerInput) return;
-    if (e.code === 'Enter' || e.code === 'Space') {
-        e.preventDefault();
-        els.answerInput.focus();
-    }
-});
-
-// ============================================================
-// 启动
-// ============================================================
-init();
-</script>
-</body>
-</html>
+// ==================
