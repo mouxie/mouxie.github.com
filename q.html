@@ -834,16 +834,13 @@
         }
 
         // ------------------------------------------------------------------
-        // Web Worker 后台数据库核心代码（与 fc.html 完全一致：共享同一 FlashcardDB v5）
+        // Web Worker 后台数据库核心代码（与 fc.html 完全一致：共享同一 FlashcardDB）
+        // 数据库常量/建表/打开策略统一来自 db-core.js（5 个页面共用，升级版本只改一处）
         // ------------------------------------------------------------------
+        const DB_CORE_URL = new URL('db-core.js', document.baseURI).href;
         const workerScript = `
-            const DB_NAME = 'FlashcardDB';
-            const DB_VERSION = 6; // v6: 新增 dictionaries 表支持多词库；words 主键改为 "dictId#序号"（旧数据自动迁移）
-            const STORE_ALL = 'words';
-            const STORE_WRONG = 'wrong_words';
-            const STORE_AUDIO = 'audio_cache';
-            const STORE_EXAMPLE = 'example_cache';
-            const STORE_DICTS = 'dictionaries';
+            importScripts('${DB_CORE_URL}');
+            const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_DICTS } = self.FlashcardDB;
             let db = null;
 
             // 多词库状态：dicts = [{id, name, count, ts, isDefault}]，activeDictId = 当前选中词库
@@ -871,31 +868,9 @@
             // 全量词库索引：key -> 完整词条数据（含音标），用于错词数据补全
             let allWordsMap = new Map();
 
+            // owner 模式：直接以 DB_VERSION 打开并负责建库/升级建表（逻辑在 db-core.js）
             function initDB() {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open(DB_NAME, DB_VERSION);
-                    request.onupgradeneeded = function(e) {
-                        const upgradedDb = e.target.result;
-                        if (!upgradedDb.objectStoreNames.contains(STORE_ALL)) {
-                            upgradedDb.createObjectStore(STORE_ALL, { keyPath: 'id' });
-                        }
-                        if (!upgradedDb.objectStoreNames.contains(STORE_WRONG)) {
-                            upgradedDb.createObjectStore(STORE_WRONG, { keyPath: 'wordKey' });
-                        }
-                        if (!upgradedDb.objectStoreNames.contains(STORE_AUDIO)) {
-                            upgradedDb.createObjectStore(STORE_AUDIO, { keyPath: 'word' });
-                        }
-                        if (!upgradedDb.objectStoreNames.contains(STORE_EXAMPLE)) {
-                            upgradedDb.createObjectStore(STORE_EXAMPLE, { keyPath: 'word' });
-                        }
-                        if (!upgradedDb.objectStoreNames.contains(STORE_DICTS)) {
-                            upgradedDb.createObjectStore(STORE_DICTS, { keyPath: 'id' });
-                        }
-                    };
-                    request.onsuccess = function(e) { db = e.target.result; resolve(db); };
-                    request.onerror = function() { reject(new Error('IndexedDB 打开失败')); };
-                    request.onblocked = function() { reject(new Error('IndexedDB 升级被其他标签页阻塞，请关闭其他打开过本页面的标签页后刷新')); };
-                });
+                return self.FlashcardDB.openFlashcardDB({ mode: 'owner' }).then(function(d) { db = d; return d; });
             }
 
             function normalizeDictionaryList(raw) {
