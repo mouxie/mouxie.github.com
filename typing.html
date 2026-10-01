@@ -585,34 +585,61 @@
 // 数据来源：与 fc.html 共用的 IndexedDB (FlashcardDB / wrong_words)
 // ============================================================
 const DB_NAME = 'FlashcardDB';
-const DB_VERSION = 5;
-const STORE_ALL = 'words';        // 全词库（与 fc.html 共用，用于音标补全）
+const DB_VERSION = 6; // v6: 与 q.html/fc.html 统一（新增 dictionaries 表支持多词库，words 主键改为 "dictId#序号"）
+const STORE_ALL = 'words';        // 全词库（与 fc.html 共用，用于音标补全；多词库同表按 dictId 前缀分区）
 const STORE_WRONG = 'wrong_words';
 const STORE_AUDIO = 'audio_cache';
 const STORE_EXAMPLE = 'example_cache';
+const STORE_DICTS = 'dictionaries'; // 词库注册表（本页只读不写，但必须随升级一并建表，保持结构一致）
 
-// 统一打开数据库（升级时自动补齐缺失的表；与 fc.html 保持完全一致的结构）
+// 建表逻辑：与 q.html/fc.html 的 onupgradeneeded 保持完全一致
+function ensureStores(db) {
+    if (!db.objectStoreNames.contains(STORE_ALL)) {
+        db.createObjectStore(STORE_ALL, { keyPath: 'id' });
+    }
+    if (!db.objectStoreNames.contains(STORE_WRONG)) {
+        db.createObjectStore(STORE_WRONG, { keyPath: 'wordKey' });
+    }
+    if (!db.objectStoreNames.contains(STORE_AUDIO)) {
+        db.createObjectStore(STORE_AUDIO, { keyPath: 'word' });
+    }
+    if (!db.objectStoreNames.contains(STORE_EXAMPLE)) {
+        db.createObjectStore(STORE_EXAMPLE, { keyPath: 'word' });
+    }
+    if (!db.objectStoreNames.contains(STORE_DICTS)) {
+        db.createObjectStore(STORE_DICTS, { keyPath: 'id' });
+    }
+}
+
+// 统一打开数据库。
+// 关键：不能再用固定的 indexedDB.open(DB_NAME, 5)——q.html/fc.html 已把库升到 v6，
+// 用更低版本打开会直接抛 VersionError，导致本页错词本完全读不出来。
+// 改为「先不带版本号探测 → 表齐全就直接用 → 仅在版本过低时升级到 DB_VERSION」，
+// 这样其他页面将来升到 v7/v8 时本页也不会被卡死（绝不主动把版本抬到 DB_VERSION 以上）。
 function openFlashcardDB() {
     return new Promise((resolve, reject) => {
         if (!('indexedDB' in window)) { reject(new Error('当前浏览器不支持 IndexedDB')); return; }
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-        request.onerror = () => reject(new Error('无法打开错词本数据库 (FlashcardDB)'));
-        request.onupgradeneeded = (e) => {
+
+        const probe = indexedDB.open(DB_NAME); // 不带版本号：以库当前版本打开，不会触发 VersionError
+        probe.onerror = () => reject(new Error('无法打开错词本数据库 (FlashcardDB)'));
+        probe.onblocked = () => reject(new Error('数据库被其他标签页占用，请关闭其他打开过本页面的标签页后刷新'));
+        probe.onupgradeneeded = (e) => { ensureStores(e.target.result); }; // 库不存在时（新建 v1）顺手建表
+        probe.onsuccess = (e) => {
             const db = e.target.result;
-            if (!db.objectStoreNames.contains(STORE_ALL)) {
-                db.createObjectStore(STORE_ALL, { keyPath: 'id' });
-            }
-            if (!db.objectStoreNames.contains(STORE_WRONG)) {
-                db.createObjectStore(STORE_WRONG, { keyPath: 'wordKey' });
-            }
-            if (!db.objectStoreNames.contains(STORE_AUDIO)) {
-                db.createObjectStore(STORE_AUDIO, { keyPath: 'word' });
-            }
-            if (!db.objectStoreNames.contains(STORE_EXAMPLE)) {
-                db.createObjectStore(STORE_EXAMPLE, { keyPath: 'word' });
-            }
+            const ready = db.objectStoreNames.contains(STORE_WRONG) && db.objectStoreNames.contains(STORE_ALL);
+            // 表齐全，或库版本已不低于 DB_VERSION（由 q.html/fc.html 建好）：直接使用
+            // 注：各读写函数内部都有 objectStoreNames.contains 兜底，缺表时降级为空结果而非报错
+            if (ready || db.version >= DB_VERSION) { resolve(db); return; }
+
+            // 旧版低版本库且缺表：关闭后按 DB_VERSION 重新打开触发升级建表
+            const oldVersion = db.version;
+            db.close();
+            const request = indexedDB.open(DB_NAME, Math.max(DB_VERSION, oldVersion + 1));
+            request.onerror = () => reject(new Error('无法升级错词本数据库 (FlashcardDB)'));
+            request.onblocked = () => reject(new Error('数据库升级被其他标签页阻塞，请关闭其他打开过本页面的标签页后刷新'));
+            request.onupgradeneeded = (ev) => { ensureStores(ev.target.result); };
+            request.onsuccess = (ev) => resolve(ev.target.result);
         };
-        request.onsuccess = (e) => resolve(e.target.result);
     });
 }
 
@@ -623,6 +650,8 @@ async function loadWrongWordsFromDB() {
     const db = await openFlashcardDB();
 
     // 1) 构建全词库 key -> 完整词条 索引（用于音标补全）
+    //    多词库下 words 表含全部词库的记录（主键 "dictId#序号"），这里跨库全量扫描：
+    //    错词本本身是跨词库共享的，同一个单词在任一库中的音标都可用于补全
     const allWordsMap = new Map();
     if (db.objectStoreNames.contains(STORE_ALL)) {
         await new Promise((resolve) => {
@@ -631,7 +660,8 @@ async function loadWrongWordsFromDB() {
                 const cursor = e.target.result;
                 if (cursor) {
                     const key = getWordKey(cursor.value && cursor.value.data);
-                    if (key) allWordsMap.set(key, cursor.value.data);
+                    // 已有同名词条时不覆盖：保留先扫到的（默认词库通常排在最前），避免多库重复词条互相顶替
+                    if (key && !allWordsMap.has(key)) allWordsMap.set(key, cursor.value.data);
                     cursor.continue();
                 } else { resolve(); }
             };
