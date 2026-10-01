@@ -13,6 +13,7 @@
             --card-bg: #FFFFFF;
             --text-main: #333333;
             --text-sub: #888888;
+            --text-label: #555555;
         }
 
         body {
@@ -48,7 +49,7 @@
             gap: 10px;
             width: 100%;
             margin-bottom: 15px;
-            background: #fff;
+            background: var(--card-bg);
             padding: 12px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.03);
@@ -200,7 +201,7 @@
         }
 
         .letter.current {
-            background: #fff;
+            background: var(--card-bg);
             color: var(--primary);
             border-bottom-color: var(--primary);
         }
@@ -239,7 +240,7 @@
             border-radius: 10px;
             outline: none;
             text-align: center;
-            background: #fff;
+            background: var(--card-bg);
             box-sizing: border-box;
             color: var(--text-main);
             transition: border-color 0.2s;
@@ -377,7 +378,7 @@
             z-index: 1000;
         }
         .modal-panel {
-            background: #fff;
+            background: var(--card-bg);
             border-radius: 14px;
             width: 90%;
             max-width: 400px;
@@ -400,7 +401,7 @@
         .modal-close:hover { background: #eee; color: #333; }
         .modal-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
         .form-field { display: flex; flex-direction: column; gap: 5px; }
-        .form-field label { font-size: 13px; font-weight: 600; color: #555; }
+        .form-field label { font-size: 13px; font-weight: 600; color: var(--text-label); }
         .form-field input, .form-field select {
             padding: 8px 10px;
             border: 1px solid #ccc;
@@ -440,7 +441,7 @@
         /* 例句显示区域 */
         .example-area {
             width: 100%;
-            background: #fff;
+            background: var(--card-bg);
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             padding: 14px 16px;
@@ -485,7 +486,7 @@
         }
         .example-meaning { font-size: 13px; font-weight: 600; color: var(--text-main); }
         .example-en { font-size: 16px; margin: 6px 0; }
-        .example-cn { color: #555; }
+        .example-cn { color: var(--text-label); }
         .example-note { margin-top: 8px; font-size: 13px; color: #888; background: #f7f7f7; border-radius: 6px; padding: 6px 8px; }
         .example-empty { color: var(--text-sub); text-align: center; padding: 8px 0; }
         .example-source-badge {
@@ -508,7 +509,86 @@
             margin-right: 4px;
         }
         .example-refresh:hover { color: #2a6db8; }
+
+        /* ==================== 夜间模式 ==================== */
+        html[data-theme="dark"] {
+            color-scheme: dark; /* 原生控件/滚动条同步深色 */
+            --primary: #6AA9E8;
+            --accent: #E8736F;
+            --success: #4CC46F;
+            --bg: #12161F;
+            --card-bg: #1E2530;
+            --text-main: #E6E8EC;
+            --text-sub: #98A1B0;
+            --text-label: #C6CCD6;
+        }
+
+        html[data-theme="dark"] body { color: var(--text-main); }
+
+        html[data-theme="dark"] .top-bar,
+        html[data-theme="dark"] .meaning-card,
+        html[data-theme="dark"] .example-area { box-shadow: 0 6px 18px rgba(0,0,0,0.45); }
+
+        html[data-theme="dark"] select {
+            background-color: #232B38;
+            border-color: #3A4354;
+            color: var(--text-main);
+        }
+
+        html[data-theme="dark"] .letter { background: #2A3240; color: #7D8798; border-bottom-color: #3A4354; }
+        html[data-theme="dark"] .letter.current { background: #232B38; }
+        html[data-theme="dark"] .letter.correct { background: #1C3A28; color: #7FD69A; border-bottom-color: #2E5C3E; }
+        html[data-theme="dark"] .letter.wrong { background: #43232A; color: #F0A0A0; border-bottom-color: #6B343C; }
+        html[data-theme="dark"] .letter--space { background: transparent; color: #6B7484; }
+
+        html[data-theme="dark"] .type-input { background: #232B38; border-color: #3A4354; }
+        html[data-theme="dark"] .type-input:disabled { background: #1A212C; color: #666F7D; }
+        html[data-theme="dark"] .type-input[readonly] { background: #202836; }
+
+        html[data-theme="dark"] .btn-audio { background-color: #1D2C3E; border-color: #2C4258; }
+        html[data-theme="dark"] .btn-audio:hover { background-color: #24364A; }
+        html[data-theme="dark"] .btn-add-wrong { background-color: #3A2226; border-color: #553036; }
+        html[data-theme="dark"] .btn-add-wrong:hover { background-color: #47282D; }
+        html[data-theme="dark"] .btn-remove-wrong { background-color: #1E3327; border-color: #2C4A38; }
+        html[data-theme="dark"] .btn-remove-wrong:hover { background-color: #25402F; }
+        html[data-theme="dark"] .btn-settings { background-color: #232B38; border-color: #3A4354; color: var(--text-label); }
+        html[data-theme="dark"] .btn-settings:hover { background-color: #2C3544; color: var(--text-main); }
+        html[data-theme="dark"] .btn-example { background: linear-gradient(135deg, #5A4BD1, #7A4FE0); }
+        html[data-theme="dark"] .btn-example:disabled,
+        html[data-theme="dark"] .btn-nav:disabled { background: #3A4150; }
+        html[data-theme="dark"] .btn-cancel { background-color: #5A6270; }
+        html[data-theme="dark"] .btn-cancel:hover { background-color: #4B525E; }
+
+        html[data-theme="dark"] .modal-panel { box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
+        html[data-theme="dark"] .modal-header,
+        html[data-theme="dark"] .modal-footer { background: #232B38; border-color: #333C4C; }
+        html[data-theme="dark"] .modal-close { color: var(--text-sub); }
+        html[data-theme="dark"] .modal-close:hover { background: #333C4C; color: var(--text-main); }
+        html[data-theme="dark"] .form-field input,
+        html[data-theme="dark"] .form-field select { background: #232B38; border-color: #3A4354; color: var(--text-main); }
+
+        html[data-theme="dark"] .example-close { color: var(--text-sub); }
+        html[data-theme="dark"] .example-close:hover { color: var(--text-main); }
+        html[data-theme="dark"] .example-item { background: #232B38; }
+        html[data-theme="dark"] .example-note { background: #232B38; color: var(--text-sub); }
+        html[data-theme="dark"] .example-error { color: #F08A85; }
+        html[data-theme="dark"] .example-refresh:hover { color: #9CC5F2; }
+
+        html[data-theme="dark"] .meaning-card.is-success {
+            box-shadow: 0 0 0 4px rgba(76, 196, 111, 0.2), 0 6px 18px rgba(0,0,0,0.45);
+        }
     </style>
+    <script>
+        // 尽早应用主题，避免夜间模式下页面加载时白屏闪烁；首次访问跟随系统偏好
+        (function () {
+            var saved = null;
+            try { saved = localStorage.getItem('typing_theme_v1'); } catch (e) {}
+            if (saved !== 'dark' && saved !== 'light') {
+                saved = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-theme', saved);
+        })();
+    </script>
 </head>
 <body>
 
@@ -524,7 +604,7 @@
             
             <div class="control-row">
                 <div>
-                    <span style="font-size: 12px; color: #555;">每组:</span>
+                    <span style="font-size: 12px; color: var(--text-label);">每组:</span>
                     <select id="size-select">
                         <option value="10">10 个</option>
                         <option value="20" selected>20 个</option>
@@ -533,7 +613,7 @@
                     </select>
                 </div>
                 <div>
-                    <span style="font-size: 12px; color: #555;">选择组别:</span>
+                    <span style="font-size: 12px; color: var(--text-label);">选择组别:</span>
                     <select id="group-select">
                         <option value="0">第 1 组</option>
                     </select>
@@ -545,6 +625,7 @@
                     <input type="checkbox" id="auto-speak-switch">
                     🔊 切换单词时自动发音
                 </label>
+                <button id="btn-theme" class="btn-settings" title="切换日间/夜间模式">🌙 夜间模式</button>
                 <button id="btn-settings" class="btn-settings">⚙️ 设置</button>
             </div>
 
@@ -600,8 +681,8 @@
         <div class="hint" id="hint-text" style="display: none;">💡 提示：根据释义打出英文，字母逐一变色 | 回车跳下一词 | ←/→ 切词 | V 发音 | 空格聚焦输入框</div>
 
         <div class="hint" id="db-stats-bar" style="display: none;">
-            <span id="db-stats-text" title="点击刷新统计" style="cursor: pointer; border-bottom: 1px dashed #aaa;">🗄️ IndexedDB: 词库 0 | 错词本 0 | 语音缓存 0 | 例句缓存 0 | 总占用 0 B</span>
-            <span id="audio-cache-badge" title="点击清空全部本地语音缓存" style="cursor: pointer; border-bottom: 1px dashed #aaa; margin-left: 12px;">🗑️ 清空语音缓存</span>
+            <span id="db-stats-text" title="点击刷新统计" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub);">🗄️ IndexedDB: 词库 0 | 错词本 0 | 语音缓存 0 | 例句缓存 0 | 总占用 0 B</span>
+            <span id="audio-cache-badge" title="点击清空全部本地语音缓存" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub); margin-left: 12px;">🗑️ 清空语音缓存</span>
         </div>
     </div>
 
@@ -1870,6 +1951,23 @@
         }
 
         function closeSettingsPanel() { settingsModal.style.display = 'none'; }
+
+        // ---------- 夜间模式切换（主题已在 <head> 中提前应用，这里只负责按钮交互与持久化） ----------
+        const THEME_KEY = 'typing_theme_v1';
+        const btnTheme = document.getElementById('btn-theme');
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            btnTheme.innerText = theme === 'dark' ? '☀️ 日间模式' : '🌙 夜间模式';
+            try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* 隐私模式写入失败可忽略 */ }
+        }
+
+        btnTheme.addEventListener('click', () => {
+            applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+        });
+
+        // 同步按钮初始文字（与 <head> 中已应用的主题保持一致）
+        applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
 
         btnSettings.addEventListener('click', openSettingsPanel);
         btnCloseSettings.addEventListener('click', closeSettingsPanel);
