@@ -103,12 +103,251 @@ h1 { font-size: clamp(18px, 4.5vmin, 24px); letter-spacing: 3px; }
   animation: pop .25s ease;
 }
 @keyframes pop { 0% { transform: scale(.6); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+
+/* 结果弹出窗：读完最后一个数字后居中显示 3.5 秒 */
+.popup {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .3s ease;
+}
+.popup.show { opacity: 1; }
+.popup-card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 20px 44px 16px;
+  background: linear-gradient(160deg, #2a3f52, #1c2b38);
+  border: 2px solid rgba(255,255,255,.18);
+  border-radius: 22px;
+  box-shadow: 0 14px 44px rgba(0,0,0,.55);
+  transform: scale(.6);
+  transition: transform .35s cubic-bezier(.34,1.56,.64,1);
+  position: relative;
+}
+.popup-close {
+  position: absolute; top: 6px; right: 6px;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 50%;
+  background: rgba(255,255,255,.14);
+  color: #eaf6ff; font-size: 16px; line-height: 1;
+  cursor: pointer;
+  transition: background .2s, transform .2s;
+  pointer-events: auto; /* 父层 .popup 为 pointer-events:none，按钮需单独开启才能点击 */
+}
+.popup-close:hover { background: rgba(255,255,255,.32); transform: rotate(90deg); }
+.popup.show .popup-card { transform: scale(1); }
+.pet-box {
+  height: clamp(70px, 16vmin, 110px);
+  display: flex; align-items: center; justify-content: center;
+}
+.pet-svg {
+  width: clamp(70px, 16vmin, 110px); height: auto;
+  animation: pet-wag 1.2s ease-in-out infinite;
+}
+@keyframes pet-wag { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+.popup-chant {
+  font-size: clamp(24px, 6.5vmin, 32px); font-weight: 800;
+  color: #ffd54f; letter-spacing: 3px;
+  text-shadow: 0 0 12px rgba(255,213,79,.55);
+}
+.popup-formula { font-size: clamp(13px, 3.2vmin, 16px); color: #9fd8e8; letter-spacing: 2px; }
 </style>
 </head>
 <body>
 <h1>9 × 9 数字方格</h1>
 <div class="formula hint" id="formula">点击任意格子，看看 行 × 列 等于多少个格子？</div>
 <div class="board" id="board"></div>
+
+<!-- 读完最后一个数字后，居中弹出的中文口诀小窗（3.5 秒自动消失，随机显示一只可爱小动物） -->
+<div class="popup" id="popup">
+  <div class="popup-card">
+    <button class="popup-close" id="popupClose" aria-label="关闭">✕</button>
+    <div class="pet-box">
+      <!-- 1) 小猫 -->
+      <svg class="pet-svg" data-pet="cat" viewBox="0 0 160 130" xmlns="http://www.w3.org/2000/svg" style="display:none">
+        <!-- 左耳 -->
+        <path d="M34 66 L20 14 L62 40 Z" fill="#f6b93b"/>
+        <path d="M40 60 L32 28 L58 44 Z" fill="#ffd9a0"/>
+        <!-- 右耳 -->
+        <path d="M126 66 L140 14 L98 40 Z" fill="#f6b93b"/>
+        <path d="M120 60 L128 28 L102 44 Z" fill="#ffd9a0"/>
+        <!-- 头 -->
+        <circle cx="80" cy="78" r="50" fill="#f6b93b"/>
+        <circle cx="80" cy="86" r="40" fill="#ffe9c4"/>
+        <!-- 眼睛 -->
+        <ellipse cx="61" cy="72" rx="6.5" ry="8.5" fill="#37474f"/>
+        <ellipse cx="99" cy="72" rx="6.5" ry="8.5" fill="#37474f"/>
+        <circle cx="63.5" cy="68" r="2.6" fill="#fff"/>
+        <circle cx="101.5" cy="68" r="2.6" fill="#fff"/>
+        <!-- 鼻子 -->
+        <path d="M80 84 l-5.5 5.5 h11 Z" fill="#e57373"/>
+        <!-- 嘴 -->
+        <path d="M80 89.5 q-7 8 -14 5 M80 89.5 q7 8 14 5" stroke="#5d4037" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+        <!-- 胡须 -->
+        <path d="M26 74 H6 M27 84 H8 M134 74 H154 M133 84 H152" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.85"/>
+        <!-- 小爱心 -->
+        <path d="M12 21s-8-5.3-8-11a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 5.7-8 11-8 11z" fill="#ff7bac" transform="translate(127 96)"/>
+      </svg>
+      <!-- 2) 小狗 -->
+      <svg class="pet-svg" data-pet="dog" viewBox="0 0 160 130" xmlns="http://www.w3.org/2000/svg" style="display:none">
+        <!-- 垂耳 -->
+        <ellipse cx="40" cy="38" rx="16" ry="26" fill="#8d5524" transform="rotate(18 40 38)"/>
+        <ellipse cx="120" cy="38" rx="16" ry="26" fill="#8d5524" transform="rotate(-18 120 38)"/>
+        <!-- 头 -->
+        <ellipse cx="80" cy="70" rx="50" ry="44" fill="#c98a4b"/>
+        <!-- 口鼻区域 -->
+        <ellipse cx="80" cy="90" rx="26" ry="20" fill="#f3e0b8"/>
+        <!-- 眼睛 -->
+        <circle cx="58" cy="62" r="8" fill="#3e2723"/>
+        <circle cx="102" cy="62" r="8" fill="#3e2723"/>
+        <circle cx="60.5" cy="59" r="3" fill="#fff"/>
+        <circle cx="104.5" cy="59" r="3" fill="#fff"/>
+        <!-- 鼻子 -->
+        <ellipse cx="80" cy="80" rx="8" ry="6" fill="#3e2723"/>
+        <!-- 嘴 -->
+        <path d="M80 86 q-8 9 -15 6 M80 86 q8 9 15 6" stroke="#5d4037" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        <!-- 舌头 -->
+        <ellipse cx="80" cy="98" rx="7" ry="10" fill="#ff8a80"/>
+        <!-- 腮红 -->
+        <circle cx="38" cy="78" r="6" fill="#ffb3a6" opacity="0.7"/>
+        <circle cx="122" cy="78" r="6" fill="#ffb3a6" opacity="0.7"/>
+      </svg>
+      <!-- 3) 兔子 -->
+      <svg class="pet-svg" data-pet="rabbit" viewBox="0 0 160 130" xmlns="http://www.w3.org/2000/svg" style="display:none">
+        <!-- 左耳 -->
+        <ellipse cx="58" cy="26" rx="11" ry="26" fill="#f8e9ea"/>
+        <ellipse cx="58" cy="26" rx="6" ry="19" fill="#ffb7c5"/>
+        <!-- 右耳 -->
+        <ellipse cx="102" cy="26" rx="11" ry="26" fill="#f8e9ea"/>
+        <ellipse cx="102" cy="26" rx="6" ry="19" fill="#ffb7c5"/>
+        <!-- 头 -->
+        <circle cx="80" cy="64" r="44" fill="#f8e9ea"/>
+        <!-- 眼睛 -->
+        <circle cx="60" cy="58" r="7" fill="#4a3f5a"/>
+        <circle cx="100" cy="58" r="7" fill="#4a3f5a"/>
+        <circle cx="62.5" cy="55.5" r="2.8" fill="#fff"/>
+        <circle cx="102.5" cy="55.5" r="2.8" fill="#fff"/>
+        <!-- 鼻子 -->
+        <ellipse cx="80" cy="74" rx="5" ry="4" fill="#ff8a9b"/>
+        <!-- 嘴 -->
+        <path d="M80 78 l-6 7 M80 78 l6 7" stroke="#b08a90" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M74 85 q6 6 12 0" stroke="#b08a90" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <!-- 门牙 -->
+        <path d="M75.5 85 l0 7 q4.5 1.5 9 0 l0 -7 Z" fill="#fff" stroke="#e5c1c8" stroke-width="1"/>
+        <!-- 腮红 -->
+        <ellipse cx="38" cy="70" rx="7" ry="5" fill="#ffc4b8" opacity="0.75"/>
+        <ellipse cx="122" cy="70" rx="7" ry="5" fill="#ffc4b8" opacity="0.75"/>
+      </svg>
+      <!-- 4) 小熊 -->
+      <svg class="pet-svg" data-pet="bear" viewBox="0 0 160 130" xmlns="http://www.w3.org/2000/svg" style="display:none">
+        <!-- 耳朵 -->
+        <circle cx="44" cy="32" r="15" fill="#a06a3c"/>
+        <circle cx="44" cy="32" r="7" fill="#d8a876"/>
+        <circle cx="116" cy="32" r="15" fill="#a06a3c"/>
+        <circle cx="116" cy="32" r="7" fill="#d8a876"/>
+        <!-- 头 -->
+        <circle cx="80" cy="70" r="48" fill="#a06a3c"/>
+        <!-- 口鼻浅色区 -->
+        <ellipse cx="80" cy="86" rx="22" ry="16" fill="#d8a876"/>
+        <!-- 眼睛 -->
+        <circle cx="58" cy="64" r="7" fill="#3e2723"/>
+        <circle cx="102" cy="64" r="7" fill="#3e2723"/>
+        <circle cx="60.5" cy="61.5" r="2.8" fill="#fff"/>
+        <circle cx="104.5" cy="61.5" r="2.8" fill="#fff"/>
+        <!-- 鼻子 -->
+        <ellipse cx="80" cy="78" rx="8" ry="6" fill="#3e2723"/>
+        <!-- 嘴 -->
+        <path d="M80 84 q-8 7 -14 4 M80 84 q8 7 14 4" stroke="#5d4037" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+        <!-- 腮红 -->
+        <circle cx="36" cy="76" r="6" fill="#ffb3a6" opacity="0.65"/>
+        <circle cx="124" cy="76" r="6" fill="#ffb3a6" opacity="0.65"/>
+        <!-- 头顶小熊耳朵之间的小卷毛 -->
+        <path d="M68 26 q6 -10 12 0" stroke="#a06a3c" stroke-width="3" fill="none" stroke-linecap="round"/>
+      </svg>
+      <!-- 5) 熊猫 -->
+      <svg class="pet-svg" data-pet="panda" viewBox="0 0 160 130" xmlns="http://www.w3.org/2000/svg" style="display:none">
+        <!-- 耳朵 -->
+        <circle cx="42" cy="30" r="16" fill="#333"/>
+        <circle cx="118" cy="30" r="16" fill="#333"/>
+        <!-- 头 -->
+        <circle cx="80" cy="68" r="48" fill="#fff"/>
+        <!-- 眼圈 -->
+        <ellipse cx="58" cy="64" rx="15" ry="13" fill="#333"/>
+        <ellipse cx="102" cy="64" rx="15" ry="13" fill="#333"/>
+        <!-- 眼睛 -->
+        <circle cx="60" cy="62" r="6" fill="#fff"/>
+        <circle cx="104" cy="62" r="6" fill="#fff"/>
+        <circle cx="61.5" cy="60" r="2.6" fill="#333"/>
+        <circle cx="105.5" cy="60" r="2.6" fill="#333"/>
+        <!-- 鼻子 -->
+        <ellipse cx="80" cy="78" rx="7" ry="5" fill="#333"/>
+        <!-- 嘴 -->
+        <path d="M80 83 q-7 6 -13 3 M80 83 q7 6 13 3" stroke="#666" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+        <!-- 腮红 -->
+        <circle cx="36" cy="76" r="6" fill="#ffb3a6" opacity="0.6"/>
+        <circle cx="124" cy="76" r="6" fill="#ffb3a6" opacity="0.6"/>
+      </svg>
+      <!-- 6) 企鹅 -->
+      <svg class="pet-svg" data-pet="penguin" viewBox="0 0 160 130" xmlns="http://www.w3.org/2000/svg" style="display:none">
+        <!-- 头 -->
+        <circle cx="80" cy="34" r="26" fill="#263238"/>
+        <!-- 身体 -->
+        <ellipse cx="80" cy="92" rx="42" ry="38" fill="#263238"/>
+        <!-- 肚皮 -->
+        <ellipse cx="80" cy="98" rx="28" ry="28" fill="#fff"/>
+        <!-- 眼睛 -->
+        <circle cx="68" cy="34" r="5.5" fill="#fff"/>
+        <circle cx="92" cy="34" r="5.5" fill="#fff"/>
+        <circle cx="69" cy="32.5" r="2.4" fill="#263238"/>
+        <circle cx="93" cy="32.5" r="2.4" fill="#263238"/>
+        <!-- 喙 -->
+        <ellipse cx="80" cy="42" rx="8" ry="5" fill="#ff9800"/>
+        <path d="M80 42 l-5 3 M80 42 l5 3" stroke="#e65100" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- 腮红 -->
+        <circle cx="54" cy="47" r="5" fill="#ffb3a6" opacity="0.65"/>
+        <circle cx="106" cy="47" r="5" fill="#ffb3a6" opacity="0.65"/>
+        <!-- 翅膀 -->
+        <path d="M38 80 q-12 18 -6 34 q10 4 16 -6 Z" fill="#263238"/>
+        <path d="M122 80 q12 18 6 34 q-10 4 -16 -6 Z" fill="#263238"/>
+        <!-- 脚 -->
+        <ellipse cx="62" cy="124" rx="12" ry="6" fill="#ff9800"/>
+        <ellipse cx="98" cy="124" rx="12" ry="6" fill="#ff9800"/>
+      </svg>
+      <!-- 7) 小鸭 -->
+      <svg class="pet-svg" data-pet="duck" viewBox="0 0 160 130" xmlns="http://www.w3.org/2000/svg" style="display:none">
+        <!-- 头 -->
+        <circle cx="80" cy="42" r="26" fill="#ffd54f"/>
+        <!-- 头顶小卷毛 -->
+        <path d="M70 18 q-4 -12 2 -16 q12 4 20 0 q6 6 0 16" fill="#ffd54f" stroke="#f2b632" stroke-width="1.6"/>
+        <!-- 身体 -->
+        <ellipse cx="80" cy="96" rx="38" ry="30" fill="#ffd54f"/>
+        <!-- 肚皮 -->
+        <ellipse cx="80" cy="102" rx="24" ry="19" fill="#fffbe6"/>
+        <!-- 眼睛 -->
+        <circle cx="66" cy="38" r="5" fill="#3e2723"/>
+        <circle cx="94" cy="38" r="5" fill="#3e2723"/>
+        <circle cx="67.5" cy="36" r="2" fill="#fff"/>
+        <circle cx="95.5" cy="36" r="2" fill="#fff"/>
+        <!-- 嘴巴 -->
+        <ellipse cx="80" cy="52" rx="15" ry="7" fill="#ff8f00"/>
+        <path d="M80 52 q-5 3 -5 7 h10 q0 -4 -5 -7 Z" fill="#ffb04d"/>
+        <!-- 腮红 -->
+        <circle cx="50" cy="50" r="5" fill="#ffb3a6" opacity="0.7"/>
+        <circle cx="110" cy="50" r="5" fill="#ffb3a6" opacity="0.7"/>
+        <!-- 翅膀 -->
+        <path d="M42 84 q-14 8 -8 22 q12 5 20 -4 Z" fill="#ffca28"/>
+        <path d="M118 84 q14 8 8 22 q-12 5 -20 -4 Z" fill="#ffca28"/>
+        <!-- 脚蹼 -->
+        <path d="M62 124 l-4 -12 h10 l-6 12 Z" fill="#ff8f00"/>
+        <path d="M98 124 l-4 -12 h10 l-6 12 Z" fill="#ff8f00"/>
+      </svg>
+    </div>
+    <div class="popup-chant" id="popupChant"></div>
+    <div class="popup-formula" id="popupFormula"></div>
+  </div>
+</div>
+
 <script>
 (function () {
   var ROWS = 9, COLS = 9, TICK = 500;
@@ -124,11 +363,18 @@ h1 { font-size: clamp(18px, 4.5vmin, 24px); letter-spacing: 3px; }
     dims.gap = isNaN(gap) ? 5 : gap;
   }
   var tnums = [], lnums = [];
-  var timer = null;
+  var timer = null, popupTimer = null;
   var activeR = -1, activeC = -1; // 当前高亮的行列，旋转屏幕时重绘
   var slowRead = false; // 乘法结果 <= 20 时才逐格慢速朗读
   var synth = window.speechSynthesis;
   var voices = [];
+
+  // 手动关闭弹出窗（同时取消 3.5 秒自动消失定时器）
+  function hidePopup() {
+    if (popupTimer) { clearTimeout(popupTimer); popupTimer = null; }
+    document.getElementById('popup').classList.remove('show');
+  }
+  document.getElementById('popupClose').addEventListener('click', hidePopup);
 
   function loadVoices() { voices = synth ? synth.getVoices() : []; }
   if (synth) {
@@ -233,6 +479,8 @@ h1 { font-size: clamp(18px, 4.5vmin, 24px); letter-spacing: 3px; }
 
   function handleClick(r, c) {
     if (timer) { clearTimeout(timer); timer = null; }
+    if (popupTimer) { clearTimeout(popupTimer); popupTimer = null; }
+    document.getElementById('popup').classList.remove('show');
     if (synth) { synth.cancel(); }
     cells.forEach(function (el) {
       el.textContent = '';
@@ -291,11 +539,11 @@ h1 { font-size: clamp(18px, 4.5vmin, 24px); letter-spacing: 3px; }
     // 逐格计数链（读前一格 → 显示下一格 → 读下一格）
     function countUp() {
       if (!showNext()) {
-        // 所有格子已填完：慢速模式补读最后一格数字，然后朗读算式+口诀收尾
+        // 所有格子已填完：慢速模式补读最后一格数字，然后朗读算式+口诀收尾，最后弹出口诀小窗
         if (slowRead) {
-          speak(shown, function () { chant(); });
+          speak(shown, function () { chant(showChantPopup); });
         } else {
-          chant();
+          chant(showChantPopup);
         }
         return;
       }
@@ -306,6 +554,23 @@ h1 { font-size: clamp(18px, 4.5vmin, 24px); letter-spacing: 3px; }
       } else {
         timer = setTimeout(countUp, TICK);
       }
+    }
+
+    // 读完最后一个数字后：居中弹出中文口诀小窗（随机显示一只可爱小动物），3.5 秒后自动消失
+    function showChantPopup() {
+      // 随机选一只小动物（7 选 1），其余隐藏
+      var pets = document.querySelectorAll('.pet-svg');
+      for (var i = 0; i < pets.length; i++) pets[i].style.display = 'none';
+      pets[Math.floor(Math.random() * pets.length)].style.display = '';
+      var a = Math.min(rowN, colN), b = Math.max(rowN, colN);
+      var cnChant = cnNum(a) + cnNum(b) + (prod < 10 ? '得' : '') + cnNum(prod);
+      document.getElementById('popupChant').textContent = cnChant;
+      document.getElementById('popupFormula').textContent = rowN + ' × ' + colN + ' = ' + prod;
+      document.getElementById('popup').classList.add('show');
+      popupTimer = setTimeout(function () {
+        document.getElementById('popup').classList.remove('show');
+        popupTimer = null;
+      }, 3500);
     }
 
     function start() {
