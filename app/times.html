@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>9×9 数字方格交互</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root {
+  /* 手机 / 平板 / 桌面 自适应尺寸（vmin 以宽高中较小者为准） */
+  --cell: clamp(29px, 8.6vmin, 62px);   /* 单个格子 */
+  --ruler: clamp(24px, 4.5vmin, 36px);  /* 行列标尺 */
+  --gap: clamp(3px, 0.8vmin, 5px);      /* 格子间距 */
+  --pad: clamp(10px, 2vmin, 14px);      /* 棋盘内边距 */
+}
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  color: #eaf6ff;
+}
+h1 { font-size: clamp(18px, 4.5vmin, 24px); letter-spacing: 3px; }
+.formula {
+  font-size: clamp(22px, 7vmin, 30px);
+  font-weight: 700;
+  color: #eaf6ff;
+  min-height: 40px;
+  letter-spacing: 2px;
+}
+.formula.hint { font-size: 13px; color: #9fd8e8; font-weight: 400; min-height: 17px; }
+.formula .f-row { color: #fbbf24; }
+.formula .f-col { color: #34d399; }
+.formula .f-res { color: #ff7bac; }
+.formula .f-eq { color: #9fd8e8; }
+.board {
+  display: grid;
+  grid-template-columns: var(--ruler) repeat(9, var(--cell));
+  grid-template-rows: var(--ruler) repeat(9, var(--cell));
+  gap: var(--gap);
+  padding: var(--pad);
+  background: rgba(255,255,255,.06);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.45);
+}
+.ruler { position: relative; }
+.ruler.top { grid-row: 1; grid-column: 2 / 11; }
+.ruler.left { grid-row: 2 / 11; grid-column: 1; }
+.hline {
+  position: absolute; left: 0; top: calc(var(--ruler) + 4px);
+  height: 2px; width: 0;
+  background: #34d399;
+  box-shadow: 0 0 8px rgba(52,211,153,.8);
+  border-radius: 2px;
+  transition: width .35s ease;
+}
+.vline {
+  position: absolute; left: calc(var(--ruler) + 4px); top: 0;
+  width: 2px; height: 0;
+  background: #fbbf24;
+  box-shadow: 0 0 8px rgba(251,191,36,.8);
+  border-radius: 2px;
+  transition: height .35s ease;
+}
+.tnum {
+  position: absolute; top: 2px;
+  width: var(--cell); margin-left: calc(var(--cell) / -2);
+  text-align: center; font-size: calc(var(--cell) * 0.36); font-weight: 700;
+  color: #9fd8e8; opacity: 0;
+  transition: opacity .3s;
+}
+.tnum.active { opacity: 1; color: #34d399; text-shadow: 0 0 10px rgba(52,211,153,.8); }
+.lnum {
+  position: absolute; left: 0;
+  width: var(--ruler); height: calc(var(--ruler) * 0.72); line-height: calc(var(--ruler) * 0.72); margin-top: calc(var(--ruler) * -0.36);
+  text-align: center; font-size: calc(var(--ruler) * 0.56); font-weight: 700;
+  color: #9fd8e8; opacity: 0;
+  transition: opacity .3s;
+}
+.lnum.active { opacity: 1; color: #fbbf24; text-shadow: 0 0 10px rgba(251,191,36,.8); }
+.cell {
+  background: rgba(255,255,255,.12);
+  border: 2px solid rgba(255,255,255,.14);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: calc(var(--cell) * 0.34); font-weight: 700;
+  cursor: pointer; user-select: none;
+  transition: .15s;
+}
+.cell:hover { background: rgba(255,255,255,.3); }
+.cell.inrange { background: rgba(52,211,153,.22); border-color: rgba(52,211,153,.55); }
+.cell.lit { background: linear-gradient(145deg, #34d399, #10b981); color: #04241a; box-shadow: 0 0 14px rgba(52,211,153,.6); animation: pop .25s ease; }
+.cell.clicked,
+.cell.clicked.lit {
+  border-color: #fbbf24;
+  background: linear-gradient(145deg, #fbbf24, #f59e0b);
+  color: #402a02;
+  box-shadow: 0 0 16px rgba(251,191,36,.8);
+  animation: pop .25s ease;
+}
+@keyframes pop { 0% { transform: scale(.6); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+</style>
+</head>
+<body>
+<h1>9 × 9 数字方格</h1>
+<div class="formula hint" id="formula">点击任意格子，看看 行 × 列 等于多少个格子？</div>
+<div class="board" id="board"></div>
+<script>
+(function () {
+  var ROWS = 9, COLS = 9, TICK = 500;
+  var board = document.getElementById('board');
+  var cells = [];
+  // 测量棋盘当前实际渲染尺寸（手机/平板/桌面自适应），需在格子创建后调用
+  var dims = { cell: 62, gap: 5 };
+  function readDims() {
+    if (!cells.length) return;
+    var w = cells[0].getBoundingClientRect().width;
+    var gap = parseFloat(getComputedStyle(board).columnGap);
+    dims.cell = w || 62;
+    dims.gap = isNaN(gap) ? 5 : gap;
+  }
+  var tnums = [], lnums = [];
+  var timer = null;
+  var activeR = -1, activeC = -1; // 当前高亮的行列，旋转屏幕时重绘
+  var slowRead = false; // 乘法结果 <= 20 时才逐格慢速朗读
+  var synth = window.speechSynthesis;
+  var voices = [];
+
+  function loadVoices() { voices = synth ? synth.getVoices() : []; }
+  if (synth) {
+    loadVoices();
+    synth.onvoiceschanged = loadVoices;
+  }
+
+  // 优先挑选女性发音人的声音
+  function pickVoice(lang) {
+    var list = voices.filter(function (v) {
+      return v.lang && v.lang.toLowerCase().indexOf(lang) >= 0;
+    });
+    if (!list.length) return null;
+    var fem = ['zira', 'huihui', 'xiaoxiao', 'luna', 'jenny', 'aria', 'libby', 'neerja', 'us english', 'google 普通话'];
+    for (var i = 0; i < list.length; i++) {
+      var nm = (list[i].name || '').toLowerCase();
+      for (var j = 0; j < fem.length; j++) {
+        if (nm.indexOf(fem[j]) >= 0) return list[i];
+      }
+    }
+    return list[0];
+  }
+
+  // 浏览器自带朗读（Web Speech API），自动选女声
+  function speak(text, after, lang) {
+    lang = lang || 'en-US';
+    if (!synth) { if (after) { after(); } return; }
+    synth.cancel();
+    var u = new SpeechSynthesisUtterance(String(text));
+    u.lang = lang;
+    var v = pickVoice(lang);
+    if (v) u.voice = v;
+    // 结果 <= 20 时用更慢语速，保证每个数字被清楚读出
+    u.rate = slowRead ? 0.55 : 0.9;
+    if (after) { u.onend = after; }
+    synth.speak(u);
+  }
+
+  // 左上角空格
+  var corner = document.createElement('div');
+  board.appendChild(corner);
+
+  // 顶部横线标尺（跨 9 列）
+  var topRuler = document.createElement('div');
+  topRuler.className = 'ruler top';
+  var hLine = document.createElement('div');
+  hLine.className = 'hline';
+  topRuler.appendChild(hLine);
+  for (var c = 0; c < COLS; c++) {
+    var s = document.createElement('div');
+    s.className = 'tnum';
+    topRuler.appendChild(s);
+    tnums.push(s);
+  }
+  board.appendChild(topRuler);
+
+  // 左侧竖线标尺（跨 9 行）
+  var leftRuler = document.createElement('div');
+  leftRuler.className = 'ruler left';
+  var vLine = document.createElement('div');
+  vLine.className = 'vline';
+  leftRuler.appendChild(vLine);
+  for (var r = 0; r < ROWS; r++) {
+    var s = document.createElement('div');
+    s.className = 'lnum';
+    leftRuler.appendChild(s);
+    lnums.push(s);
+  }
+  board.appendChild(leftRuler);
+
+  // 主体 9x9 格子
+  for (var r = 0; r < ROWS; r++) {
+    for (var c = 0; c < COLS; c++) {
+      var el = document.createElement('div');
+      el.className = 'cell';
+      el.style.gridRow = r + 2;
+      el.style.gridColumn = c + 2;
+      el.addEventListener('click', (function (rr, cc) { return function () { handleClick(rr, cc); }; })(r, c));
+      board.appendChild(el);
+      cells.push(el);
+    }
+  }
+
+  var formula = document.getElementById('formula');
+
+  // 按当前测量的棋盘尺寸，重新定位标尺数字（手机横竖屏切换时调用）
+  function layout() {
+    readDims();
+    var p = dims.cell + dims.gap;
+    for (var c = 0; c < COLS; c++) {
+      tnums[c].style.left = (p * c + dims.cell / 2) + 'px';
+    }
+    for (var r = 0; r < ROWS; r++) {
+      lnums[r].style.top = (p * r + dims.cell / 2) + 'px';
+    }
+    if (activeR >= 0) {
+      hLine.style.width = (p * activeC + dims.cell) + 'px';
+      vLine.style.height = (p * activeR + dims.cell) + 'px';
+    }
+  }
+  layout();
+
+  function handleClick(r, c) {
+    if (timer) { clearTimeout(timer); timer = null; }
+    if (synth) { synth.cancel(); }
+    cells.forEach(function (el) {
+      el.textContent = '';
+      el.classList.remove('inrange', 'lit', 'clicked');
+    });
+    tnums.forEach(function (s) { s.className = 'tnum'; s.textContent = ''; });
+    lnums.forEach(function (s) { s.className = 'lnum'; s.textContent = ''; });
+
+    // 九九乘法口诀算式：行数 × 列数 = 结果（结果随填数递增）
+    var rowN = r + 1, colN = c + 1;
+    var prod = rowN * colN;
+    formula.className = 'formula';
+    formula.innerHTML = '<span class="f-row">' + rowN + '</span> <span class="f-eq">×</span> <span class="f-col">' + colN + '</span> <span class="f-eq">=</span> <span class="f-res" id="fRes">0</span>';
+
+    // 区间间隔线 + 单个数字（列数 / 行数）
+    hLine.style.width = ((dims.cell + dims.gap) * c + dims.cell) + 'px';
+    vLine.style.height = ((dims.cell + dims.gap) * r + dims.cell) + 'px';
+    activeR = r; activeC = c;
+    tnums[c].textContent = c + 1;
+    tnums[c].className = 'tnum active';
+    lnums[r].textContent = r + 1;
+    lnums[r].className = 'lnum active';
+
+    // 标记区间背景
+    for (var i = 0; i <= r; i++)
+      for (var j = 0; j <= c; j++)
+        cells[i * COLS + j].classList.add('inrange');
+    cells[r * COLS + c].classList.add('clicked');
+
+    // 从 1 到区间格子总数，逐格填数（总数 = 行数 × 列数）
+    var cols = colN, total = rowN * colN, shown = 0;
+    // 乘法结果 <= 20：逐格慢速朗读每个数字；> 20：不读数字，按 0.5 秒直接显示
+    slowRead = total <= 20;
+
+    // 朗读英文算式 + 中文口诀（点击后先读一遍；逐格数完后最后再读一遍巩固）
+    function chant(after) {
+      speak(rowN + ' times ' + colN + ' equals ' + prod, function () {
+        var a = Math.min(rowN, colN), b = Math.max(rowN, colN);
+        speak(cnNum(a) + cnNum(b) + (prod < 10 ? '得' : '') + cnNum(prod), function () {
+          if (after) { after(); }
+        }, 'zh-CN');
+      }, 'en-US');
+    }
+
+    // 显示下一格；返回是否还有下一格
+    function showNext() {
+      if (shown >= total) return false;
+      var idx = Math.floor(shown / cols) * COLS + (shown % cols);
+      cells[idx].textContent = shown + 1;
+      cells[idx].classList.add('lit');
+      shown++;
+      document.getElementById('fRes').textContent = shown;
+      return shown < total;
+    }
+
+    // 逐格计数链（读前一格 → 显示下一格 → 读下一格）
+    function countUp() {
+      if (!showNext()) {
+        // 所有格子已填完：慢速模式补读最后一格数字，然后朗读算式+口诀收尾
+        if (slowRead) {
+          speak(shown, function () { chant(); });
+        } else {
+          chant();
+        }
+        return;
+      }
+      if (slowRead) {
+        speak(shown, function () {
+          timer = setTimeout(countUp, 400);
+        });
+      } else {
+        timer = setTimeout(countUp, TICK);
+      }
+    }
+
+    function start() {
+      // 先朗读结果（英文算式 → 中文口诀），读完后才开始逐格计数
+      chant(function () {
+        countUp();
+      });
+    }
+    start();
+  }
+
+  // 阿拉伯数字 → 中文标准读法（1~99：25 → 二十五，16 → 十六，10 → 一十，口诀中的“十”读法）
+  function cnNum(x) {
+    var cn = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+    if (x < 10) return cn[x];
+    if (x === 10) return '一十';
+    if (x < 20) {
+      return x % 10 ? '十' + cn[x % 10] : '十';
+    }
+    return cn[Math.floor(x / 10)] + '十' + (x % 10 ? cn[x % 10] : '');
+  }
+
+  // 旋转屏幕 / 调整窗口大小时：重读尺寸、重定位标尺数字、重绘高亮线
+  window.addEventListener('resize', function () {
+    layout();
+  });
+})();
+</script>
+</body>
+</html>
