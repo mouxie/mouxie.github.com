@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>9×9 除法方格 逆向教学</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root {
+  --cell: clamp(29px, 8.6vmin, 62px);
+  --ruler: clamp(24px, 4.5vmin, 36px);
+  --gap: clamp(3px, 0.8vmin, 5px);
+  --pad: clamp(10px, 2vmin, 14px);
+}
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  color: #eaf6ff;
+}
+h1 { font-size: clamp(18px, 4.5vmin, 24px); letter-spacing: 3px; }
+.score { font-size: clamp(12px, 3.2vmin, 15px); color: #9fd8e8; }
+.formula {
+  font-size: clamp(22px, 7vmin, 30px);
+  font-weight: 700;
+  color: #eaf6ff;
+  min-height: 40px;
+  letter-spacing: 2px;
+}
+.formula.hint { font-size: 13px; color: #9fd8e8; font-weight: 400; min-height: 17px; }
+.formula .f-dvd { color: #ff7bac; }
+.formula .f-div { color: #fbbf24; }
+.formula .f-res { color: #34d399; }
+.formula .f-eq { color: #9fd8e8; }
+.formula .f-qm { color: #9fd8e8; }
+.formula.hint.wrong-tip { color: #fda4af; }
+.formula.hint.correct-tip { color: #6ee7b7; }
+.board {
+  display: grid;
+  grid-template-columns: var(--ruler) repeat(9, var(--cell));
+  grid-template-rows: var(--ruler) repeat(9, var(--cell));
+  gap: var(--gap);
+  padding: var(--pad);
+  background: rgba(255,255,255,.06);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.45);
+}
+.ruler { position: relative; }
+.ruler.top { grid-row: 1; grid-column: 2 / 11; }
+.ruler.left { grid-row: 2 / 11; grid-column: 1; }
+.hline {
+  position: absolute; left: 0; top: calc(var(--ruler) + 4px);
+  height: 2px; width: 0;
+  background: #34d399;
+  box-shadow: 0 0 8px rgba(52,211,153,.8);
+  border-radius: 2px;
+  transition: width .35s ease;
+}
+.vline {
+  position: absolute; left: calc(var(--ruler) + 4px); top: 0;
+  width: 2px; height: 0;
+  background: #fbbf24;
+  box-shadow: 0 0 8px rgba(251,191,36,.8);
+  border-radius: 2px;
+  transition: height .35s ease;
+}
+.tnum {
+  position: absolute; top: 2px;
+  width: var(--cell); margin-left: calc(var(--cell) / -2);
+  text-align: center; font-size: calc(var(--cell) * 0.36); font-weight: 700;
+  color: #9fd8e8; opacity: 0;
+  transition: opacity .3s;
+}
+.tnum.active { opacity: 1; color: #34d399; text-shadow: 0 0 10px rgba(52,211,153,.8); }
+.lnum {
+  position: absolute; left: 0;
+  width: var(--ruler); height: calc(var(--ruler) * 0.72); line-height: calc(var(--ruler) * 0.72); margin-top: calc(var(--ruler) * -0.36);
+  text-align: center; font-size: calc(var(--ruler) * 0.56); font-weight: 700;
+  color: #9fd8e8; opacity: 0;
+  transition: opacity .3s;
+}
+.lnum.active { opacity: 1; color: #fbbf24; text-shadow: 0 0 10px rgba(251,191,36,.8); }
+.cell {
+  background: rgba(255,255,255,.12);
+  border: 2px solid rgba(255,255,255,.14);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: calc(var(--cell) * 0.34); font-weight: 700;
+  cursor: pointer; user-select: none;
+  transition: .15s;
+}
+.cell:hover { background: rgba(255,255,255,.3); }
+.cell.inrange { background: rgba(52,211,153,.22); border-color: rgba(52,211,153,.55); }
+.cell.lit { background: linear-gradient(145deg, #34d399, #10b981); color: #04241a; box-shadow: 0 0 14px rgba(52,211,153,.6); animation: pop .25s ease; }
+.cell.wrong { background: rgba(244,63,94,.28); border-color: rgba(244,63,94,.75); animation: shake .3s ease; }
+.cell.clicked,
+.cell.clicked.lit {
+  border-color: #fbbf24;
+  background: linear-gradient(145deg, #fbbf24, #f59e0b);
+  color: #402a02;
+  box-shadow: 0 0 16px rgba(251,191,36,.8);
+  animation: pop .25s ease;
+}
+@keyframes pop { 0% { transform: scale(.6); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+@keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+</style>
+</head>
+<body>
+<h1>9 × 9 除法方格 · 逆向教学</h1>
+<div class="score" id="score">第 1 题 · 答对 0</div>
+<div class="formula" id="formula"></div>
+<div class="formula hint" id="hint">数一数：一行有几个格子？需要几行？反着算，就是除法！</div>
+<div class="board" id="board"></div>
+<script>
+(function () {
+  var ROWS = 9, COLS = 9, TICK = 500;
+  var board = document.getElementById('board');
+  var cells = [];
+  var dims = { cell: 62, gap: 5 };
+  function readDims() {
+    if (!cells.length) return;
+    var w = cells[0].getBoundingClientRect().width;
+    var gap = parseFloat(getComputedStyle(board).columnGap);
+    dims.cell = w || 62;
+    dims.gap = isNaN(gap) ? 5 : gap;
+  }
+  var tnums = [], lnums = [];
+  var timer = null;
+  var activeR = -1, activeC = -1;
+  var synth = window.speechSynthesis;
+  var voices = [];
+  var current = null;   // 当前题目 {dvd, div, qt}
+  var score = 0, qno = 1;
+  var solving = false;  // 正在作答（避免答对后连点）
+
+  function loadVoices() { voices = synth ? synth.getVoices() : []; }
+  if (synth) { loadVoices(); synth.onvoiceschanged = loadVoices; }
+
+  function pickVoice(lang) {
+    var list = voices.filter(function (v) {
+      return v.lang && v.lang.toLowerCase().indexOf(lang) >= 0;
+    });
+    if (!list.length) return null;
+    var fem = ['zira', 'huihui', 'xiaoxiao', 'luna', 'jenny', 'aria', 'libby', 'neerja', 'us english', 'google 普通话'];
+    for (var i = 0; i < list.length; i++) {
+      var nm = (list[i].name || '').toLowerCase();
+      for (var j = 0; j < fem.length; j++) {
+        if (nm.indexOf(fem[j]) >= 0) return list[i];
+      }
+    }
+    return list[0];
+  }
+
+  function speak(text, after, lang) {
+    lang = lang || 'en-US';
+    if (!synth) { if (after) { after(); } return; }
+    synth.cancel();
+    var u = new SpeechSynthesisUtterance(String(text));
+    u.lang = lang;
+    var v = pickVoice(lang);
+    if (v) u.voice = v;
+    u.rate = 0.8;
+    if (after) { u.onend = after; }
+    synth.speak(u);
+  }
+
+  // 中文数字读法（同乘法页：10 → 一十）
+  function cnNum(x) {
+    var cn = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+    if (x < 10) return cn[x];
+    if (x === 10) return '一十';
+    if (x < 20) return x % 10 ? '十' + cn[x % 10] : '十';
+    return cn[Math.floor(x / 10)] + '十' + (x % 10 ? cn[x % 10] : '');
+  }
+
+  // 左上角空格
+  board.appendChild(document.createElement('div'));
+
+  var topRuler = document.createElement('div');
+  topRuler.className = 'ruler top';
+  var hLine = document.createElement('div'); hLine.className = 'hline';
+  topRuler.appendChild(hLine);
+  for (var c = 0; c < COLS; c++) {
+    var s = document.createElement('div');
+    s.className = 'tnum';
+    topRuler.appendChild(s); tnums.push(s);
+  }
+  board.appendChild(topRuler);
+
+  var leftRuler = document.createElement('div');
+  leftRuler.className = 'ruler left';
+  var vLine = document.createElement('div'); vLine.className = 'vline';
+  leftRuler.appendChild(vLine);
+  for (var r = 0; r < ROWS; r++) {
+    var s = document.createElement('div');
+    s.className = 'lnum';
+    leftRuler.appendChild(s); lnums.push(s);
+  }
+  board.appendChild(leftRuler);
+
+  for (var r = 0; r < ROWS; r++) {
+    for (var c = 0; c < COLS; c++) {
+      var el = document.createElement('div');
+      el.className = 'cell';
+      el.style.gridRow = r + 2;
+      el.style.gridColumn = c + 2;
+      el.addEventListener('click', (function (rr, cc) { return function () { handleAnswer(rr, cc); }; })(r, c));
+      board.appendChild(el);
+      cells.push(el);
+    }
+  }
+
+  function layout() {
+    readDims();
+    var p = dims.cell + dims.gap;
+    for (var c = 0; c < COLS; c++) tnums[c].style.left = (p * c + dims.cell / 2) + 'px';
+    for (var r = 0; r < ROWS; r++) lnums[r].style.top = (p * r + dims.cell / 2) + 'px';
+    if (activeR >= 0) {
+      hLine.style.width = (p * activeC + dims.cell) + 'px';
+      vLine.style.height = (p * activeR + dims.cell) + 'px';
+    }
+  }
+  layout();
+
+  var formula = document.getElementById('formula');
+  var hint = document.getElementById('hint');
+  var scoreEl = document.getElementById('score');
+
+  // 出题：随机 除式  dvd ÷ div = qt，全部取自九九表（div ∈ [2..9]，qt ∈ [2..9]，排除商=1的无效题）
+  function randomQuiz() {
+    var div = 2 + Math.floor(Math.random() * 8); // 2..9
+    var qt = 2 + Math.floor(Math.random() * 8);  // 2..9
+    return { dvd: div * qt, div: div, qt: qt };
+  }
+
+  function showQuiz() {
+    solving = false;
+    shrinkLines();
+    cells.forEach(function (el) {
+      el.textContent = '';
+      el.classList.remove('inrange', 'lit', 'clicked', 'wrong');
+    });
+    tnums.forEach(function (s) { s.className = 'tnum'; s.textContent = ''; });
+    lnums.forEach(function (s) { s.className = 'lnum'; s.textContent = ''; });
+    // 随机选择本次提示位置：顶部或左侧
+    current = randomQuiz();
+    current.hintPos = Math.random() < 0.5 ? 'top' : 'left';
+
+    formula.className = 'formula';
+    formula.innerHTML = '<span class="f-dvd">' + current.dvd + '</span> <span class="f-eq">÷</span> <span class="f-div">' + current.div + '</span> <span class="f-eq">=</span> <span class="f-qm">?</span>';
+
+    // 在顶部或左边亮出“除数”刻度数字
+    if (current.hintPos === 'top') {
+      tnums[current.div - 1].textContent = current.div;
+      tnums[current.div - 1].className = 'tnum active';
+    } else {
+      lnums[current.div - 1].textContent = current.div;
+      lnums[current.div - 1].className = 'lnum active';
+    }
+
+    hint.className = 'formula hint';
+    if (current.hintPos === 'top') {
+      hint.textContent = '用 ' + current.dvd + ' 个格子摆长方形，顶部亮出的数字是 ' + current.div + '，表示每行摆 ' + current.div + ' 个。数一数要几行？在格子上点一点！';
+    } else {
+      hint.textContent = '用 ' + current.dvd + ' 个格子摆长方形，左边亮出的数字是 ' + current.div + '，表示摆 ' + current.div + ' 行。数一数每行几个？在格子上点一点！';
+    }
+
+    // 出题即朗读：被除数 ÷ 除数 = 几？
+    speak(current.dvd + ' divided by ' + current.div + ' equals question mark', function () {
+      speak(cnNum(current.dvd) + '除以' + cnNum(current.div) + '，等于几？', null, 'zh-CN');
+    });
+  }
+
+  // 收起高亮线
+  function shrinkLines() {
+    hLine.style.width = '0px';
+    vLine.style.height = '0px';
+    activeR = -1; activeC = -1;
+  }
+
+  function handleAnswer(r, c) {
+    if (solving || !current) return;
+    if (timer) { clearTimeout(timer); timer = null; }
+    if (synth) { synth.cancel(); }
+    cells.forEach(function (el) { el.classList.remove('wrong'); });
+
+    var rowN = r + 1, colN = c + 1;
+    var area = rowN * colN;
+
+    // 高亮候选矩形
+    for (var i = 0; i <= r; i++)
+      for (var j = 0; j <= c; j++)
+        cells[i * COLS + j].classList.add('inrange');
+    hLine.style.width = ((dims.cell + dims.gap) * c + dims.cell) + 'px';
+    vLine.style.height = ((dims.cell + dims.gap) * r + dims.cell) + 'px';
+    activeR = r; activeC = c;
+    tnums[c].textContent = colN; tnums[c].className = 'tnum active';
+    lnums[r].textContent = rowN; lnums[r].className = 'lnum active';
+
+    var dvd = current.dvd, div = current.div, qt = current.qt;
+
+    // 判定一：格数不对
+    if (area !== dvd) {
+      cells[r * COLS + c].classList.add('wrong');
+      formula.className = 'formula';
+      formula.innerHTML = '<span class="f-dvd">' + dvd + '</span> <span class="f-eq">÷</span> <span class="f-div">' + div + '</span> <span class="f-eq">=</span> <span class="f-res">?</span>';
+      hint.className = 'formula hint wrong-tip';
+      hint.textContent = '这块长方形一共 ' + area + ' 个格子，不是 ' + dvd + ' 个，再试试！';
+      speak('一共 ' + area + ' 个格子，不是 ' + dvd + ' 个', null, 'zh-CN');
+      return;
+    }
+
+    // 判定二：格数对，但方向不对（每行格数 ≠ 除数）
+    if (colN !== div && rowN !== div) {
+      cells[r * COLS + c].classList.add('wrong');
+      hint.className = 'formula hint wrong-tip';
+      hint.textContent = '格子数对了！但这是 ' + rowN + ' 行 × ' + colN + ' 列。题目要求每行 ' + div + ' 个，把长方形转个方向再试试！';
+      speak(cnNum(rowN) + '行乘以' + cnNum(colN) + '列不对哦。每行要' + cnNum(div) + '个，再想想', null, 'zh-CN');
+      return;
+    }
+
+    // 答对！（colN === div → 商 = rowN；rowN === div → 商 = colN）
+    solving = true;
+    var q = (colN === div) ? rowN : colN;
+    score++; qno++;
+    scoreEl.textContent = '第 ' + qno + ' 题 · 答对 ' + score;
+    formula.innerHTML = '<span class="f-dvd">' + dvd + '</span> <span class="f-eq">÷</span> <span class="f-div">' + div + '</span> <span class="f-eq">=</span> <span class="f-res">' + q + '</span>';
+    hint.className = 'formula hint correct-tip';
+    hint.textContent = '太棒了！' + dvd + ' 个格子，每行 ' + div + ' 个，正好 ' + q + ' 行 = ' + dvd + ' ÷ ' + div + ' = ' + q;
+
+    // 点亮矩形内全部格子 + 朗读算式
+    for (var i = 0; i <= r; i++)
+      for (var j = 0; j <= c; j++)
+        cells[i * COLS + j].classList.add('lit');
+
+    speak(dvd + ' divided by ' + div + ' equals ' + q, function () {
+      speak(cnNum(dvd) + '除以' + cnNum(div) + '，等于' + cnNum(q), function () {
+        timer = setTimeout(showQuiz, 1800); // 读完后自动下一题
+      }, 'zh-CN');
+    }, 'en-US');
+  }
+
+  // 行数中文 + “行”
+  function ctCN(x) { return cnNum(x) + '行'; }
+  function colCN(x) { return cnNum(x) + '列'; }
+
+  window.addEventListener('resize', function () { layout(); });
+
+  showQuiz();
+})();
+</script>
+</body>
+</html>
