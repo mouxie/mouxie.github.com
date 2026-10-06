@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>例句打字游戏 - 照着例句打字</title>
+<title>例句</title>
 <style>
     :root {
         --primary: #4A90E2;
@@ -188,7 +188,7 @@
     }
 
     .sentence-zh {
-        font-size: 14px;
+        font-size: 18px;
         color: var(--zh-text);
         background: var(--zh-bg);
         border-left: 3px solid var(--primary);
@@ -427,6 +427,61 @@
     #toolbar-msg { width: 100%; text-align: center; font-size: 12px; min-height: 16px; color: var(--text-sub); }
     #toolbar-msg.ok { color: var(--success); }
     #toolbar-msg.err { color: var(--accent); }
+
+    /* ---------- 极简模式：仅保留 word-info / sentence-zh / typing-target / 上一句·下一句 ---------- */
+    .btn-zen-text {
+        border: none;
+        background: transparent;
+        color: var(--text-sub);
+        font-size: 12px;
+        font-weight: 400;
+        padding: 2px 6px;
+        border-radius: 6px;
+        cursor: pointer;
+        opacity: 0.55;
+        transition: opacity 0.15s, color 0.15s;
+    }
+    .btn-zen-text:hover { opacity: 1; color: var(--primary); }
+
+    #btn-zen-exit {
+        position: fixed;
+        top: 10px;
+        right: 12px;
+        z-index: 50;
+        display: none;
+        border: none;
+        background: transparent;
+        color: var(--text-sub);
+        font-size: 12px;
+        font-weight: 400;
+        padding: 4px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        opacity: 0.5;
+        transition: opacity 0.15s, color 0.15s;
+    }
+    #btn-zen-exit:hover { opacity: 1; color: var(--primary); }
+    body.zen #btn-zen-exit { display: block; }
+
+    body.zen .top-bar,
+    body.zen .progress-wrap,
+    body.zen .typing-hint,
+    body.zen .sentence-result,
+    body.zen .footer-toolbar,
+    body.zen #btn-restart { display: none !important; }
+
+    body.zen .sentence-card {
+        background: transparent;
+        box-shadow: none;
+        padding: 12px 6px 6px;
+    }
+    body.zen .typing-zone {
+        background: transparent;
+        border-color: transparent;
+        padding: 10px 4px;
+    }
+    body.zen .typing-zone.focused { border-color: var(--zone-border); }
+    body.zen .controls { margin-top: 4px; }
 </style>
 <script>
 // 尽早应用已保存的主题，避免刷新时闪白
@@ -442,6 +497,8 @@
 </head>
 <body>
 
+<button id="btn-zen-exit" type="button" title="退出极简模式（Esc）">退出极简</button>
+
 <div id="ui-container">
     <!-- 顶部控制栏 -->
     <div class="top-bar">
@@ -449,6 +506,8 @@
             <div class="app-title">⌨️ 例句打字练习 <a href="fc.html" title="回闪卡游戏">↩ 闪卡</a></div>
             <div class="top-bar-right">
                 <div id="source-count" class="stat">例句 0</div>
+                <button id="btn-zen" class="btn-zen-text" type="button"
+                        title="极简模式：只留单词信息、中文、打字区与翻句按钮（Esc 退出）">极简</button>
                 <button id="btn-theme" class="btn-speak" type="button" title="切换夜间模式">🌙</button>
             </div>
         </div>
@@ -829,6 +888,30 @@ if (window.matchMedia) {
     if (mq.addEventListener) mq.addEventListener('change', onSysTheme);
     else if (mq.addListener) mq.addListener(onSysTheme); // Safari < 14
 }
+
+// ------------------------------ 极简模式 ------------------------------
+// 只保留 word-info / sentence-zh / typing-target / 上一句 / 下一句，其余全部隐藏
+const ZEN_KEY = 'example_typing_zen_v1';
+
+function isZen() {
+    return document.body.classList.contains('zen');
+}
+
+function setZen(on, persist) {
+    document.body.classList.toggle('zen', on);
+    if (persist) {
+        try { localStorage.setItem(ZEN_KEY, on ? '1' : '0'); } catch (e) { /* 忽略 */ }
+    }
+}
+
+$('btn-zen').addEventListener('click', () => { setZen(true, true); focusInput(); });
+$('btn-zen-exit').addEventListener('click', () => { setZen(false, true); focusInput(); });
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isZen()) { setZen(false, true); focusInput(); }
+});
+
+// 刷新后恢复极简状态
+try { if (localStorage.getItem(ZEN_KEY) === '1') setZen(true, false); } catch (e) { /* 忽略 */ }
 
 // ------------------------------ 朗读（Web Speech API，调用系统自带 TTS） ------------------------------
 // iOS Safari 用系统“语音”里的英文嗓音；Windows 用 Edge/系统 TTS；无需联网、无需第三方库
