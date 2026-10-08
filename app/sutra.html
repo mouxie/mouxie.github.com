@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>佛经打字修行 · 拼音跟打 / 对照抄写</title>
+<title>佛经打字-抄写-默写</title>
 <style>
 :root{
     --primary:#9C7A3C;
@@ -107,6 +107,8 @@ body{
 .btn.ghost{background:transparent;border-color:var(--line);color:var(--text-main);}
 .btn.ghost:hover{border-color:var(--primary);color:var(--primary);}
 .btn.sm{padding:5px 12px;font-size:13px;}
+.btn:disabled{opacity:.35;cursor:not-allowed;}
+.btn:disabled:hover{opacity:.35;border-color:var(--line);color:var(--text-main);}
 
 /* ---------- 打字区 ---------- */
 .game-card{
@@ -145,7 +147,6 @@ body{
 .tk.cur{background:var(--cur-bg);}
 .tk.cur .ch{color:var(--ch-cur);font-weight:700;}
 .tk.cur .py{color:var(--ch-cur);}
-.tk.cur .py .hit{color:var(--success);font-weight:700;}
 .tk.err{animation:shake .22s;}
 .tk.err .ch{color:var(--ch-bad);}
 .tk.err .py{color:var(--ch-bad);}
@@ -156,35 +157,6 @@ body{
     25%{transform:translateX(-4px);}
     75%{transform:translateX(4px);}
 }
-
-/* ---------- 输入缓冲条 ---------- */
-.buffer-bar{
-    margin-top:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-    background:var(--zone-bg);border:1px solid var(--zone-border);border-radius:12px;padding:12px 16px;
-}
-.buf-label{font-size:12px;color:var(--text-sub);white-space:nowrap;}
-#buf-text{
-    font-family:Consolas,"Courier New",monospace;font-size:22px;letter-spacing:3px;
-    min-height:30px;color:var(--primary);font-weight:700;
-}
-#buf-text .bad{color:var(--accent);}
-#buf-hint{font-size:13px;color:var(--text-sub);margin-left:auto;}
-#buf-hint b{
-    font-family:Consolas,monospace;color:var(--primary);font-size:16px;
-    background:var(--chip-bg);padding:1px 7px;border-radius:6px;
-}
-.combo{
-    font-size:13px;color:var(--accent);font-weight:700;
-    opacity:0;transition:opacity .2s;
-}
-.combo.on{opacity:1;}
-
-.ime-warn{
-    display:none;margin-top:12px;padding:10px 14px;border-radius:10px;
-    background:rgba(192,87,79,.12);border:1px solid var(--accent);
-    color:var(--accent);font-size:13px;line-height:1.6;
-}
-.ime-warn.on{display:block;}
 
 /* ---------- 模式切换 ---------- */
 .mode-switch{
@@ -199,8 +171,6 @@ body{
 .mode-switch button.on{background:var(--primary);color:#fff;}
 
 /* ---------- 对照抄写 ---------- */
-#text-zone.copy .tk .py{visibility:hidden;}
-#text-zone.copy .tk{padding-bottom:2px;}
 .tk.bad .ch{color:var(--ch-bad);text-decoration:underline wavy var(--ch-bad);}
 
 /* ---------- 默写（不显示原文，对绿错红） ---------- */
@@ -232,8 +202,6 @@ body:not(.minimal) #minimal-badge{display:none;}
 body.minimal .top-bar,
 body.minimal .game-head,
 body.minimal .progress-track,
-body.minimal .buffer-bar,
-body.minimal .ime-warn,
 body.minimal .hint-line{display:none !important;}
 body.minimal #ui-container{max-width:100%;padding:7vh 7vw;}
 body.minimal .game-card{
@@ -303,6 +271,29 @@ body.minimal #copy-input:focus{border-bottom-color:var(--primary);}
 .wrong-empty{font-size:13px;color:var(--success);}
 .end-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
 
+/* ---------- 选分页（大部经文按“分”练习） ---------- */
+.chapter-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;}
+.chapter-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;}
+.chapter-card{
+    background:var(--card-bg);border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;cursor:pointer;text-align:left;
+    font-family:inherit;color:var(--text-main);
+    transition:transform .15s,border-color .15s,box-shadow .15s;
+}
+.chapter-card:hover{transform:translateY(-2px);border-color:var(--primary);box-shadow:0 6px 16px rgba(0,0,0,.08);}
+.chapter-card .cn{font-size:14px;font-weight:700;font-family:"Kaiti SC","KaiTi","STKaiti",serif;letter-spacing:.5px;}
+.chapter-card .cm{font-size:12px;color:var(--text-sub);margin-top:5px;line-height:1.5;}
+.chapter-card.resume{border-color:var(--primary);}
+.chapter-card.resume .cm{color:var(--primary);font-weight:600;}
+
+/* ---------- 懒加载提示 ---------- */
+#loading-tip{
+    position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:200;
+    background:var(--card-bg);border:1px solid var(--primary);color:var(--text-main);
+    border-radius:24px;padding:9px 20px;font-size:13px;
+    box-shadow:0 8px 24px rgba(0,0,0,.16);
+}
+
 .hidden{display:none !important;}
 .fade-in{animation:fadeIn .3s;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
@@ -355,14 +346,26 @@ body.minimal #copy-input:focus{border-bottom-color:var(--primary);}
     <div id="page-select">
         <div class="page-head">
             <h1>选一部经，随文入定</h1>
-            <p id="page-head-tip">屏幕显示经文与拼音，切换到<b>英文输入法</b>后直接敲拼音字母即可跟打</p>
+            <p id="page-head-tip">屏幕显示经文与拼音，用<b>中文输入法</b>在输入框逐字抄写，整句抄对自动进入下一句</p>
             <div class="mode-switch" id="mode-switch">
-                <button type="button" data-mode="pinyin">⌨️ 拼音跟打</button>
                 <button type="button" data-mode="copy">✍️ 对照抄写</button>
                 <button type="button" data-mode="recite">🧘 默写</button>
             </div>
         </div>
         <div class="sutra-grid" id="sutra-grid"></div>
+    </div>
+
+    <!-- 选分页（仅多章经文进入） -->
+    <div id="page-chapter" class="hidden">
+        <div class="page-head">
+            <h1 id="chapter-head-title">—</h1>
+            <p>选择要修习的分，或一次连打全本</p>
+        </div>
+        <div class="chapter-actions">
+            <button id="btn-chapter-all" class="btn primary" type="button">📖 全本连续</button>
+            <button id="btn-chapter-back" class="btn ghost" type="button">← 返回选经（Esc）</button>
+        </div>
+        <div class="chapter-grid" id="chapter-grid"></div>
     </div>
 
     <!-- 打字页 -->
@@ -375,26 +378,19 @@ body.minimal #copy-input:focus{border-bottom-color:var(--primary);}
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                     <button id="btn-minimal" class="btn-text" type="button" title="隐藏非必要元素（Esc 或右上角标退出）">极简</button>
+                    <button id="btn-prev-sec" class="btn ghost sm" type="button" title="上一句（Alt + ←）">← 上一句</button>
+                    <button id="btn-next-sec" class="btn ghost sm" type="button" title="下一句（Alt + →）">下一句 →</button>
                     <button id="btn-restart" class="btn ghost sm" type="button" title="从本句重新开始">↻ 重打本句</button>
                     <button id="btn-quit" class="btn ghost sm" type="button" title="返回选经（Esc）">✕ 退出</button>
                 </div>
             </div>
             <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
             <div id="text-zone"></div>
-            <div class="copy-input-wrap hidden" id="copy-wrap">
+            <div class="copy-input-wrap" id="copy-wrap">
                 <input id="copy-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="用中文输入法在此逐字抄写经文…">
             </div>
-            <div class="buffer-bar" id="buffer-bar">
-                <span class="buf-label">输入</span>
-                <span id="buf-text"></span>
-                <span class="combo" id="combo">🔥 连击 0</span>
-                <span id="buf-hint"></span>
-            </div>
-            <div class="ime-warn" id="ime-warn">
-                ⚠️ 检测到中文输入法正在组合文字。本游戏为<b>拼音跟打</b>模式，请切换到英文输入法（Windows: <kbd>Win</kbd>+<kbd>空格</kbd> / macOS: <kbd>Ctrl</kbd>+<kbd>空格</kbd>），然后直接敲拼音字母。
-            </div>
             <div class="hint-line" id="hint-line">
-                敲拼音字母跟打 · <kbd>Backspace</kbd> 删除 · <kbd>Esc</kbd> 退出 · 标点自动跳过
+                用中文输入法逐字抄写 · 错字标红波浪线 · 整句抄对自动下一句 · <kbd>Alt</kbd>+<kbd>←</kbd>/<kbd>→</kbd> 上/下一句 · <kbd>Esc</kbd> 退出
             </div>
         </div>
     </div>
@@ -418,23 +414,70 @@ body.minimal #copy-input:focus{border-bottom-color:var(--primary);}
     </div>
 
 </div>
-<script id="sutra-data" type="application/json">[{"id": "xinjing", "title": "般若波罗蜜多心经", "author": "唐 · 玄奘 译", "desc": "全文 260 余字，最广为传诵的佛经。", "hanCount": 268, "sections": [[["般", "bō", "bo"], ["若", "rě", "re"], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["蜜", "mì", "mi"], ["多", "duō", "duo"], ["心", "xīn", "xin"], ["经", "jīng", "jing"]], [["观", "guān", "guan"], ["自", "zì", "zi"], ["在", "zài", "zai"], ["菩", "pú", "pu"], ["萨", "sà", "sa"], ["，", null, null], ["行", "xíng", "xing"], ["深", "shēn", "shen"], ["般", "bō", "bo"], ["若", "rě", "re"], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["蜜", "mì", "mi"], ["多", "duō", "duo"], ["时", "shí", "shi"], ["，", null, null], ["照", "zhào", "zhao"], ["见", "jiàn", "jian"], ["五", "wǔ", "wu"], ["蕴", "yùn", "yun"], ["皆", "jiē", "jie"], ["空", "kōng", "kong"], ["，", null, null], ["度", "dù", "du"], ["一", "yī", "yi"], ["切", "qiè", "qie"], ["苦", "kǔ", "ku"], ["厄", "è", "e"], ["。", null, null]], [["舍", "shè", "she"], ["利", "lì", "li"], ["子", "zǐ", "zi"], ["，", null, null], ["色", "sè", "se"], ["不", "bù", "bu"], ["异", "yì", "yi"], ["空", "kōng", "kong"], ["，", null, null], ["空", "kōng", "kong"], ["不", "bù", "bu"], ["异", "yì", "yi"], ["色", "sè", "se"], ["，", null, null], ["色", "sè", "se"], ["即", "jí", "ji"], ["是", "shì", "shi"], ["空", "kōng", "kong"], ["，", null, null], ["空", "kōng", "kong"], ["即", "jí", "ji"], ["是", "shì", "shi"], ["色", "sè", "se"], ["，", null, null], ["受", "shòu", "shou"], ["想", "xiǎng", "xiang"], ["行", "xíng", "xing"], ["识", "shí", "shi"], ["，", null, null], ["亦", "yì", "yi"], ["复", "fù", "fu"], ["如", "rú", "ru"], ["是", "shì", "shi"], ["。", null, null]], [["舍", "shè", "she"], ["利", "lì", "li"], ["子", "zǐ", "zi"], ["，", null, null], ["是", "shì", "shi"], ["诸", "zhū", "zhu"], ["法", "fǎ", "fa"], ["空", "kōng", "kong"], ["相", "xiāng", "xiang"], ["，", null, null], ["不", "bù", "bu"], ["生", "shēng", "sheng"], ["不", "bù", "bu"], ["灭", "miè", "mie"], ["，", null, null], ["不", "bù", "bu"], ["垢", "gòu", "gou"], ["不", "bù", "bu"], ["净", "jìng", "jing"], ["，", null, null], ["不", "bù", "bu"], ["增", "zēng", "zeng"], ["不", "bù", "bu"], ["减", "jiǎn", "jian"], ["。", null, null]], [["是", "shì", "shi"], ["故", "gù", "gu"], ["空", "kōng", "kong"], ["中", "zhōng", "zhong"], ["无", "wú", "wu"], ["色", "sè", "se"], ["，", null, null], ["无", "wú", "wu"], ["受", "shòu", "shou"], ["想", "xiǎng", "xiang"], ["行", "xíng", "xing"], ["识", "shí", "shi"], ["，", null, null], ["无", "wú", "wu"], ["眼", "yǎn", "yan"], ["耳", "ěr", "er"], ["鼻", "bí", "bi"], ["舌", "shé", "she"], ["身", "shēn", "shen"], ["意", "yì", "yi"], ["，", null, null], ["无", "wú", "wu"], ["色", "sè", "se"], ["声", "shēng", "sheng"], ["香", "xiāng", "xiang"], ["味", "wèi", "wei"], ["触", "chù", "chu"], ["法", "fǎ", "fa"], ["，", null, null], ["无", "wú", "wu"], ["眼", "yǎn", "yan"], ["界", "jiè", "jie"], ["，", null, null], ["乃", "nǎi", "nai"], ["至", "zhì", "zhi"], ["无", "wú", "wu"], ["意", "yì", "yi"], ["识", "shí", "shi"], ["界", "jiè", "jie"], ["，", null, null], ["无", "wú", "wu"], ["无", "wú", "wu"], ["明", "míng", "ming"], ["，", null, null], ["亦", "yì", "yi"], ["无", "wú", "wu"], ["无", "wú", "wu"], ["明", "míng", "ming"], ["尽", "jǐn", "jin"], ["，", null, null], ["乃", "nǎi", "nai"], ["至", "zhì", "zhi"], ["无", "wú", "wu"], ["老", "lǎo", "lao"], ["死", "sǐ", "si"], ["，", null, null], ["亦", "yì", "yi"], ["无", "wú", "wu"], ["老", "lǎo", "lao"], ["死", "sǐ", "si"], ["尽", "jǐn", "jin"], ["，", null, null], ["无", "wú", "wu"], ["苦", "kǔ", "ku"], ["集", "jí", "ji"], ["灭", "miè", "mie"], ["道", "dào", "dao"], ["，", null, null], ["无", "wú", "wu"], ["智", "zhì", "zhi"], ["亦", "yì", "yi"], ["无", "wú", "wu"], ["得", "dé", "de"], ["。", null, null]], [["以", "yǐ", "yi"], ["无", "wú", "wu"], ["所", "suǒ", "suo"], ["得", "de", "de"], ["故", "gù", "gu"], ["，", null, null], ["菩", "pú", "pu"], ["提", "tí", "ti"], ["萨", "sà", "sa"], ["埵", "duǒ", "duo"], ["，", null, null], ["依", "yī", "yi"], ["般", "bō", "bo"], ["若", "rě", "re"], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["蜜", "mì", "mi"], ["多", "duō", "duo"], ["故", "gù", "gu"], ["，", null, null], ["心", "xīn", "xin"], ["无", "wú", "wu"], ["罣", "guà", "gua"], ["碍", "ài", "ai"], ["，", null, null], ["无", "wú", "wu"], ["罣", "guà", "gua"], ["碍", "ài", "ai"], ["故", "gù", "gu"], ["，", null, null], ["无", "wú", "wu"], ["有", "yǒu", "you"], ["恐", "kǒng", "kong"], ["怖", "bù", "bu"], ["，", null, null], ["远", "yuǎn", "yuan"], ["离", "lí", "li"], ["颠", "diān", "dian"], ["倒", "dǎo", "dao"], ["梦", "mèng", "meng"], ["想", "xiǎng", "xiang"], ["，", null, null], ["究", "jiū", "jiu"], ["竟", "jìng", "jing"], ["涅", "niè", "nie"], ["槃", "pán", "pan"], ["。", null, null]], [["三", "sān", "san"], ["世", "shì", "shi"], ["诸", "zhū", "zhu"], ["佛", "fú", "fu"], ["，", null, null], ["依", "yī", "yi"], ["般", "bō", "bo"], ["若", "rě", "re"], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["蜜", "mì", "mi"], ["多", "duō", "duo"], ["故", "gù", "gu"], ["，", null, null], ["得", "dé", "de"], ["阿", "ē", "e"], ["耨", "nòu", "nou"], ["多", "duō", "duo"], ["罗", "luó", "luo"], ["三", "sān", "san"], ["藐", "miǎo", "miao"], ["三", "sān", "san"], ["菩", "pú", "pu"], ["提", "tí", "ti"], ["。", null, null]], [["故", "gù", "gu"], ["知", "zhī", "zhi"], ["般", "bō", "bo"], ["若", "rě", "re"], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["蜜", "mì", "mi"], ["多", "duō", "duo"], ["，", null, null], ["是", "shì", "shi"], ["大", "dà", "da"], ["神", "shén", "shen"], ["咒", "zhòu", "zhou"], ["，", null, null], ["是", "shì", "shi"], ["大", "dà", "da"], ["明", "míng", "ming"], ["咒", "zhòu", "zhou"], ["，", null, null], ["是", "shì", "shi"], ["无", "wú", "wu"], ["上", "shàng", "shang"], ["咒", "zhòu", "zhou"], ["，", null, null], ["是", "shì", "shi"], ["无", "wú", "wu"], ["等", "děng", "deng"], ["等", "děng", "deng"], ["咒", "zhòu", "zhou"], ["，", null, null], ["能", "néng", "neng"], ["除", "chú", "chu"], ["一", "yī", "yi"], ["切", "qiè", "qie"], ["苦", "kǔ", "ku"], ["，", null, null], ["真", "zhēn", "zhen"], ["实", "shí", "shi"], ["不", "bù", "bu"], ["虚", "xū", "xu"], ["。", null, null]], [["故", "gù", "gu"], ["说", "shuō", "shuo"], ["般", "bō", "bo"], ["若", "rě", "re"], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["蜜", "mì", "mi"], ["多", "duō", "duo"], ["咒", "zhòu", "zhou"], ["，", null, null], ["即", "jí", "ji"], ["说", "shuō", "shuo"], ["咒", "zhòu", "zhou"], ["曰", "yuē", "yue"], ["：", null, null]], [["揭", "jiē", "jie"], ["谛", "dì", "di"], ["揭", "jiē", "jie"], ["谛", "dì", "di"], ["，", null, null], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["揭", "jiē", "jie"], ["谛", "dì", "di"], ["，", null, null], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["僧", "sēng", "seng"], ["揭", "jiē", "jie"], ["谛", "dì", "di"], ["，", null, null], ["菩", "pú", "pu"], ["提", "tí", "ti"], ["萨", "sà", "sa"], ["婆", "pó", "po"], ["诃", "hē", "he"], ["。", null, null]]]}, {"id": "jingang", "title": "金刚经 · 名段", "author": "姚秦 · 鸠摩罗什 译", "desc": "《金刚般若波罗蜜经》最著名段落选辑。", "hanCount": 143, "sections": [[["一", "yī", "yi"], ["切", "qiè", "qie"], ["有", "yǒu", "you"], ["为", "wéi", "wei"], ["法", "fǎ", "fa"], ["，", null, null], ["如", "rú", "ru"], ["梦", "mèng", "meng"], ["幻", "huàn", "huan"], ["泡", "pào", "pao"], ["影", "yǐng", "ying"], ["，", null, null], ["如", "rú", "ru"], ["露", "lù", "lu"], ["亦", "yì", "yi"], ["如", "rú", "ru"], ["电", "diàn", "dian"], ["，", null, null], ["应", "yīng", "ying"], ["作", "zuò", "zuo"], ["如", "rú", "ru"], ["是", "shì", "shi"], ["观", "guān", "guan"], ["。", null, null]], [["若", "ruò", "ruo"], ["以", "yǐ", "yi"], ["色", "sè", "se"], ["见", "jiàn", "jian"], ["我", "wǒ", "wo"], ["，", null, null], ["以", "yǐ", "yi"], ["音", "yīn", "yin"], ["声", "shēng", "sheng"], ["求", "qiú", "qiu"], ["我", "wǒ", "wo"], ["，", null, null], ["是", "shì", "shi"], ["人", "rén", "ren"], ["行", "xíng", "xing"], ["邪", "xié", "xie"], ["道", "dào", "dao"], ["，", null, null], ["不", "bù", "bu"], ["能", "néng", "neng"], ["见", "jiàn", "jian"], ["如", "rú", "ru"], ["来", "lái", "lai"], ["。", null, null]], [["须", "xū", "xu"], ["菩", "pú", "pu"], ["提", "tí", "ti"], ["，", null, null], ["诸", "zhū", "zhu"], ["菩", "pú", "pu"], ["萨", "sà", "sa"], ["摩", "mó", "mo"], ["诃", "hē", "he"], ["萨", "sà", "sa"], ["，", null, null], ["应", "yīng", "ying"], ["如", "rú", "ru"], ["是", "shì", "shi"], ["生", "shēng", "sheng"], ["清", "qīng", "qing"], ["净", "jìng", "jing"], ["心", "xīn", "xin"], ["，", null, null], ["不", "bù", "bu"], ["应", "yīng", "ying"], ["住", "zhù", "zhu"], ["色", "sè", "se"], ["生", "shēng", "sheng"], ["心", "xīn", "xin"], ["，", null, null], ["不", "bù", "bu"], ["应", "yīng", "ying"], ["住", "zhù", "zhu"], ["声", "shēng", "sheng"], ["香", "xiāng", "xiang"], ["味", "wèi", "wei"], ["触", "chù", "chu"], ["法", "fǎ", "fa"], ["生", "shēng", "sheng"], ["心", "xīn", "xin"], ["，", null, null], ["应", "yīng", "ying"], ["无", "wú", "wu"], ["所", "suǒ", "suo"], ["住", "zhù", "zhu"], ["，", null, null], ["而", "ér", "er"], ["生", "shēng", "sheng"], ["其", "qí", "qi"], ["心", "xīn", "xin"], ["。", null, null]], [["须", "xū", "xu"], ["菩", "pú", "pu"], ["提", "tí", "ti"], ["，", null, null], ["若", "ruò", "ruo"], ["菩", "pú", "pu"], ["萨", "sà", "sa"], ["心", "xīn", "xin"], ["住", "zhù", "zhu"], ["于", "yú", "yu"], ["法", "fǎ", "fa"], ["而", "ér", "er"], ["行", "xíng", "xing"], ["布", "bù", "bu"], ["施", "shī", "shi"], ["，", null, null], ["如", "rú", "ru"], ["人", "rén", "ren"], ["入", "rù", "ru"], ["暗", "àn", "an"], ["，", null, null], ["即", "jí", "ji"], ["无", "wú", "wu"], ["所", "suǒ", "suo"], ["见", "jiàn", "jian"], ["。", null, null]], [["若", "ruò", "ruo"], ["菩", "pú", "pu"], ["萨", "sà", "sa"], ["心", "xīn", "xin"], ["不", "bú", "bu"], ["住", "zhù", "zhu"], ["法", "fǎ", "fa"], ["而", "ér", "er"], ["行", "xíng", "xing"], ["布", "bù", "bu"], ["施", "shī", "shi"], ["，", null, null], ["如", "rú", "ru"], ["人", "rén", "ren"], ["有", "yǒu", "you"], ["目", "mù", "mu"], ["，", null, null], ["日", "rì", "ri"], ["光", "guāng", "guang"], ["明", "míng", "ming"], ["照", "zhào", "zhao"], ["，", null, null], ["见", "jiàn", "jian"], ["种", "zhǒng", "zhong"], ["种", "zhǒng", "zhong"], ["色", "sè", "se"], ["。", null, null]], [["凡", "fán", "fan"], ["所", "suǒ", "suo"], ["有", "yǒu", "you"], ["相", "xiāng", "xiang"], ["，", null, null], ["皆", "jiē", "jie"], ["是", "shì", "shi"], ["虚", "xū", "xu"], ["妄", "wàng", "wang"], ["。", null, null]], [["若", "ruò", "ruo"], ["见", "jiàn", "jian"], ["诸", "zhū", "zhu"], ["相", "xiāng", "xiang"], ["非", "fēi", "fei"], ["相", "xiāng", "xiang"], ["，", null, null], ["即", "jí", "ji"], ["见", "jiàn", "jian"], ["如", "rú", "ru"], ["来", "lái", "lai"], ["。", null, null]]]}, {"id": "bashi", "title": "佛说八大人觉经 · 第一觉", "author": "后汉 · 安世高 译", "desc": "八大人觉经开篇第一觉悟。", "hanCount": 60, "sections": [[["为", "wèi", "wei"], ["佛", "fú", "fu"], ["弟", "dì", "di"], ["子", "zǐ", "zi"], ["，", null, null], ["常", "cháng", "chang"], ["于", "yú", "yu"], ["昼", "zhòu", "zhou"], ["夜", "yè", "ye"], ["，", null, null], ["至", "zhì", "zhi"], ["心", "xīn", "xin"], ["诵", "sòng", "song"], ["念", "niàn", "nian"], ["，", null, null], ["八", "bā", "ba"], ["大", "dà", "da"], ["人", "rén", "ren"], ["觉", "jué", "jue"], ["。", null, null]], [["第", "dì", "di"], ["一", "yī", "yi"], ["觉", "jiào", "jiao"], ["悟", "wù", "wu"], ["：", null, null]], [["世", "shì", "shi"], ["间", "jiān", "jian"], ["无", "wú", "wu"], ["常", "cháng", "chang"], ["，", null, null], ["国", "guó", "guo"], ["土", "tǔ", "tu"], ["危", "wēi", "wei"], ["脆", "cuì", "cui"], ["；", null, null]], [["四", "sì", "si"], ["大", "dà", "da"], ["苦", "kǔ", "ku"], ["空", "kōng", "kong"], ["，", null, null], ["五", "wǔ", "wu"], ["阴", "yīn", "yin"], ["无", "wú", "wu"], ["我", "wǒ", "wo"], ["；", null, null]], [["生", "shēng", "sheng"], ["灭", "miè", "mie"], ["变", "biàn", "bian"], ["异", "yì", "yi"], ["，", null, null], ["虚", "xū", "xu"], ["伪", "wěi", "wei"], ["无", "wú", "wu"], ["主", "zhǔ", "zhu"], ["；", null, null]], [["心", "xīn", "xin"], ["是", "shì", "shi"], ["恶", "è", "e"], ["源", "yuán", "yuan"], ["，", null, null], ["形", "xíng", "xing"], ["为", "wèi", "wei"], ["罪", "zuì", "zui"], ["薮", "sǒu", "sou"], ["。", null, null]], [["如", "rú", "ru"], ["是", "shì", "shi"], ["观", "guān", "guan"], ["察", "chá", "cha"], ["，", null, null], ["渐", "jiàn", "jian"], ["离", "lí", "li"], ["生", "shēng", "sheng"], ["死", "sǐ", "si"], ["。", null, null]]]}, {"id": "wangsheng", "title": "往生咒", "author": "刘宋 · 求那跋陀罗 译", "desc": "拔一切业障根本得生净土陀罗尼。", "hanCount": 56, "sections": [[["南", "nā", "na"], ["无", "mó", "mo"], ["阿", "ē", "e"], ["弥", "mí", "mi"], ["陀", "duō", "duo"], ["婆", "pó", "po"], ["夜", "yè", "ye"], ["，", null, null], ["哆", "duō", "duo"], ["他", "tā", "ta"], ["伽", "qié", "qie"], ["多", "duō", "duo"], ["夜", "yè", "ye"], ["，", null, null], ["哆", "duō", "duo"], ["地", "dì", "di"], ["夜", "yè", "ye"], ["他", "tā", "ta"], ["。", null, null]], [["阿", "ē", "e"], ["弥", "mí", "mi"], ["陀", "duō", "duo"], ["毗", "pí", "pi"], ["，", null, null], ["阿", "ē", "e"], ["弥", "mí", "mi"], ["陀", "duō", "duo"], ["悉", "xī", "xi"], ["耽", "dān", "dan"], ["婆", "pó", "po"], ["毗", "pí", "pi"], ["，", null, null], ["阿", "ē", "e"], ["弥", "mí", "mi"], ["唎", "lì", "li"], ["哆", "duō", "duo"], ["毗", "pí", "pi"], ["迦", "jiā", "jia"], ["兰", "lán", "lan"], ["帝", "dì", "di"], ["，", null, null], ["阿", "ē", "e"], ["弥", "mí", "mi"], ["唎", "lì", "li"], ["哆", "duō", "duo"], ["毗", "pí", "pi"], ["迦", "jiā", "jia"], ["兰", "lán", "lan"], ["多", "duō", "duo"], ["，", null, null], ["伽", "qié", "qie"], ["弥", "mí", "mi"], ["腻", "nì", "ni"], ["伽", "qié", "qie"], ["伽", "qié", "qie"], ["那", "nà", "na"], ["枳", "zhǐ", "zhi"], ["多", "duō", "duo"], ["迦", "jiā", "jia"], ["利", "lì", "li"], ["，", null, null], ["娑", "suō", "suo"], ["婆", "pó", "po"], ["诃", "hē", "he"], ["。", null, null]]]}]</script>
+<div id="loading-tip" class="hidden">⏳ 正在载入经文…</div>
+<script id="sutra-data" type="application/json">[{"id": "xinjing", "title": "般若波罗蜜多心经", "author": "唐 · 玄奘 译", "desc": "全文 260 余字，最广为传诵的佛经。", "hanCount": 268, "sections": [[["般", "bō", "bo"], ["若", "rě", "re"], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["蜜", "mì", "mi"], ["多", "duō", "duo"], ["心", "xīn", "xin"], ["经", "jīng", "jing"]], [["观", "guān", "guan"], ["自", "zì", "zi"], ["在", "zài", "zai"], ["菩", "pú", "pu"], ["萨", "sà", "sa"], ["，", null, null], ["行", "xíng", "xing"], ["深", "shēn", "shen"], ["般", "bō", "bo"], ["若", "rě", "re"], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["蜜", "mì", "mi"], ["多", "duō", "duo"], ["时", "shí", "shi"], ["，", null, null], ["照", "zhào", "zhao"], ["见", "jiàn", "jian"], ["五", "wǔ", "wu"], ["蕴", "yùn", "yun"], ["皆", "jiē", "jie"], ["空", "kōng", "kong"], ["，", null, null], ["度", "dù", "du"], ["一", "yī", "yi"], ["切", "qiè", "qie"], ["苦", "kǔ", "ku"], ["厄", "è", "e"], ["。", null, null]], [["舍", "shè", "she"], ["利", "lì", "li"], ["子", "zǐ", "zi"], ["，", null, null], ["色", "sè", "se"], ["不", "bù", "bu"], ["异", "yì", "yi"], ["空", "kōng", "kong"], ["，", null, null], ["空", "kōng", "kong"], ["不", "bù", "bu"], ["异", "yì", "yi"], ["色", "sè", "se"], ["，", null, null], ["色", "sè", "se"], ["即", "jí", "ji"], ["是", "shì", "shi"], ["空", "kōng", "kong"], ["，", null, null], ["空", "kōng", "kong"], ["即", "jí", "ji"], ["是", "shì", "shi"], ["色", "sè", "se"], ["，", null, null], ["受", "shòu", "shou"], ["想", "xiǎng", "xiang"], ["行", "xíng", "xing"], ["识", "shí", "shi"], ["，", null, null], ["亦", "yì", "yi"], ["复", "fù", "fu"], ["如", "rú", "ru"], ["是", "shì", "shi"], ["。", null, null]], [["舍", "shè", "she"], ["利", "lì", "li"], ["子", "zǐ", "zi"], ["，", null, null], ["是", "shì", "shi"], ["诸", "zhū", "zhu"], ["法", "fǎ", "fa"], ["空", "kōng", "kong"], ["相", "xiāng", "xiang"], ["，", null, null], ["不", "bù", "bu"], ["生", "shēng", "sheng"], ["不", "bù", "bu"], ["灭", "miè", "mie"], ["，", null, null], ["不", "bù", "bu"], ["垢", "gòu", "gou"], ["不", "bù", "bu"], ["净", "jìng", "jing"], ["，", null, null], ["不", "bù", "bu"], ["增", "zēng", "zeng"], ["不", "bù", "bu"], ["减", "jiǎn", "jian"], ["。", null, null]], [["是", "shì", "shi"], ["故", "gù", "gu"], ["空", "kōng", "kong"], ["中", "zhōng", "zhong"], ["无", "wú", "wu"], ["色", "sè", "se"], ["，", null, null], ["无", "wú", "wu"], ["受", "shòu", "shou"], ["想", "xiǎng", "xiang"], ["行", "xíng", "xing"], ["识", "shí", "shi"], ["，", null, null], ["无", "wú", "wu"], ["眼", "yǎn", "yan"], ["耳", "ěr", "er"], ["鼻", "bí", "bi"], ["舌", "shé", "she"], ["身", "shēn", "shen"], ["意", "yì", "yi"], ["，", null, null], ["无", "wú", "wu"], ["色", "sè", "se"], ["声", "shēng", "sheng"], ["香", "xiāng", "xiang"], ["味", "wèi", "wei"], ["触", "chù", "chu"], ["法", "fǎ", "fa"], ["，", null, null], ["无", "wú", "wu"], ["眼", "yǎn", "yan"], ["界", "jiè", "jie"], ["，", null, null], ["乃", "nǎi", "nai"], ["至", "zhì", "zhi"], ["无", "wú", "wu"], ["意", "yì", "yi"], ["识", "shí", "shi"], ["界", "jiè", "jie"], ["，", null, null], ["无", "wú", "wu"], ["无", "wú", "wu"], ["明", "míng", "ming"], ["，", null, null], ["亦", "yì", "yi"], ["无", "wú", "wu"], ["无", "wú", "wu"], ["明", "míng", "ming"], ["尽", "jǐn", "jin"], ["，", null, null], ["乃", "nǎi", "nai"], ["至", "zhì", "zhi"], ["无", "wú", "wu"], ["老", "lǎo", "lao"], ["死", "sǐ", "si"], ["，", null, null], ["亦", "yì", "yi"], ["无", "wú", "wu"], ["老", "lǎo", "lao"], ["死", "sǐ", "si"], ["尽", "jǐn", "jin"], ["，", null, null], ["无", "wú", "wu"], ["苦", "kǔ", "ku"], ["集", "jí", "ji"], ["灭", "miè", "mie"], ["道", "dào", "dao"], ["，", null, null], ["无", "wú", "wu"], ["智", "zhì", "zhi"], ["亦", "yì", "yi"], ["无", "wú", "wu"], ["得", "dé", "de"], ["。", null, null]], [["以", "yǐ", "yi"], ["无", "wú", "wu"], ["所", "suǒ", "suo"], ["得", "de", "de"], ["故", "gù", "gu"], ["，", null, null], ["菩", "pú", "pu"], ["提", "tí", "ti"], ["萨", "sà", "sa"], ["埵", "duǒ", "duo"], ["，", null, null], ["依", "yī", "yi"], ["般", "bō", "bo"], ["若", "rě", "re"], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["蜜", "mì", "mi"], ["多", "duō", "duo"], ["故", "gù", "gu"], ["，", null, null], ["心", "xīn", "xin"], ["无", "wú", "wu"], ["罣", "guà", "gua"], ["碍", "ài", "ai"], ["，", null, null], ["无", "wú", "wu"], ["罣", "guà", "gua"], ["碍", "ài", "ai"], ["故", "gù", "gu"], ["，", null, null], ["无", "wú", "wu"], ["有", "yǒu", "you"], ["恐", "kǒng", "kong"], ["怖", "bù", "bu"], ["，", null, null], ["远", "yuǎn", "yuan"], ["离", "lí", "li"], ["颠", "diān", "dian"], ["倒", "dǎo", "dao"], ["梦", "mèng", "meng"], ["想", "xiǎng", "xiang"], ["，", null, null], ["究", "jiū", "jiu"], ["竟", "jìng", "jing"], ["涅", "niè", "nie"], ["槃", "pán", "pan"], ["。", null, null]], [["三", "sān", "san"], ["世", "shì", "shi"], ["诸", "zhū", "zhu"], ["佛", "fú", "fu"], ["，", null, null], ["依", "yī", "yi"], ["般", "bō", "bo"], ["若", "rě", "re"], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["蜜", "mì", "mi"], ["多", "duō", "duo"], ["故", "gù", "gu"], ["，", null, null], ["得", "dé", "de"], ["阿", "ē", "e"], ["耨", "nòu", "nou"], ["多", "duō", "duo"], ["罗", "luó", "luo"], ["三", "sān", "san"], ["藐", "miǎo", "miao"], ["三", "sān", "san"], ["菩", "pú", "pu"], ["提", "tí", "ti"], ["。", null, null]], [["故", "gù", "gu"], ["知", "zhī", "zhi"], ["般", "bō", "bo"], ["若", "rě", "re"], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["蜜", "mì", "mi"], ["多", "duō", "duo"], ["，", null, null], ["是", "shì", "shi"], ["大", "dà", "da"], ["神", "shén", "shen"], ["咒", "zhòu", "zhou"], ["，", null, null], ["是", "shì", "shi"], ["大", "dà", "da"], ["明", "míng", "ming"], ["咒", "zhòu", "zhou"], ["，", null, null], ["是", "shì", "shi"], ["无", "wú", "wu"], ["上", "shàng", "shang"], ["咒", "zhòu", "zhou"], ["，", null, null], ["是", "shì", "shi"], ["无", "wú", "wu"], ["等", "děng", "deng"], ["等", "děng", "deng"], ["咒", "zhòu", "zhou"], ["，", null, null], ["能", "néng", "neng"], ["除", "chú", "chu"], ["一", "yī", "yi"], ["切", "qiè", "qie"], ["苦", "kǔ", "ku"], ["，", null, null], ["真", "zhēn", "zhen"], ["实", "shí", "shi"], ["不", "bù", "bu"], ["虚", "xū", "xu"], ["。", null, null]], [["故", "gù", "gu"], ["说", "shuō", "shuo"], ["般", "bō", "bo"], ["若", "rě", "re"], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["蜜", "mì", "mi"], ["多", "duō", "duo"], ["咒", "zhòu", "zhou"], ["，", null, null], ["即", "jí", "ji"], ["说", "shuō", "shuo"], ["咒", "zhòu", "zhou"], ["曰", "yuē", "yue"], ["：", null, null]], [["揭", "jiē", "jie"], ["谛", "dì", "di"], ["揭", "jiē", "jie"], ["谛", "dì", "di"], ["，", null, null], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["揭", "jiē", "jie"], ["谛", "dì", "di"], ["，", null, null], ["波", "bō", "bo"], ["罗", "luó", "luo"], ["僧", "sēng", "seng"], ["揭", "jiē", "jie"], ["谛", "dì", "di"], ["，", null, null], ["菩", "pú", "pu"], ["提", "tí", "ti"], ["萨", "sà", "sa"], ["婆", "pó", "po"], ["诃", "hē", "he"], ["。", null, null]]]}, {"id": "wangsheng", "title": "往生咒", "author": "刘宋 · 求那跋陀罗 译", "desc": "拔一切业障根本得生净土陀罗尼。", "hanCount": 56, "sections": [[["南", "nā", "na"], ["无", "mó", "mo"], ["阿", "ē", "e"], ["弥", "mí", "mi"], ["陀", "duō", "duo"], ["婆", "pó", "po"], ["夜", "yè", "ye"], ["，", null, null], ["哆", "duō", "duo"], ["他", "tā", "ta"], ["伽", "qié", "qie"], ["多", "duō", "duo"], ["夜", "yè", "ye"], ["，", null, null], ["哆", "duō", "duo"], ["地", "dì", "di"], ["夜", "yè", "ye"], ["他", "tā", "ta"], ["。", null, null]], [["阿", "ē", "e"], ["弥", "mí", "mi"], ["陀", "duō", "duo"], ["毗", "pí", "pi"], ["，", null, null], ["阿", "ē", "e"], ["弥", "mí", "mi"], ["陀", "duō", "duo"], ["悉", "xī", "xi"], ["耽", "dān", "dan"], ["婆", "pó", "po"], ["毗", "pí", "pi"], ["，", null, null], ["阿", "ē", "e"], ["弥", "mí", "mi"], ["唎", "lì", "li"], ["哆", "duō", "duo"], ["毗", "pí", "pi"], ["迦", "jiā", "jia"], ["兰", "lán", "lan"], ["帝", "dì", "di"], ["，", null, null], ["阿", "ē", "e"], ["弥", "mí", "mi"], ["唎", "lì", "li"], ["哆", "duō", "duo"], ["毗", "pí", "pi"], ["迦", "jiā", "jia"], ["兰", "lán", "lan"], ["多", "duō", "duo"], ["，", null, null], ["伽", "qié", "qie"], ["弥", "mí", "mi"], ["腻", "nì", "ni"], ["伽", "qié", "qie"], ["伽", "qié", "qie"], ["那", "nà", "na"], ["枳", "zhǐ", "zhi"], ["多", "duō", "duo"], ["迦", "jiā", "jia"], ["利", "lì", "li"], ["，", null, null], ["娑", "suō", "suo"], ["婆", "pó", "po"], ["诃", "hē", "he"], ["。", null, null]]]}]</script>
 <script>
 'use strict';
 
 // ============================================================
 // 数据与常量
 // ============================================================
+// 内置短经（内联数据）；大部经文只在 EXTERNAL_SUTRAS 登记元数据，点击时才懒加载正文
 var SUTRAS = JSON.parse(document.getElementById('sutra-data').textContent);
+
+// ---- 大部经注册表：src 指向 data/*.js（window.__SUTRA_LOAD__ 格式）----
+// script 注入加载，file:// 双击打开也不受 CORS 限制（fetch 会）
+var EXTERNAL_SUTRAS = [
+    {
+        id: 'jingang_full',
+        title: '金刚般若波罗蜜经',
+        author: '姚秦 · 鸠摩罗什 译',
+        desc: '全文三十二分，可选分练习。',
+        src: 'data/jingang_full.js',
+        hanCount: 5100,   // 估值，加载完成后以真实数据为准
+        chapters: 32      // 未加载时 chapters 是数字（仅展示用）
+    }
+    // 阿弥陀经：用 tools/txt2sutra.py 生成 data/amituo_full.js 后，在此追加一条
+];
+
+// 懒加载回调：数据文件执行时把完整数据登记到这里
+var LOADED_SUTRAS = {};
+window.__SUTRA_LOAD__ = function (data) {
+    if (data && data.id) LOADED_SUTRAS[data.id] = data;
+};
+
+// 加载一部大经（已加载则直接返回），Promise<完整数据>
+function loadSutraData(meta) {
+    if (LOADED_SUTRAS[meta.id]) return Promise.resolve(LOADED_SUTRAS[meta.id]);
+    return new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = meta.src;
+        s.charset = 'utf-8';
+        s.onload = function () {
+            s.remove();
+            var d = LOADED_SUTRAS[meta.id];
+            if (d) resolve(d);
+            else reject(new Error('数据文件未调用 __SUTRA_LOAD__：' + meta.src));
+        };
+        s.onerror = function () { s.remove(); reject(new Error('经文数据加载失败：' + meta.src)); };
+        document.head.appendChild(s);
+    });
+}
+
+// 统一数据形状：内置经无 chapters 字段，包装成单章结构
+SUTRAS.forEach(function (s) {
+    if (!s.chapters) s.chapters = [{ title: '全文', sections: s.sections }];
+});
+EXTERNAL_SUTRAS.forEach(function (m) { SUTRAS.push(m); });
 
 var THEME_STORAGE = 'example_typing_theme_v1';   // 与 e.html / fc.html 共用
 var KEY_VOLUME_STORAGE = 'typingKeyVolume';      // 与 typing.html 共用
-var PROGRESS_KEY = 'sutra_typing_progress_v2';   // 断点续打（按模式分开）
-var BEST_KEY = 'sutra_typing_best_v2';           // 每部经最佳成绩（按模式分开）
+var PROGRESS_KEY = 'sutra_typing_progress_v3';   // 断点续打（按模式分开；v3 起含 chIdx）
+var BEST_KEY = 'sutra_typing_best_v2';           // 每部经最佳成绩（按模式分开，结构未变沿用 v2）
 var MODE_KEY = 'sutra_typing_mode_v1';           // 上次选择的模式
 var MINIMAL_KEY = 'sutra_typing_minimal_v1';     // 极简模式开关
 
-var MODE = 'pinyin';   // 'pinyin' 拼音跟打 | 'copy' 对照抄写 | 'recite' 默写
+var MODE = 'copy';   // 'copy' 对照抄写 | 'recite' 默写
 var MINIMAL = false;   // 极简模式：隐藏非必要元素
 
 // 切换极简模式（隐藏/恢复顶栏、按钮、进度条等非必要元素）
@@ -443,27 +486,25 @@ function setMinimal(on) {
     document.body.classList.toggle('minimal', on);
     try { localStorage.setItem(MINIMAL_KEY, on ? '1' : '0'); } catch (e) {}
     // 极简下隐藏了退出按钮，把焦点还给输入框方便继续
-    if (on && S && !S.finished && (MODE === 'copy' || MODE === 'recite')) {
+    if (on && S && !S.finished) {
         els.copyInput.focus();
     }
 }
 
 var els = {
     pageSelect: document.getElementById('page-select'),
+    pageChapter: document.getElementById('page-chapter'),
     pageGame: document.getElementById('page-game'),
     pageEnd: document.getElementById('page-end'),
     grid: document.getElementById('sutra-grid'),
+    chapterGrid: document.getElementById('chapter-grid'),
+    chapterHeadTitle: document.getElementById('chapter-head-title'),
+    loadingTip: document.getElementById('loading-tip'),
     textZone: document.getElementById('text-zone'),
-    bufText: document.getElementById('buf-text'),
-    bufHint: document.getElementById('buf-hint'),
-    combo: document.getElementById('combo'),
     progressFill: document.getElementById('progress-fill'),
     gameTitle: document.getElementById('game-title'),
     gameSub: document.getElementById('game-sub'),
-    imeWarn: document.getElementById('ime-warn'),
-    copyWrap: document.getElementById('copy-wrap'),
     copyInput: document.getElementById('copy-input'),
-    bufferBar: document.getElementById('buffer-bar'),
     hintLine: document.getElementById('hint-line'),
     modeSwitch: document.getElementById('mode-switch'),
     pageHeadTip: document.getElementById('page-head-tip'),
@@ -480,6 +521,8 @@ var els = {
     keyVolume: document.getElementById('key-volume'),
     keyVolumeLabel: document.getElementById('key-volume-label'),
     btnTheme: document.getElementById('btn-theme'),
+    btnPrevSec: document.getElementById('btn-prev-sec'),
+    btnNextSec: document.getElementById('btn-next-sec'),
 };
 
 // ============================================================
@@ -562,24 +605,27 @@ function restoreVolume() {
 var S = null;   // 当前局状态
 var timer = null;
 
-function newGame(sutra, startSec) {
+// fullBook=true 时跨章连续打完整本，否则只打 sutra.chapters[chIdx] 一章
+function newGame(sutra, chIdx, startSec, fullBook) {
+    var scope = fullBook ? sutra.chapters : [sutra.chapters[chIdx || 0]];
     var totalHan = 0;
-    sutra.sections.forEach(function (sec) {
-        sec.forEach(function (t) { if (t[1]) totalHan++; });
+    scope.forEach(function (ch) {
+        ch.sections.forEach(function (sec) {
+            sec.forEach(function (t) { if (t[1]) totalHan++; });
+        });
     });
     S = {
         sutra: sutra,
+        chIdx: chIdx || 0,
         secIdx: startSec || 0,
+        fullBook: !!fullBook,
         tokIdx: 0,
-        buffer: '',
         startTime: null,
         elapsed: 0,
         typedHan: 0,      // 已正确打完的汉字数
         totalHan: totalHan,
         correctKeys: 0,
         wrongKeys: 0,
-        combo: 0,
-        maxCombo: 0,
         wrongMap: {},     // 字 -> {py, n}
         finished: false,
         nodes: [],
@@ -587,7 +633,87 @@ function newGame(sutra, startSec) {
         copyWrongPos: {}, // 抄写模式：已记录的错误位置（避免重复计数）
         copyDoneBase: 0,  // 抄写模式：已完成句子的累计正确字数
         copyAdvancing: false, // 抄写模式：正在切句防抖标记
+        originBase: 0,    // 开局位置之前的累计汉字数（续打/跳句时用于修正统计）
     };
+    S.originBase = absBase();
+}
+
+// ---- 句子定位工具（供上/下一句跳转使用）----
+// 本局范围内的章节列表：全本为全部章，否则只有当前章
+function scopeChapters() {
+    return S.fullBook ? S.sutra.chapters : [S.sutra.chapters[S.chIdx]];
+}
+// 把范围内的句子摊平成一维数组
+function scopeSections() {
+    var list = [];
+    scopeChapters().forEach(function (ch) {
+        ch.sections.forEach(function (sec) { list.push(sec); });
+    });
+    return list;
+}
+// 当前章在范围内之前共有多少句
+function secOffset() {
+    if (!S.fullBook) return 0;
+    var n = 0;
+    for (var i = 0; i < S.chIdx; i++) n += S.sutra.chapters[i].sections.length;
+    return n;
+}
+function hanCount(sec) {
+    var n = 0;
+    sec.forEach(function (t) { if (t[1]) n++; });
+    return n;
+}
+// 当前句之前（范围内）的累计汉字数
+function absBase() {
+    var list = scopeSections();
+    var cur = secOffset() + S.secIdx;
+    var n = 0;
+    for (var i = 0; i < cur && i < list.length; i++) n += hanCount(list[i]);
+    return n;
+}
+// 是否处于范围的首句 / 末句
+function atFirstSec() {
+    return S.secIdx === 0 && (!S.fullBook || S.chIdx === 0);
+}
+function atLastSec() {
+    var ch = curChapter();
+    var last = S.secIdx >= ch.sections.length - 1;
+    return last && (!S.fullBook || S.chIdx >= S.sutra.chapters.length - 1);
+}
+
+// 跳转 delta 句（-1 上一句 / +1 下一句），跨章自动衔接
+function gotoSection(delta) {
+    if (!S || S.finished || S.copyAdvancing) return;
+    if (delta < 0 && atFirstSec()) return;
+    if (delta > 0 && atLastSec()) return;
+
+    var nci = S.chIdx, ni = S.secIdx + delta;
+    if (ni < 0) {
+        nci--;
+        ni = S.sutra.chapters[nci].sections.length - 1;
+    } else if (ni >= curChapter().sections.length) {
+        nci++;
+        ni = 0;
+    }
+    S.chIdx = nci;
+    S.secIdx = ni;
+    S.tokIdx = 0;
+    // 修正累计字数（不允许为负：往回跳到开局之前的句子时归零）
+    S.copyDoneBase = Math.max(0, absBase() - S.originBase);
+    S.correctKeys = S.copyDoneBase;
+    S.typedHan = S.copyDoneBase;
+
+    saveProgress(S.sutra.id, { chIdx: S.chIdx, secIdx: S.secIdx, ts: Date.now() });
+    renderSection();
+    els.copyInput.focus();
+}
+
+// 首句禁用“上一句”，末句禁用“下一句”
+function updateNavButtons() {
+    if (!els.btnPrevSec || !els.btnNextSec) return;
+    var on = !!(S && !S.finished);
+    els.btnPrevSec.disabled = !on || atFirstSec();
+    els.btnNextSec.disabled = !on || atLastSec();
 }
 
 // ============================================================
@@ -603,11 +729,9 @@ function renderSelect() {
     Array.prototype.forEach.call(els.modeSwitch.querySelectorAll('button'), function (b) {
         b.classList.toggle('on', b.getAttribute('data-mode') === MODE);
     });
-    els.pageHeadTip.innerHTML = MODE === 'copy'
-        ? '屏幕只显示经文（隐藏拼音），用<b>中文输入法</b>在输入框逐字抄写，整句抄对自动进入下一句'
-        : MODE === 'recite'
+    els.pageHeadTip.innerHTML = MODE === 'recite'
         ? '屏幕<b>不显示经文</b>，凭记忆默写；写对的字显示绿色，写错显示红色，不计成绩'
-        : '屏幕显示经文与拼音，切换到<b>英文输入法</b>后直接敲拼音字母即可跟打';
+        : '屏幕显示经文与拼音，用<b>中文输入法</b>在输入框逐字抄写，整句抄对自动进入下一句';
     els.grid.innerHTML = '';
     SUTRAS.forEach(function (sutra, i) {
         var card = document.createElement('div');
@@ -615,14 +739,23 @@ function renderSelect() {
         card.setAttribute('role', 'button');
         card.tabIndex = 0;
 
+        // 大部经未加载时 chapters 是数字（仅展示）；已加载/内置经是数组
+        var loaded = Array.isArray(sutra.chapters);
+        var chCount = loaded ? sutra.chapters.length : (sutra.chapters || 1);
+        var secCount = loaded
+            ? sutra.chapters.reduce(function (n, ch) { return n + ch.sections.length; }, 0)
+            : null;
+
         var b = best[sutra.id];
         var p = prog[sutra.id];
-        var meta = '<span class="chip">' + sutra.hanCount + ' 字</span>'
-            + '<span class="chip">' + sutra.sections.length + ' 句</span>'
+        var meta = '<span class="chip">' + sutra.hanCount + (loaded ? '' : '+') + ' 字</span>'
+            + (chCount > 1 ? '<span class="chip">' + chCount + ' 分</span>' : '')
+            + (secCount ? '<span class="chip">' + secCount + ' 句</span>' : '')
             + '<span class="chip">约 ' + Math.max(1, Math.round(sutra.hanCount / 40)) + ' 分钟</span>';
+        if (!loaded) meta += '<span class="chip">📦 点击时加载</span>';
         if (b) meta += '<span class="chip best">🏆 ' + b.acc + '% · ' + b.cpm + ' 字/分</span>';
-        if (p && p.secIdx > 0 && p.secIdx < sutra.sections.length) {
-            meta += '<span class="chip">⏸ 上次到第 ' + (p.secIdx + 1) + ' 句</span>';
+        if (p && (p.secIdx > 0 || p.chIdx > 0)) {
+            meta += '<span class="chip">⏸ 上次到' + (chCount > 1 ? '第 ' + ((p.chIdx || 0) + 1) + ' 分' : '') + '第 ' + (p.secIdx + 1) + ' 句</span>';
         }
 
         card.innerHTML =
@@ -632,8 +765,8 @@ function renderSelect() {
             '<div class="sutra-meta">' + meta + '</div>' +
             '<div class="sutra-actions">' +
                 '<button class="btn primary sm" data-act="start" data-i="' + i + '">开始</button>' +
-                (p && p.secIdx > 0 && p.secIdx < sutra.sections.length
-                    ? '<button class="btn ghost sm" data-act="resume" data-i="' + i + '">续打第 ' + (p.secIdx + 1) + ' 句</button>'
+                (p && (p.secIdx > 0 || p.chIdx > 0)
+                    ? '<button class="btn ghost sm" data-act="resume" data-i="' + i + '">续打</button>'
                     : '') +
             '</div>';
         els.grid.appendChild(card);
@@ -641,14 +774,70 @@ function renderSelect() {
 }
 
 // ============================================================
+// 选分页（多章经文）
+// ============================================================
+var chapterSutra = null;   // 当前选分页对应的经文（已加载完整数据）
+
+function renderChapters(sutra) {
+    chapterSutra = sutra;
+    els.chapterHeadTitle.textContent = sutra.title;
+    var best = getBest(), prog = getProgress()[sutra.id] || {};
+    els.chapterGrid.innerHTML = '';
+    sutra.chapters.forEach(function (ch, ci) {
+        var han = 0;
+        ch.sections.forEach(function (sec) { sec.forEach(function (t) { if (t[1]) han++; }); });
+        var isResume = (prog.chIdx || 0) === ci && prog.secIdx > 0 && prog.secIdx < ch.sections.length;
+        var card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'chapter-card' + (isResume ? ' resume' : '');
+        card.setAttribute('data-ci', ci);
+        card.innerHTML = '<div class="cn">' + escapeHtml(ch.title) + '</div>'
+            + '<div class="cm">' + ch.sections.length + ' 句 · ' + han + ' 字 · 约 ' + Math.max(1, Math.round(han / 40)) + ' 分钟'
+            + (isResume ? '<br>⏸ 续打第 ' + (prog.secIdx + 1) + ' 句' : '')
+            + (best[sutra.id + '#' + ci] ? '<br>🏆 ' + best[sutra.id + '#' + ci].acc + '%' : '')
+            + '</div>';
+        els.chapterGrid.appendChild(card);
+    });
+}
+
+// 点击经文卡片：多章 → 选分页；单章 → 直接开局；未加载 → 先懒加载
+function openSutra(sutra, act) {
+    var prog = getProgress()[sutra.id];
+    if (!Array.isArray(sutra.chapters)) {
+        els.loadingTip.classList.remove('hidden');
+        loadSutraData(sutra).then(function (data) {
+            els.loadingTip.classList.add('hidden');
+            // 用完整数据替换注册表里的元数据占位
+            var i = SUTRAS.findIndex(function (x) { return x.id === data.id; });
+            if (i >= 0) SUTRAS[i] = data; else SUTRAS.push(data);
+            openSutra(data, act);   // 重新进入（此时已是加载好的数据）
+        }).catch(function (err) {
+            els.loadingTip.classList.add('hidden');
+            alert(err.message);
+        });
+        return;
+    }
+    if (sutra.chapters.length > 1) {
+        if (act === 'resume' && prog) {
+            startSutra(sutra, prog.chIdx || 0, prog.secIdx || 0, false);
+        } else {
+            renderChapters(sutra);
+            showPage('chapter');
+        }
+        return;
+    }
+    startSutra(sutra, 0, act === 'resume' && prog ? (prog.secIdx || 0) : 0, false);
+}
+
+// ============================================================
 // 渲染当前句
 // ============================================================
-function curSection() { return S.sutra.sections[S.secIdx]; }
+function curChapter() { return S.sutra.chapters[S.chIdx]; }
+function curSection() { return curChapter().sections[S.secIdx]; }
 
 function renderSection() {
     var sec = curSection();
     els.textZone.innerHTML = '';
-    els.textZone.classList.toggle('copy', MODE === 'copy');
     els.textZone.classList.toggle('recite', MODE === 'recite');
     S.nodes = [];
     S.copyTargets = [];
@@ -668,13 +857,9 @@ function renderSection() {
     });
     // 跳过开头标点
     skipPunct();
-    if (MODE === 'copy' || MODE === 'recite') {
-        els.copyInput.value = '';
-        if (MODE === 'recite') updateReciteState();
-        else updateCopyState();
-    } else {
-        updateTokenState();
-    }
+    els.copyInput.value = '';
+    if (MODE === 'recite') updateReciteState();
+    else updateCopyState();
     updateHead();
 }
 
@@ -695,53 +880,35 @@ function skipPunct() {
 function nextSection() {
     S.secIdx++;
     S.tokIdx = 0;
-    S.buffer = '';
-    if (S.secIdx >= S.sutra.sections.length) {
-        finishGame();
-        return;
+    if (S.secIdx >= curChapter().sections.length) {
+        // 本章打完：全本模式下进入下一章，否则结算
+        if (S.fullBook && S.chIdx + 1 < S.sutra.chapters.length) {
+            S.chIdx++;
+            S.secIdx = 0;
+        } else {
+            finishGame();
+            return;
+        }
     }
-    saveProgress(S.sutra.id, { secIdx: S.secIdx, ts: Date.now() });
+    saveProgress(S.sutra.id, { chIdx: S.chIdx, secIdx: S.secIdx, ts: Date.now() });
     renderSection();
-    if (MODE === 'copy' || MODE === 'recite') els.copyInput.focus();
+    els.copyInput.focus();
 }
 
 function updateHead() {
-    var secNo = Math.min(S.secIdx + 1, S.sutra.sections.length);
+    var ch = curChapter();
+    var multi = S.sutra.chapters.length > 1;
+    var secNo = Math.min(S.secIdx + 1, ch.sections.length);
     els.gameTitle.textContent = S.sutra.title;
-    els.gameSub.textContent = S.sutra.author + ' · 第 ' + secNo + ' / ' + S.sutra.sections.length + ' 句';
-    els.statSutra.textContent = S.sutra.title;
+    els.gameSub.textContent = S.sutra.author
+        + (multi ? ' · ' + ch.title : '')
+        + ' · 第 ' + secNo + ' / ' + ch.sections.length + ' 句';
+    els.statSutra.textContent = S.sutra.title + (multi ? ' · ' + ch.title : '');
     els.statSec.textContent = secNo;
-    els.statSecTotal.textContent = S.sutra.sections.length;
+    els.statSecTotal.textContent = ch.sections.length;
     var pct = S.totalHan ? (S.typedHan / S.totalHan * 100) : 0;
     els.progressFill.style.width = pct.toFixed(1) + '%';
-}
-
-// 更新当前字高亮 + 拼音缓冲匹配显示
-function updateTokenState() {
-    S.nodes.forEach(function (n, i) {
-        n.classList.remove('cur');
-        n.classList.remove('err');
-    });
-    var sec = curSection();
-    if (!sec || S.tokIdx >= sec.length) return;
-    var node = S.nodes[S.tokIdx];
-    if (!node) return;
-    node.classList.add('cur');
-
-    var tok = sec[S.tokIdx];
-    var target = tok[2] || '';      // 无声调，用于匹配
-    var toned = tok[1] || '';       // 带声调，用于显示
-    var pyEl = node.querySelector('.py');
-    var buf = S.buffer;
-    if (buf && target.indexOf(buf) === 0) {
-        pyEl.innerHTML = '<span class="hit">' + escapeHtml(toned.slice(0, buf.length)) + '</span>'
-            + escapeHtml(toned.slice(buf.length));
-    } else {
-        pyEl.textContent = toned;
-    }
-    els.bufText.innerHTML = buf ? escapeHtml(buf) : '<span style="color:var(--text-sub);font-weight:400;">等待输入…</span>';
-    els.bufHint.innerHTML = '下一字 <b>' + escapeHtml(tok[0]) + '</b> ' + escapeHtml(toned);
-    updateStats();
+    updateNavButtons();
 }
 
 function updateStats() {
@@ -751,12 +918,6 @@ function updateStats() {
     var mins = S.elapsed / 60;
     els.statCpm.textContent = mins > 0 ? Math.round(S.typedHan / mins) : 0;
     els.statTime.textContent = fmtTime(S.elapsed);
-    if (S.combo >= 3) {
-        els.combo.textContent = '🔥 连击 ' + S.combo;
-        els.combo.classList.add('on');
-    } else {
-        els.combo.classList.remove('on');
-    }
 }
 
 function ensureTimer() {
@@ -798,7 +959,6 @@ function updateCopyState() {
                 if (S.copyWrongPos[i] === undefined) {
                     S.copyWrongPos[i] = true;
                     S.wrongKeys++;
-                    S.combo = 0;
                     var tok = sec[S.copyTargets[i]];
                     var key = tok[0] + '|' + tok[1];
                     S.wrongMap[key] = (S.wrongMap[key] || 0) + 1;
@@ -816,12 +976,6 @@ function updateCopyState() {
     while (ok < val.length && ok < target.length && val[ok] === target[ok]) ok++;
     S.correctKeys = S.copyDoneBase + ok;   // 抄写模式以“字”为单位累计
     S.typedHan = S.copyDoneBase + ok;
-    S.combo = ok;
-    if (S.combo > S.maxCombo) S.maxCombo = S.combo;
-
-    els.bufText.innerHTML = val ? escapeHtml(val) : '<span style="color:var(--text-sub);font-weight:400;">等待抄写…</span>';
-    var curCh = val.length < target.length ? target[val.length] : '—';
-    els.bufHint.innerHTML = '下一字 <b>' + escapeHtml(curCh) + '</b>';
     updateStats();
 
     // 整句抄对 → 进下一句（防抖：260ms 内重复 input 不重复推进）
@@ -876,77 +1030,27 @@ function updateReciteState() {
 }
 
 // ============================================================
-// 按键处理
+// 按键处理（仅 Esc 退出/退出极简，输入由 input 事件处理）
 // ============================================================
 function onKey(e) {
+    // Alt + ←/→：上一句 / 下一句
+    if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        if (!S || S.finished || els.pageGame.classList.contains('hidden')) return;
+        e.preventDefault();
+        gotoSection(e.key === 'ArrowLeft' ? -1 : 1);
+        return;
+    }
+    if (e.key !== 'Escape') return;
+    // 选分页：Esc 退回选经
+    if (!els.pageChapter.classList.contains('hidden')) {
+        e.preventDefault();
+        showPage('select');
+        return;
+    }
     if (!S || S.finished || els.pageGame.classList.contains('hidden')) return;
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-
-    if (e.key === 'Escape') {
-        e.preventDefault();
-        if (MINIMAL) setMinimal(false);   // 极简下 Esc 先退出极简
-        else quitGame();
-        return;
-    }
-    if (MODE === 'copy' || MODE === 'recite') return;   // 由 input 事件处理
-    if (e.key === 'Backspace') {
-        e.preventDefault();
-        if (S.buffer) { S.buffer = S.buffer.slice(0, -1); updateTokenState(); }
-        return;
-    }
-    if (!/^[a-zA-Z]$/.test(e.key)) return;
     e.preventDefault();
-    ensureTimer();
-
-    var sec = curSection();
-    if (!sec || S.tokIdx >= sec.length) return;
-    var target = sec[S.tokIdx][2] || '';
-    var ch = e.key.toLowerCase();
-    playKeyClick(getKeyVolume());
-
-    if (target.indexOf(S.buffer + ch) === 0) {
-        S.buffer += ch;
-        S.correctKeys++;
-        S.combo++;
-        if (S.combo > S.maxCombo) S.maxCombo = S.combo;
-        if (S.buffer === target) {
-            // 整字打完
-            S.nodes[S.tokIdx].classList.remove('cur');
-            S.nodes[S.tokIdx].classList.add('done');
-            S.nodes[S.tokIdx].querySelector('.py').textContent = sec[S.tokIdx][1] || target;
-            S.typedHan++;
-            S.tokIdx++;
-            S.buffer = '';
-            skipPunct();
-            updateHead();
-            if (!S.finished) updateTokenState();
-        } else {
-            updateTokenState();
-        }
-    } else {
-        // 敲错
-        S.wrongKeys++;
-        S.combo = 0;
-        var tok = sec[S.tokIdx];
-        var key = tok[0] + '|' + tok[1];
-        S.wrongMap[key] = (S.wrongMap[key] || 0) + 1;
-        var node = S.nodes[S.tokIdx];
-        node.classList.add('err');
-        setTimeout(function () { node.classList.remove('err'); }, 230);
-        updateStats();
-    }
-}
-
-// IME 组合检测：拼音模式下中文输入法 keydown 的 key 为 'Process'
-var imeCount = 0;
-function detectIme(e) {
-    if (!S || S.finished || MODE !== 'pinyin') return;
-    if (e.key === 'Process' || e.isComposing || e.keyCode === 229) {
-        imeCount++;
-        if (imeCount >= 2) els.imeWarn.classList.add('on');
-    } else {
-        imeCount = 0;
-    }
+    if (MINIMAL) setMinimal(false);   // 极简下 Esc 先退出极简
+    else quitGame();
 }
 
 // ============================================================
@@ -956,14 +1060,20 @@ function finishGame() {
     S.finished = true;
     if (timer) { clearInterval(timer); timer = null; }
     S.elapsed = S.startTime ? (Date.now() - S.startTime) / 1000 : 0;
+    updateNavButtons();   // 结算后禁用上/下一句
 
     // 清除续打记录
     saveProgress(S.sutra.id, null);
 
+    // 成绩记录 key：单章练习记到 "经id#章idx"，全本/单章经记到 "经id"
+    var multi = S.sutra.chapters.length > 1;
+    var scoreKey = (multi && !S.fullBook) ? S.sutra.id + '#' + S.chIdx : S.sutra.id;
+    var scopeName = (multi && !S.fullBook) ? curChapter().title : (S.fullBook ? '全本' : '');
+
     // 默写模式：不需要结果统计，只显示简单完成页
     if (MODE === 'recite') {
         els.endTitle.textContent = '圆满';
-        els.endSub.textContent = S.sutra.title + ' · ' + S.sutra.author + ' · 默写';
+        els.endSub.textContent = S.sutra.title + (scopeName ? ' · ' + scopeName : '') + ' · ' + S.sutra.author + ' · 默写';
         els.endGrid.innerHTML = '';
         document.getElementById('wrong-box').classList.add('hidden');
         showPage('end');
@@ -978,20 +1088,18 @@ function finishGame() {
 
     // 更新最佳
     var best = getBest();
-    var prev = best[S.sutra.id];
+    var prev = best[scoreKey];
     var isNew = !prev || acc > prev.acc || (acc === prev.acc && cpm > prev.cpm);
-    if (isNew) saveBest(S.sutra.id, { acc: acc, cpm: cpm, time: Math.round(S.elapsed) });
+    if (isNew) saveBest(scoreKey, { acc: acc, cpm: cpm, time: Math.round(S.elapsed) });
 
     els.endTitle.textContent = isNew ? '✦ 新纪录 · 圆满 ✦' : '圆满';
-    els.endSub.textContent = S.sutra.title + ' · ' + S.sutra.author
-        + ' · ' + (MODE === 'copy' ? '对照抄写' : '拼音跟打');
+    els.endSub.textContent = S.sutra.title + (scopeName ? ' · ' + scopeName : '') + ' · ' + S.sutra.author + ' · 对照抄写';
     els.endGrid.innerHTML = [
         ['用时', fmtTime(S.elapsed), ''],
         ['准确率', acc + '%', acc >= 95 ? 'good' : (acc < 80 ? 'bad' : '')],
-        [MODE === 'copy' ? '速度' : '速度', cpm + ' 字/分', ''],
+        ['速度', cpm + ' 字/分', ''],
         ['汉字数', S.typedHan, ''],
-        ['最高连击', S.maxCombo, ''],
-        [MODE === 'copy' ? '错字数' : '敲错次数', S.wrongKeys, S.wrongKeys === 0 ? 'good' : 'bad'],
+        ['错字数', S.wrongKeys, S.wrongKeys === 0 ? 'good' : 'bad'],
     ].map(function (c) {
         return '<div class="end-cell ' + c[2] + '"><div class="v">' + c[1] + '</div><div class="k">' + c[0] + '</div></div>';
     }).join('');
@@ -1014,6 +1122,7 @@ function finishGame() {
 // ============================================================
 function showPage(name) {
     els.pageSelect.classList.toggle('hidden', name !== 'select');
+    els.pageChapter.classList.toggle('hidden', name !== 'chapter');
     els.pageGame.classList.toggle('hidden', name !== 'game');
     els.pageEnd.classList.toggle('hidden', name !== 'end');
     // 默写模式隐藏结果统计项
@@ -1031,35 +1140,30 @@ function showPage(name) {
     if (name === 'end') els.pageEnd.querySelector('.end-card').classList.add('fade-in');
 }
 
-function startSutra(sutra, startSec) {
+function startSutra(sutra, chIdx, startSec, fullBook) {
     if (timer) { clearInterval(timer); timer = null; }
-    newGame(sutra, startSec);
-    els.imeWarn.classList.remove('on');
-    imeCount = 0;
+    newGame(sutra, chIdx, startSec, fullBook);
     // 模式相关 UI
-    var isCopy = MODE === 'copy';
     var isRecite = MODE === 'recite';
-    els.copyWrap.classList.toggle('hidden', !isCopy && !isRecite);
-    els.bufferBar.classList.toggle('hidden', isCopy || isRecite);
     els.copyInput.placeholder = isRecite
         ? '凭记忆默写经文，写对显绿、写错显红…'
         : '用中文输入法在此逐字抄写经文…';
     els.hintLine.innerHTML = isRecite
-        ? '凭记忆默写 · 对绿错红 · 整句写对自动下一句 · <kbd>Esc</kbd> 退出'
-        : isCopy
-        ? '用中文输入法逐字抄写 · 错字标红波浪线 · 整句抄对自动下一句 · <kbd>Esc</kbd> 退出'
-        : '敲拼音字母跟打 · <kbd>Backspace</kbd> 删除 · <kbd>Esc</kbd> 退出 · 标点自动跳过';
+        ? '凭记忆默写 · 对绿错红 · 整句写对自动下一句 · <kbd>Alt</kbd>+<kbd>←</kbd>/<kbd>→</kbd> 上/下一句 · <kbd>Esc</kbd> 退出'
+        : '用中文输入法逐字抄写 · 错字标红波浪线 · 整句抄对自动下一句 · <kbd>Alt</kbd>+<kbd>←</kbd>/<kbd>→</kbd> 上/下一句 · <kbd>Esc</kbd> 退出';
     showPage('game');
     renderSection();
-    if (isCopy || isRecite) els.copyInput.focus();
+    updateNavButtons();
+    els.copyInput.focus();
 }
 
 function quitGame() {
     if (timer) { clearInterval(timer); timer = null; }
     if (S && !S.finished) {
-        saveProgress(S.sutra.id, { secIdx: S.secIdx, ts: Date.now() });
+        saveProgress(S.sutra.id, { chIdx: S.chIdx, secIdx: S.secIdx, ts: Date.now() });
     }
     S = null;
+    updateNavButtons();
     showPage('select');
 }
 
@@ -1072,14 +1176,29 @@ els.grid.addEventListener('click', function (e) {
     if (!card) return;
     var i = parseInt(card.querySelector('[data-i]').getAttribute('data-i'), 10);
     var act = btn ? btn.getAttribute('data-act') : 'start';
-    var sutra = SUTRAS[i];
-    var prog = getProgress()[sutra.id];
-    startSutra(sutra, act === 'resume' && prog ? prog.secIdx : 0);
+    openSutra(SUTRAS[i], act);
 });
 els.grid.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && e.target.classList.contains('sutra-card')) {
         e.target.querySelector('[data-act="start"]').click();
     }
+});
+
+// 选分页：点击某一分开始；全本连续；返回选经
+els.chapterGrid.addEventListener('click', function (e) {
+    var card = e.target.closest('.chapter-card');
+    if (!card || !chapterSutra) return;
+    var ci = parseInt(card.getAttribute('data-ci'), 10);
+    var prog = getProgress()[chapterSutra.id] || {};
+    // 续打：进度正好在本章时从断点句开始，否则从头
+    var startSec = (prog.chIdx || 0) === ci ? (prog.secIdx || 0) : 0;
+    startSutra(chapterSutra, ci, startSec, false);
+});
+document.getElementById('btn-chapter-all').addEventListener('click', function () {
+    if (chapterSutra) startSutra(chapterSutra, 0, 0, true);
+});
+document.getElementById('btn-chapter-back').addEventListener('click', function () {
+    showPage('select');
 });
 
 document.getElementById('btn-quit').addEventListener('click', quitGame);
@@ -1088,18 +1207,31 @@ document.getElementById('btn-minimal').addEventListener('click', function () { s
 document.getElementById('minimal-badge').addEventListener('click', function () { setMinimal(false); });
 document.getElementById('btn-restart').addEventListener('click', function () {
     if (!S) return;
-    S.tokIdx = 0; S.buffer = '';
+    S.tokIdx = 0;
     renderSection();
-    if (MODE === 'copy' || MODE === 'recite') els.copyInput.focus();
+    els.copyInput.focus();
 });
-document.getElementById('btn-back').addEventListener('click', function () { S = null; showPage('select'); });
+// 上一句 / 下一句
+els.btnPrevSec.addEventListener('click', function () { gotoSection(-1); });
+els.btnNextSec.addEventListener('click', function () { gotoSection(1); });
+document.getElementById('btn-back').addEventListener('click', function () {
+    // 多章经退回选分页，其余退回选经页
+    if (S && S.sutra.chapters.length > 1 && !S.fullBook) {
+        renderChapters(S.sutra);
+        S = null;
+        showPage('chapter');
+    } else {
+        S = null;
+        showPage('select');
+    }
+});
 document.getElementById('btn-again').addEventListener('click', function () {
-    if (S) startSutra(S.sutra, 0);
+    if (S) startSutra(S.sutra, S.chIdx, 0, S.fullBook);
 });
 document.getElementById('btn-next').addEventListener('click', function () {
     if (!S) return;
     var i = SUTRAS.findIndex(function (x) { return x.id === S.sutra.id; });
-    startSutra(SUTRAS[(i + 1) % SUTRAS.length], 0);
+    openSutra(SUTRAS[(i + 1) % SUTRAS.length], 'start');
 });
 
 els.btnTheme.addEventListener('click', function () { applyTheme(!isDark()); });
@@ -1128,6 +1260,13 @@ els.copyInput.addEventListener('input', function () {
     updateCopyState();
 });
 els.copyInput.addEventListener('keydown', function (e) {
+    // Alt + ←/→：上一句 / 下一句（输入法候选词用普通方向键，不冲突）
+    if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        gotoSection(e.key === 'ArrowLeft' ? -1 : 1);
+        e.stopPropagation();
+        return;
+    }
     if (e.key === 'Escape') {
         e.preventDefault();
         if (MINIMAL) setMinimal(false);
@@ -1136,20 +1275,14 @@ els.copyInput.addEventListener('keydown', function (e) {
     e.stopPropagation();   // 避免 document 级 onKey 重复处理
 });
 
-document.addEventListener('keydown', function (e) { detectIme(e); onKey(e); });
-// 拼音跟打不需要焦点，点页面任意处即可开始
-document.addEventListener('click', function () {
-    if (S && !S.finished && !els.pageGame.classList.contains('hidden')) {
-        els.imeWarn.classList.remove('on');
-    }
-});
+document.addEventListener('keydown', onKey);
 
 // ============================================================
 // 启动
 // ============================================================
 try {
     var savedMode = localStorage.getItem(MODE_KEY);
-    if (savedMode === 'copy' || savedMode === 'pinyin' || savedMode === 'recite') MODE = savedMode;
+    if (savedMode === 'copy' || savedMode === 'recite') MODE = savedMode;
     MINIMAL = localStorage.getItem(MINIMAL_KEY) === '1';
     if (MINIMAL) document.body.classList.add('minimal');
 } catch (e) {}
