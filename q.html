@@ -139,7 +139,7 @@
         }
 
         .card__meaning {
-            font-size: 12px;
+            font-size: 18px;
             font-weight: 600;
             color: var(--text-main);
             text-align: center;
@@ -162,7 +162,7 @@
 
         .card__phonetic {
             margin-top: 12px;
-            font-size: 15px;
+            font-size: 18px;
             font-weight: normal;
             color: var(--text-sub);
             letter-spacing: 0.5px;
@@ -659,6 +659,10 @@
             </div>
 
             <div class="control-row control-row--flex-end">
+                <label class="switch-label">
+                    <input type="checkbox" id="show-meaning-switch">
+                    👀 显示释义
+                </label>
                 <label class="switch-label">
                     <input type="checkbox" id="auto-speak-switch">
                     🔊 切换单词时自动发音
@@ -1488,6 +1492,17 @@
         const sizeSelect = document.getElementById('size-select');
         const groupSelect = document.getElementById('group-select');
         const autoSpeakSwitch = document.getElementById('auto-speak-switch');
+        const showMeaningSwitch = document.getElementById('show-meaning-switch');
+
+        // 恢复释义常显偏好（localStorage，默认隐藏）
+        try { showMeaningSwitch.checked = localStorage.getItem('typing_show_meaning_v1') === '1'; } catch (e) {}
+
+        // 释义常显开关：勾选后所有词默认显示释义，取消后恢复默认隐藏；点击卡片仍可临时切换当前词
+        showMeaningSwitch.addEventListener('change', () => {
+            try { localStorage.setItem('typing_show_meaning_v1', showMeaningSwitch.checked ? '1' : '0'); } catch (e) {}
+            if (showMeaningSwitch.checked) showMeaning();
+            else hideMeaning();
+        });
         
         const meaningCard = document.getElementById('meaning-card');
         const typingArea = document.getElementById('typing-area');
@@ -1765,8 +1780,9 @@
                 else if (typeof wordObj === 'string') cn = escapeHtml(wordObj);
 
                 elWordCn.innerHTML = cn;
-                // 新词默认隐藏释义，只显示音标；点击卡片才展开
-                hideMeaning();
+                // 释义显示由顶部开关控制：默认隐藏，打开后一直显示；点击卡片仍可临时切换当前词
+                if (showMeaningSwitch.checked) showMeaning();
+                else hideMeaning();
 
                 // 音标展示：优先英/美双音标，其次通用 phonetic 字段
                 const usPhone = wordObj.usphone || '';
