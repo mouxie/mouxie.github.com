@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>9×9 数字方格交互</title>
+<title>9×9 times</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 :root {
@@ -350,7 +350,7 @@ h1 { font-size: clamp(18px, 4.5vmin, 24px); letter-spacing: 3px; }
 
 <script>
 (function () {
-  var ROWS = 9, COLS = 9, TICK = 500;
+  var ROWS = 9, COLS = 9, TICK = 40; // 逐格显示间隔（毫秒），越小越快
   var board = document.getElementById('board');
   var cells = [];
   // 测量棋盘当前实际渲染尺寸（手机/平板/桌面自适应），需在格子创建后调用
@@ -365,7 +365,6 @@ h1 { font-size: clamp(18px, 4.5vmin, 24px); letter-spacing: 3px; }
   var tnums = [], lnums = [];
   var timer = null, popupTimer = null;
   var activeR = -1, activeC = -1; // 当前高亮的行列，旋转屏幕时重绘
-  var slowRead = false; // 乘法结果 <= 20 时才逐格慢速朗读
   var synth = window.speechSynthesis;
   var voices = [];
 
@@ -407,8 +406,7 @@ h1 { font-size: clamp(18px, 4.5vmin, 24px); letter-spacing: 3px; }
     u.lang = lang;
     var v = pickVoice(lang);
     if (v) u.voice = v;
-    // 结果 <= 20 时用更慢语速，保证每个数字被清楚读出
-    u.rate = slowRead ? 0.55 : 0.9;
+    u.rate = 0.9;
     if (after) { u.onend = after; }
     synth.speak(u);
   }
@@ -512,8 +510,6 @@ h1 { font-size: clamp(18px, 4.5vmin, 24px); letter-spacing: 3px; }
 
     // 从 1 到区间格子总数，逐格填数（总数 = 行数 × 列数）
     var cols = colN, total = rowN * colN, shown = 0;
-    // 乘法结果 <= 20：逐格慢速朗读每个数字；> 20：不读数字，按 0.5 秒直接显示
-    slowRead = total <= 20;
 
     // 朗读英文算式 + 中文口诀（点击后先读一遍；逐格数完后最后再读一遍巩固）
     function chant(after) {
@@ -536,24 +532,13 @@ h1 { font-size: clamp(18px, 4.5vmin, 24px); letter-spacing: 3px; }
       return shown < total;
     }
 
-    // 逐格计数链（读前一格 → 显示下一格 → 读下一格）
+    // 逐格计数链：纯视觉快速计数（不逐格朗读），数完所有格子后弹出口诀小窗
     function countUp() {
       if (!showNext()) {
-        // 所有格子已填完：慢速模式补读最后一格数字，然后朗读算式+口诀收尾，最后弹出口诀小窗
-        if (slowRead) {
-          speak(shown, function () { chant(showChantPopup); });
-        } else {
-          chant(showChantPopup);
-        }
+        showChantPopup();
         return;
       }
-      if (slowRead) {
-        speak(shown, function () {
-          timer = setTimeout(countUp, 400);
-        });
-      } else {
-        timer = setTimeout(countUp, TICK);
-      }
+      timer = setTimeout(countUp, TICK);
     }
 
     // 读完最后一个数字后：居中弹出中文口诀小窗（随机显示一只可爱小动物），3.5 秒后自动消失
@@ -574,10 +559,9 @@ h1 { font-size: clamp(18px, 4.5vmin, 24px); letter-spacing: 3px; }
     }
 
     function start() {
-      // 先朗读结果（英文算式 → 中文口诀），读完后才开始逐格计数
-      chant(function () {
-        countUp();
-      });
+      // 点击后立即开始逐格填数，朗读算式+口诀同时并行进行（互不等待）
+      countUp();
+      chant();
     }
     start();
   }
