@@ -184,6 +184,8 @@
             gap: 6px;
             min-height: 48px;
             margin-bottom: 12px;
+            cursor: pointer;
+            user-select: none;
         }
 
         .letter {
@@ -205,6 +207,9 @@
             color: var(--primary);
             border-bottom-color: var(--primary);
         }
+
+        /* 字母蒙版：隐藏字母文字，格子背景/边框保留（红绿反馈仍可见） */
+        .letter--masked .letter__char { visibility: hidden; }
 
         .letter.correct {
             background: #d9f2e2;
@@ -780,7 +785,7 @@
             <div id="example-content" class="example-area__content"></div>
         </div>
         
-        <div class="hint" id="hint-text" style="display: none;">💡 提示：根据释义打出英文，字母逐一变色 | 回车跳下一词 | ←→ 切词(输入为空时) · ↑↓ 随时切词 | Tab 显示释义 | V 发音 | 空格聚焦输入框</div>
+        <div class="hint" id="hint-text" style="display: none;">💡 提示：根据释义打出英文，字母逐一变色 | 回车跳下一词 | ←→ 切词(输入为空时) · ↑↓ 随时切词 | Tab 显示字母与释义 · 点击字母区显示字母 | V 发音 | 空格聚焦输入框</div>
 
         <div class="hint" id="db-stats-bar" style="display: none;">
             <span id="db-stats-text" title="点击刷新统计" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub);">🗄️ IndexedDB: 词库 0 | 错词本 0 | 语音缓存 0 | 例句缓存 0 | 总占用 0 B</span>
@@ -1926,38 +1931,64 @@
         });
 
         // 生成目标单词的字母格子（每个字符一个格子，空格用虚线格子 + · 占位）
+        // 字母默认蒙版隐藏（拼写测试），点击字母区或按 Tab 才显示答案
         function buildLetters(word) {
             lettersBox.innerHTML = '';
             letterSpans = [];
             for (let i = 0; i < word.length; i++) {
                 const span = document.createElement('span');
-                span.className = 'letter';
+                span.className = 'letter letter--masked';
                 span.dataset.idx = i;
+                const ch = document.createElement('span');
+                ch.className = 'letter__char';
                 if (word[i] === ' ') {
+                    span.classList.remove('letter--masked'); // 空格分隔格始终可见
                     span.classList.add('letter--space');
-                    span.textContent = '·';
+                    ch.textContent = '·';
                 } else {
-                    span.textContent = word[i];
+                    ch.textContent = word[i];
                 }
+                span.appendChild(ch);
                 lettersBox.appendChild(span);
                 letterSpans.push(span);
             }
             if (letterSpans.length > 0) letterSpans[0].classList.add('current');
         }
 
+        // 显示全部字母（点击字母区 / Tab 键）
+        function revealLetters() {
+            letterSpans.forEach((s) => s.classList.remove('letter--masked'));
+        }
+
+        // 重新蒙版隐藏全部字母（Tab 收起时）
+        function maskLetters() {
+            letterSpans.forEach((s) => s.classList.add('letter--masked'));
+        }
+
+        // 点击字母区：显示字母并聚焦输入框
+        lettersBox.addEventListener('click', () => {
+            revealLetters();
+            if (!typeInput.disabled) typeInput.focus();
+        });
+
         // 根据输入内容实时更新字母格子的高亮状态
+        // 蒙版规则：已正确输入的字母显示，未输入/输错的字母保持隐藏（红绿反馈仍可见）
         function updateLetterHighlight() {
             const typed = typeInput.value;
             const word = currentWordString;
             letterSpans.forEach((span, i) => {
                 span.classList.remove('correct', 'wrong', 'current');
+                const isSpace = span.classList.contains('letter--space');
                 const ch = typed[i];
                 if (ch === undefined) {
                     if (i === typed.length) span.classList.add('current');
+                    if (!isSpace) span.classList.add('letter--masked');
                 } else if (ch === word[i]) {
                     span.classList.add('correct');
+                    span.classList.remove('letter--masked'); // 正确的字母显示
                 } else {
                     span.classList.add('wrong');
+                    if (!isSpace) span.classList.add('letter--masked'); // 输错的字母隐藏
                 }
             });
         }
@@ -2222,14 +2253,19 @@
 
         // 键盘快捷键：输入框聚焦时由上方 typeInput 内注册的处理器负责（Enter/方向键），此处分发其余情形
         document.addEventListener('keydown', (e) => {
-            // Tab 键：显示当前单词释义（打字输入框聚焦时同样生效；其他表单控件聚焦时保留默认的焦点切换）
+            // Tab 键：字母与释义一起显示/收起（打字输入框聚焦时同样生效；其他表单控件聚焦时保留默认的焦点切换）
             if (e.key === 'Tab') {
                 const t = e.target;
                 if (t && t !== document.body && t !== typeInput && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
                 e.preventDefault();
                 // 在显示/隐藏之间切换（与点击卡片行为一致）
-                if (elWordCn.classList.contains('is-hidden')) showMeaning();
-                else hideMeaning();
+                if (elWordCn.classList.contains('is-hidden')) {
+                    showMeaning();
+                    revealLetters();
+                } else {
+                    hideMeaning();
+                    maskLetters();
+                }
                 return;
             }
             const activeIsInput = (document.activeElement === typeInput);
