@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>错词打字练习 - 基于闪卡错词本</title>
+    <title>错词-打字</title>
     <script>
         // 尽早应用夜间模式（在 CSS 渲染前加 .dark 类），避免暗色用户加载时白屏闪烁
         // 无保存值时跟随系统 prefers-color-scheme
@@ -309,30 +309,6 @@
         }
         .hint-row button:hover { background: #f0f3f7; }
 
-        /* ---------- 结果区 ---------- */
-        .result {
-            text-align: center;
-        }
-        .result-word {
-            font-size: 26px;
-            font-weight: bold;
-            color: var(--text-main);
-            word-break: break-all;
-        }
-        .result-trans {
-            font-size: 15px;
-            color: var(--text-sub);
-            margin-top: 6px;
-            min-height: 20px;
-        }
-        .result-btns {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 14px;
-        }
-
         .btn {
             padding: 10px 22px;
             font-size: 14px;
@@ -348,35 +324,6 @@
         .btn-success { background: var(--success); color: #fff; }
         .btn-danger { background: var(--accent); color: #fff; }
         .btn-plain { background: #eef0f4; color: #555; }
-
-        /* ---------- 统计区 ---------- */
-        .stats {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-around;
-            text-align: center;
-            gap: 10px;
-        }
-        .stat-item { min-width: 90px; }
-        .stat-item .num { font-size: 22px; font-weight: bold; color: var(--primary); }
-        .stat-item .label { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
-
-        /* ---------- 错词回顾列表 ---------- */
-        .retry-list { margin-top: 14px; text-align: left; }
-        .retry-list h3 { font-size: 14px; margin: 0 0 8px; color: var(--text-main); }
-        .retry-chip {
-            display: inline-block;
-            background: #ffeaea;
-            color: var(--accent);
-            border: 1px solid #ffcccc;
-            border-radius: 20px;
-            padding: 3px 12px;
-            margin: 3px 4px 3px 0;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .retry-chip:hover { background: #ffd6d6; }
 
         .footer-note {
             text-align: center;
@@ -432,8 +379,84 @@
         }
         :root.dark .hint-row button:hover { background: #343945; }
         :root.dark .btn-plain { background: #31363f; color: #c3c9d2; }
-        :root.dark .retry-chip { background: #3a2325; border-color: #553134; }
-        :root.dark .retry-chip:hover { background: #4a2c2f; }
+
+        /* ---------- 极简模式：隐藏一切干扰，只留题目 + 输入框（body.minimal） ---------- */
+        body.minimal .header,
+        body.minimal .settings,
+        body.minimal .info-row,
+        body.minimal .progress-track,
+        body.minimal .hint-row,
+        body.minimal .footer-note,
+        body.minimal .question-actions {
+            display: none !important;
+        }
+        /* 题目/释义/例句面板改为无边框透明，内容整体居中 */
+        body.minimal #app-container {
+            max-width: 640px;
+            min-height: calc(100vh - 40px);
+            justify-content: center;
+        }
+        body.minimal .panel {
+            background: transparent;
+            box-shadow: none;
+            padding: 0;
+        }
+        body.minimal .question { padding: 16px 0 24px; }
+        body.minimal .question .word { font-size: 32px; letter-spacing: 1px; }
+        body.minimal .char-list { padding: 6px 0 20px; }
+        body.minimal .char-item { font-size: 26px; min-width: 32px; min-height: 44px; }
+        body.minimal .input-area input {
+            font-size: 30px;
+            padding: 16px 18px;
+            max-width: 100%;
+        }
+        body.minimal .trans-reveal { font-size: 17px; }
+        body.minimal .example-reveal { font-size: 16px; }
+
+        /* 极简模式退出按钮：固定右上角，仅极简模式下显示 */
+        #btn-exit-minimal {
+            position: fixed;
+            top: 14px;
+            right: 14px;
+            z-index: 999;
+            padding: 6px 14px;
+            font-size: 12px;
+            border-radius: 20px;
+            border: 1px solid transparent;
+            background: var(--card-bg);
+            color: var(--text-sub);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            cursor: pointer;
+            opacity: 0.75;
+            transition: opacity 0.2s;
+        }
+        #btn-exit-minimal:hover { opacity: 1; }
+        :root.dark #btn-exit-minimal {
+            background: #21242b;
+            border-color: #3c424d;
+            color: #c3c9d2;
+        }
+
+        /* 极简模式底部进度：固定屏幕底部中央，仅极简模式下显示 */
+        #minimal-progress {
+            position: fixed;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 999;
+            font-size: 26px;
+            color: var(--text-sub);
+            background: var(--card-bg);
+            padding: 5px 16px;
+            border-radius: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        }
+        body.minimal #minimal-progress { display: block !important; }
+        :root.dark #minimal-progress {
+            background: #21242b;
+            border: 1px solid #3c424d;
+            color: #c3c9d2;
+        }
 
         .hidden { display: none !important; }
     </style>
@@ -441,6 +464,12 @@
 <body>
 
 <div id="app-container">
+    <!-- 极简模式退出按钮（默认隐藏，极简模式时显示） -->
+    <button id="btn-exit-minimal" class="hidden" title="退出极简模式">✕ 退出极简</button>
+
+    <!-- 极简模式底部进度（默认隐藏，仅极简模式显示） -->
+    <div id="minimal-progress" class="hidden"></div>
+
     <!-- 标题 -->
     <div class="header">
         <h1>⌨️ 错词打字练习</h1>
@@ -498,6 +527,10 @@
                     <input type="checkbox" id="theme-switch">
                     🌙 夜间模式
                 </label>
+                <label class="switch-label" title="极简模式：隐藏界面干扰，只保留听写区（右上角 ✕ 或本开关退出）">
+                    <input type="checkbox" id="minimal-switch">
+                    🤫 极简模式
+                </label>
             </div>
         </div>
 
@@ -535,39 +568,6 @@
             </div>
         </div>
 
-        <!-- 结果区（隐藏，仅显示四张卡时用） -->
-        <div class="panel result hidden" id="result-panel">
-            <div class="result-word" id="result-word"></div>
-            <div class="result-trans" id="result-trans"></div>
-            <div class="result-btns">
-                <button class="btn btn-primary" id="btn-again">🔁 再练一次</button>
-            </div>
-            <div class="retry-list hidden" id="retry-list"></div>
-        </div>
-
-        <!-- 统计区（隐藏，仅显示结果后） -->
-        <div class="panel stats hidden" id="stats-panel">
-            <div class="stat-item">
-                <div class="num" id="stat-total">0</div>
-                <div class="label">总题数</div>
-            </div>
-            <div class="stat-item">
-                <div class="num" id="stat-correct">0</div>
-                <div class="label">答对</div>
-            </div>
-            <div class="stat-item">
-                <div class="num" id="stat-wrong">0</div>
-                <div class="label">答错/跳过</div>
-            </div>
-            <div class="stat-item">
-                <div class="num" id="stat-accuracy">0%</div>
-                <div class="label">正确率</div>
-            </div>
-            <div class="stat-item">
-                <div class="num" id="stat-heat">0</div>
-                <div class="label">🔥 连击</div>
-            </div>
-        </div>
     </div>
 
     <div class="footer-note">
@@ -805,6 +805,30 @@ function restoreTheme() {
 }
 
 // ============================================================
+// 极简模式（localStorage: typingMinimal）
+// 隐藏标题/设置/进度/按钮行/页脚等一切干扰，只留题目与输入框
+// ============================================================
+const MINIMAL_STORAGE = 'typingMinimal';
+
+// 应用极简模式：切换 body.minimal 类 + 同步开关 + 显隐退出按钮 + 持久化
+function applyMinimal(on) {
+    document.body.classList.toggle('minimal', on);
+    els.minimalSwitch.checked = on;
+    els.btnExitMinimal.classList.toggle('hidden', !on);
+    try {
+        localStorage.setItem(MINIMAL_STORAGE, on ? '1' : '0');
+    } catch (e) { /* localStorage 不可用时忽略 */ }
+}
+
+// 恢复上次保存的极简模式状态（默认关闭，仅显式保存过才启用）
+function restoreMinimal() {
+    try {
+        const saved = localStorage.getItem(MINIMAL_STORAGE);
+        if (saved === '1') applyMinimal(true);
+    } catch (e) { /* 忽略 */ }
+}
+
+// ============================================================
 // 练习进度持久化（localStorage，恢复每组数量与组别）
 // 注意：必须用独立 key——q.html 也用 'typing_progress_v1' 且带 dictId 字段，
 // 共用会互相覆盖（本页写入时抹掉 q.html 的词库选择）
@@ -823,8 +847,8 @@ function saveProgress() {
         localStorage.setItem(PROGRESS_KEY, JSON.stringify({
             pageSize: currentSize(),
             groupIdx: parseInt(els.groupSelect.value) || 0,
-            // 组内当前单词位置；本组已练完（结算）时归零，下次进入从该组开头重练
-            wordIdx: isFinished ? 0 : sessionIndex
+            // 组内当前单词位置，下次进入可续练
+            wordIdx: sessionIndex
         }));
     } catch (e) { /* 忽略写入失败（如隐私模式） */ }
 }
@@ -960,34 +984,25 @@ const els = {
     btnPrevWord: document.getElementById('btn-prev-word'),
     btnNextWord: document.getElementById('btn-next-word'),
     totalCount: document.getElementById('total-count'),
-    resultPanel: document.getElementById('result-panel'),
-    resultWord: document.getElementById('result-word'),
-    resultTrans: document.getElementById('result-trans'),
-    btnAgain: document.getElementById('btn-again'),
-    retryList: document.getElementById('retry-list'),
-    statsPanel: document.getElementById('stats-panel'),
-    statTotal: document.getElementById('stat-total'),
-    statCorrect: document.getElementById('stat-correct'),
-    statWrong: document.getElementById('stat-wrong'),
-    statAccuracy: document.getElementById('stat-accuracy'),
-    statHeat: document.getElementById('stat-heat'),
     linkFc: document.getElementById('link-fc'),
     audioCacheBadge: document.getElementById('audio-cache-badge'),
-    themeSwitch: document.getElementById('theme-switch')
+    themeSwitch: document.getElementById('theme-switch'),
+    minimalSwitch: document.getElementById('minimal-switch'),
+    btnExitMinimal: document.getElementById('btn-exit-minimal'),
+    minimalProgress: document.getElementById('minimal-progress')
 };
 
 let wrongWords = [];      // 全部错词（原始数据）
-let sessionWords = [];    // 本局抽取的单词（已打乱）
+let sessionWords = [];    // 本局单词（按错词本顺序取的组内切片）
 let sessionIndex = 0;     // 当前题号
 let currentWord = '';     // 当前题的正确答案
 let currentTrans = '';    // 当前题的释义
 let currentPhonetic = ''; // 当前题的音标
 let currentMode = 'dictation'; // 当前的模式 (dictation / copy)
 let stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
-let retryWords = [];      // 本次答错的单词（用于再练）
 let sessionResults = [];  // 每题作答状态: null=未作答, true=答对, false=答错
 let flashTimer = null;    // 答错后闪答自动前进的定时器
-let isFinished = false;
+let flashActive = false;  // 闪答展示期标记：期间不判题、不计分
 let pendingGroupIdx = null; // 首次开局待恢复的组别（进度持久化，见 rebuildGroupOptions）
 let pendingWordIdx = null;  // 首次开局待恢复的组内单词位置（进度持久化，见 startSession）
 
@@ -1041,22 +1056,17 @@ async function init() {
 function bindEvents() {
     els.modeSelect.addEventListener('change', () => {
         currentMode = els.modeSelect.value;
-        if (!isFinished) renderQuestion();
+        renderQuestion();
     });
     els.sizeSelect.addEventListener('change', () => {
-        // 每组数量变化：跳回第 1 组并立即重新开局（结算后同样生效）
+        // 每组数量变化：跳回第 1 组并立即重新开局
         els.groupSelect.value = '0';
         rebuildGroupOptions();
         saveProgress();
         startSession();
     });
     els.groupSelect.addEventListener('change', () => {
-        // 切换组别：立即用新分组重新开局（结算后同样生效）
-        // 结算后切换组别时，先清除结束标记，确保 startSession 正常执行
-        if (isFinished) {
-            isFinished = false;
-            els.answerInput.disabled = false;
-        }
+        // 切换组别：立即用新分组重新开局
         saveProgress();
         startSession();
     });
@@ -1064,7 +1074,7 @@ function bindEvents() {
         renderCharFeedback();
         // 输对即自动跳转下一题（无需回车）
         // IME 组合输入中不判题：组合结束后由 compositionend 兜底触发
-        if (e.isComposing || isFinished) return;
+        if (e.isComposing) return;
         tryAutoAdvance();
     });
     // 中文输入法等 IME 组合结束时的兜底判题（部分浏览器组合结束后不再触发 input）
@@ -1078,26 +1088,6 @@ function bindEvents() {
     els.btnReplay.addEventListener('click', () => { if (currentWord) playWordAudio(currentWord); });
     els.btnToggleTrans.addEventListener('click', toggleTransReveal);
     els.btnToggleExample.addEventListener('click', toggleExampleReveal);
-    els.btnAgain.addEventListener('click', () => {
-        // 不是最后一个组别：切换到下一组，继续听写（重置统计）
-        const groupIdx = parseInt(els.groupSelect.value) || 0;
-        const totalGroups = els.groupSelect.options.length;
-        if (groupIdx + 1 < totalGroups) {
-            els.groupSelect.value = String(groupIdx + 1);
-            saveProgress();
-            startSession();
-            return;
-        }
-        // 已是最后一组：有错词则只重练错词，无错词则重练本组
-        if (retryWords.length > 0) {
-            sessionWords = shuffle(retryWords.slice());
-            retryWords = [];
-            stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
-            startSession(false);
-        } else {
-            startSession();
-        }
-    });
     els.linkFc.addEventListener('click', () => {
         window.location.href = 'fc.html';
     });
@@ -1113,15 +1103,9 @@ function bindEvents() {
         els.keyVolumeLabel.textContent = els.keyVolume.value + '%';
     });
     els.keyVolume.addEventListener('change', saveKeyVolume);
-}
-
-function shuffle(arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
+    // 极简模式开关 + 右上角退出按钮
+    els.minimalSwitch.addEventListener('change', () => applyMinimal(els.minimalSwitch.checked));
+    els.btnExitMinimal.addEventListener('click', () => applyMinimal(false));
 }
 
 // 当前每组单词数
@@ -1130,7 +1114,7 @@ function currentSize() {
 }
 
 // 重建"选择组别"下拉选项（与 fc.html 一致：按每组数量切分错词本顺序）
-// forceSelect: 可选，强制选中指定组别（用于结算后切换组别时确保值正确）
+// forceSelect: 可选，强制选中指定组别
 function rebuildGroupOptions(forceSelect) {
     const selected = (forceSelect !== undefined) ? forceSelect : (parseInt(els.groupSelect.value) || 0);
     const size = currentSize();
@@ -1154,7 +1138,7 @@ function rebuildGroupOptions(forceSelect) {
 }
 
 // 开始一局：按"每组数量 + 组别"从错词本顺序中取词（与 fc.html 分组一致）
-function startSession(resetStats = true) {
+function startSession() {
     rebuildGroupOptions(); // 重建组选项并处理待恢复组别/越界钳制
     const size = currentSize();
     const groupIdx = parseInt(els.groupSelect.value) || 0;
@@ -1167,18 +1151,11 @@ function startSession(resetStats = true) {
     } else {
         sessionIndex = 0;
     }
-    retryWords = [];
     sessionResults = new Array(sessionWords.length).fill(null);
-    if (resetStats) {
-        stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
-    }
-    isFinished = false;
+    stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
 
     els.answerInput.disabled = false;
     els.answerInput.value = '';
-    els.resultPanel.classList.add('hidden');
-    els.statsPanel.classList.add('hidden');
-    els.retryList.classList.add('hidden');
 
     renderQuestion();
     saveProgress(); // 同步持久化当前每组数量与组别
@@ -1189,8 +1166,9 @@ function startSession(resetStats = true) {
 // ============================================================
 function renderQuestion() {
     if (sessionIndex >= sessionWords.length) { finishSession(); return; }
-    // 取消可能残留的闪答自动前进定时器（用户已手动导航时不再自动前进）
+    // 取消可能残留的闪答自动前进定时器并复位闪答标记（用户已手动导航时不再自动前进）
     if (flashTimer) { clearTimeout(flashTimer); flashTimer = null; }
+    flashActive = false;
     saveProgress(); // 每次切题都持久化当前组内单词位置，下次进入可续练
 
     const obj = sessionWords[sessionIndex];
@@ -1204,6 +1182,8 @@ function renderQuestion() {
     els.roundText.textContent = `组内: ${sessionIndex + 1}/${sessionWords.length} (总第${absoluteIndex}词)`;
     els.scoreText.textContent = `得分 ${stats.correct} (${Math.round((stats.correct / Math.max(stats.total, 1)) * 100)}%)`;
     els.progressFill.style.width = `${(sessionIndex / sessionWords.length) * 100}%`;
+    // 极简模式底部进度：总第 N 词 / 错词库总词数
+    els.minimalProgress.textContent = `第 ${absoluteIndex} / ${wrongWords.length} 词`;
 
     // 上一词/下一词边界
     // 上一词：组内第一个单词时，若还有上一组则允许跳转
@@ -1228,6 +1208,9 @@ function renderQuestion() {
     els.btnToggleExample.classList.remove('hidden');
     els.btnToggleExample.textContent = '📖';
     els.btnToggleExample.title = '查看例句';
+
+    // 重置闪答时设置的红色标记
+    els.wordDisplay.style.color = '';
 
     if (currentMode === 'copy') {
         // 照词跟打：显示单词，提示区域显示释义，隐藏音标与释义按钮
@@ -1258,8 +1241,7 @@ function renderQuestion() {
 
 // 输对即自动跳转判定（大小写不敏感：iPhone 输入 iphone 仍算正确）
 function tryAutoAdvance() {
-    if (isFinished) return;
-    if (!els.resultPanel.classList.contains('hidden')) return; // 闪答展示期不判题
+    if (flashActive) return; // 闪答展示期不判题
     const input = els.answerInput.value.trim();
     if (input.length === currentWord.length &&
         input.toLowerCase() === currentWord.toLowerCase()) {
@@ -1534,7 +1516,7 @@ function escapeRegExp(s) {
 // 提交答案
 // ============================================================
 function submitAnswer() {
-    if (isFinished) return;
+    if (flashActive) return;
     const input = els.answerInput.value.trim();
     const isCorrect = input.toLowerCase() === currentWord.toLowerCase();
     if (isCorrect) {
@@ -1566,26 +1548,22 @@ function wrongAnswer() {
     stats.total++;
     stats.wrong++;
     stats.heat = 0;
-    retryWords.push(sessionWords[sessionIndex]); // 加入错题回顾
 
-    // 显示正确答案（2 秒提示后自动进入下一题）
+    // 行内闪答：显示正确答案（2 秒提示后自动进入下一题）
     showFlashAnswer();
 }
 
 function showFlashAnswer() {
+    // 直接在题目区（单词大字区域）显示正确答案并标红，2 秒后自动进入下一题
+    flashActive = true;
     const obj = sessionWords[sessionIndex];
-    const ph = getWordPhonetic(obj);
-    els.resultPanel.classList.remove('hidden');
-    els.resultWord.textContent = '❌ 正确答案: ' + getWordKey(obj);
-    els.resultWord.style.color = 'var(--accent)';
-    els.resultTrans.textContent = (ph ? ph + '　' : '') + getWordTrans(obj);
-    els.btnAgain.classList.add('hidden'); // 隐藏再练按钮（回合间）
-    els.retryList.classList.add('hidden');
+    els.wordDisplay.textContent = getWordKey(obj);
+    els.wordDisplay.style.color = 'var(--accent)';
 
     // 2 秒后自动进入下一题（若用户已手动导航则不再前进）
     const idx = sessionIndex;
     flashTimer = setTimeout(() => {
-        els.resultPanel.classList.add('hidden');
+        flashActive = false;
         if (idx === sessionIndex) {
             sessionIndex++;
             renderQuestion();
@@ -1597,7 +1575,6 @@ function showFlashAnswer() {
 // 上一词 / 下一词 导航（与 fc.html 一致）
 // ============================================================
 function goPrevWord() {
-    if (isFinished) return;
     if (sessionIndex > 0) {
         rollbackQuestionResult(sessionIndex); // 回滚当前题统计（若已作答），允许重练
         sessionIndex--;
@@ -1616,21 +1593,15 @@ function goPrevWord() {
     const prevGroupLen = Math.min(prevSize, wrongWords.length - prevOffset);
     sessionWords = wrongWords.slice(prevOffset, prevOffset + prevSize);
     sessionIndex = prevGroupLen - 1;
-    retryWords = [];
     sessionResults = new Array(sessionWords.length).fill(null);
     stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
-    isFinished = false;
     els.answerInput.disabled = false;
     els.answerInput.value = '';
-    els.resultPanel.classList.add('hidden');
-    els.statsPanel.classList.add('hidden');
-    els.retryList.classList.add('hidden');
     renderQuestion();
     saveProgress();
 }
 
 function goNextWord() {
-    if (isFinished) return;
     const isLastWordInGroup = (sessionIndex >= sessionWords.length - 1);
     if (isLastWordInGroup) {
         // 本组最后一个单词：若还有下一组则跳转
@@ -1658,58 +1629,19 @@ function rollbackQuestionResult(idx) {
     } else if (r === false) {
         stats.total--;
         stats.wrong--;
-        const wordKey = getWordKey(sessionWords[idx]);
-        retryWords = retryWords.filter(w => getWordKey(w) !== wordKey); // 同步移除错题回顾
     }
     sessionResults[idx] = null;
 }
 
-function renderRetryList() {
-    els.retryList.classList.remove('hidden');
-    els.retryList.innerHTML = '<h3>📋 本次答错的单词（点击可听发音）</h3>' +
-        retryWords.map(w => `<span class="retry-chip" title="${escapeHtml(getWordTrans(w))}">${escapeHtml(getWordKey(w))}</span>`).join('');
-    // 绑定点击发音
-    els.retryList.querySelectorAll('.retry-chip').forEach(chip => {
-        chip.addEventListener('click', () => playWordAudio(chip.textContent.trim()));
-    });
-}
-
 // ============================================================
-// 结算
+// 组内练完：不做结算展示，直接进入下一组
+// （最后一组练完后回到第 1 组，循环练习不中断）
 // ============================================================
 function finishSession() {
-    isFinished = true;
-    saveProgress(); // 结算后 wordIdx 归零：下次进入从本组开头重练，而不是停在越界位置
-    els.answerInput.disabled = true;
-    els.answerInput.value = '';
-    els.btnPrevWord.disabled = true;
-    els.btnNextWord.disabled = true;
-
-    // 显示统计
-    els.statsPanel.classList.remove('hidden');
-    els.statTotal.textContent = stats.total;
-    els.statCorrect.textContent = stats.correct;
-    els.statWrong.textContent = stats.wrong;
-    els.statAccuracy.textContent = stats.total ? Math.round((stats.correct / stats.total) * 100) + '%' : '0%';
-    els.statHeat.textContent = stats.maxHeat;
-
-    // 显示结果面板
-    els.resultPanel.classList.remove('hidden');
-    els.btnAgain.classList.remove('hidden');
-    els.resultWord.textContent = '🏁 本局结束!';
-    els.resultWord.style.color = 'var(--text-main)';
-    els.resultTrans.textContent = `共 ${stats.total} 题，答对 ${stats.correct} 题`;
-    if (retryWords.length > 0) {
-        els.resultTrans.textContent += `，还有 ${retryWords.length} 个单词需要复习`;
-        renderRetryList();
-    } else {
-        els.retryList.classList.add('hidden');
-    }
-
-    els.progressFill.style.width = '100%';
-    const absoluteTotal = ((parseInt(els.groupSelect.value) || 0) * currentSize()) + sessionWords.length;
-    els.roundText.textContent = `组内: ${sessionWords.length}/${sessionWords.length} (总第${absoluteTotal}词)`;
-    els.answerInput.focus();
+    const groupIdx = parseInt(els.groupSelect.value) || 0;
+    const totalGroups = els.groupSelect.options.length;
+    els.groupSelect.value = (groupIdx + 1 < totalGroups) ? String(groupIdx + 1) : '0';
+    startSession(); // 重置本组统计并渲染新组首词
 }
 
 // ============================================================
@@ -1728,21 +1660,20 @@ els.answerInput.addEventListener('keydown', (e) => {
         clearInput();
     } else if (e.key === 'Shift' && !e.repeat) {
         // 触发查看释义（e.repeat 过滤长按自动重复，避免反复切换闪动）
-        if (!isFinished) {
-            e.preventDefault();
-            toggleTransReveal();
-        }
+        e.preventDefault();
+        toggleTransReveal();
     }
 });
 
-// 全局：左右方向键 上一词/下一词（与 fc.html 的 ←/→ 一致）
+// 全局：方向键 上一词/下一词（与 fc.html 的 ←/→ 一致，上下键同功能）
+// 输入框聚焦时：↑/↓ 仍可切词（单行输入框内上下键无光标用途）；←/→ 保留光标移动
 document.addEventListener('keydown', (e) => {
-    if (isFinished) return;
-    if (e.target === els.answerInput) return;
-    if (e.code === 'ArrowLeft') {
+    const inInput = (e.target === els.answerInput);
+    if (inInput && e.code !== 'ArrowUp' && e.code !== 'ArrowDown') return;
+    if (e.code === 'ArrowLeft' || e.code === 'ArrowUp') {
         e.preventDefault();
         goPrevWord();
-    } else if (e.code === 'ArrowRight') {
+    } else if (e.code === 'ArrowRight' || e.code === 'ArrowDown') {
         e.preventDefault();
         goNextWord();
     }
@@ -1750,7 +1681,6 @@ document.addEventListener('keydown', (e) => {
 
 // 全局：快捷键 '/' 或 '.' 聚焦输入框（游戏中随时可输入）
 document.addEventListener('keydown', (e) => {
-    if (isFinished) return;
     if (e.target === els.answerInput) return;
     if (e.code === 'Enter' || e.code === 'Space') {
         // 聚焦到输入框
@@ -1764,6 +1694,7 @@ document.addEventListener('keydown', (e) => {
 // ============================================================
 restoreTheme();
 els.themeSwitch.addEventListener('change', () => applyTheme(els.themeSwitch.checked));
+restoreMinimal();
 init();
 </script>
 </body>
