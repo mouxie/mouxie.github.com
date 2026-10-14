@@ -293,18 +293,6 @@
         .btn-danger { background: var(--accent); color: #fff; }
         .btn-plain { background: #eef0f4; color: #555; }
 
-        /* ---------- 统计区 ---------- */
-        .stats {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-around;
-            text-align: center;
-            gap: 10px;
-        }
-        .stat-item { min-width: 90px; }
-        .stat-item .num { font-size: 22px; font-weight: bold; color: var(--primary); }
-        .stat-item .label { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
-
         /* ---------- 错词回顾列表 ---------- */
         .retry-list { margin-top: 14px; text-align: left; }
         .retry-list h3 { font-size: 14px; margin: 0 0 8px; color: var(--text-main); }
@@ -486,29 +474,6 @@
             <div class="retry-list hidden" id="retry-list"></div>
         </div>
 
-        <!-- 统计区（隐藏，仅显示结果后） -->
-        <div class="panel stats hidden" id="stats-panel">
-            <div class="stat-item">
-                <div class="num" id="stat-total">0</div>
-                <div class="label">总题数</div>
-            </div>
-            <div class="stat-item">
-                <div class="num" id="stat-correct">0</div>
-                <div class="label">答对</div>
-            </div>
-            <div class="stat-item">
-                <div class="num" id="stat-wrong">0</div>
-                <div class="label">答错/跳过</div>
-            </div>
-            <div class="stat-item">
-                <div class="num" id="stat-accuracy">0%</div>
-                <div class="label">正确率</div>
-            </div>
-            <div class="stat-item">
-                <div class="num" id="stat-heat">0</div>
-                <div class="label">🔥 连击</div>
-            </div>
-        </div>
     </div>
 
     <div class="footer-note">
@@ -864,12 +829,6 @@ const els = {
     resultTrans: document.getElementById('result-trans'),
     btnAgain: document.getElementById('btn-again'),
     retryList: document.getElementById('retry-list'),
-    statsPanel: document.getElementById('stats-panel'),
-    statTotal: document.getElementById('stat-total'),
-    statCorrect: document.getElementById('stat-correct'),
-    statWrong: document.getElementById('stat-wrong'),
-    statAccuracy: document.getElementById('stat-accuracy'),
-    statHeat: document.getElementById('stat-heat'),
     linkFc: document.getElementById('link-fc'),
     audioCacheBadge: document.getElementById('audio-cache-badge')
 };
@@ -1065,7 +1024,6 @@ function startSession(resetStats = true) {
     els.answerInput.disabled = false;
     els.answerInput.value = '';
     els.resultPanel.classList.add('hidden');
-    els.statsPanel.classList.add('hidden');
     els.retryList.classList.add('hidden');
 
     renderQuestion();
@@ -1248,7 +1206,6 @@ function goPrevWord() {
     els.answerInput.disabled = false;
     els.answerInput.value = '';
     els.resultPanel.classList.add('hidden');
-    els.statsPanel.classList.add('hidden');
     els.retryList.classList.add('hidden');
     renderQuestion();
     saveProgress();
@@ -1308,13 +1265,6 @@ function finishSession() {
     els.answerInput.value = '';
     els.btnPrevWord.disabled = true;
     els.btnNextWord.disabled = true;
-
-    els.statsPanel.classList.remove('hidden');
-    els.statTotal.textContent = stats.total;
-    els.statCorrect.textContent = stats.correct;
-    els.statWrong.textContent = stats.wrong;
-    els.statAccuracy.textContent = stats.total ? Math.round((stats.correct / stats.total) * 100) + '%' : '0%';
-    els.statHeat.textContent = stats.maxHeat;
 
     els.resultPanel.classList.remove('hidden');
     els.btnAgain.classList.remove('hidden');
