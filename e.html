@@ -296,7 +296,7 @@
     button:active:not(:disabled) { transform: scale(0.97); }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
     .btn-primary { background: var(--primary); color: #fff; }
-    .btn-ghost { background: var(--track); color: var(--text-main); }
+    .btn-ghost { background: var(--track); color: #888888; }
 
     /* 句子内错误提示 */
     .sentence-result {
@@ -482,6 +482,25 @@
     }
     body.zen .typing-zone.focused { border-color: var(--zone-border); }
     body.zen .controls { margin-top: 4px; }
+
+    /* ---------- 极简模式底部进度：第 X / N 句 ---------- */
+    #zen-progress {
+        display: none;
+        position: fixed;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 16px;
+        color: var(--text-sub);
+        background: var(--chip-bg);
+        border: 1px solid var(--zone-border);
+        padding: 3px 14px;
+        border-radius: 20px;
+        z-index: 40;
+        user-select: none;
+        white-space: nowrap;
+    }
+    body.zen #zen-progress { display: block; }
 </style>
 <script>
 // 尽早应用已保存的主题，避免刷新时闪白
@@ -541,7 +560,7 @@
                 <input id="typed-input" type="text" autocomplete="off" autocorrect="off"
                        autocapitalize="off" spellcheck="false" aria-label="打字输入框">
             </div>
-            <div class="typing-hint">🖱 点击卡片聚焦 · <b>照打上方英文例句</b>，正确变绿、错误标红 · 输完自动下一句 · Enter 跳过等待 · 🔊 朗读例句</div>
+            <div class="typing-hint">🖱 点击卡片聚焦 · <b>照打上方英文例句</b>，正确变绿、错误标红 · 输完自动下一句 · Enter 跳过等待 · ↑↓ 切换上一句/下一句 · 🔊 朗读例句</div>
             <div id="sentence-result" class="sentence-result"></div>
         </div>
 
@@ -552,6 +571,9 @@
             <button id="btn-prev" class="btn-ghost">⏮ 上一句</button>
             <button id="btn-next" class="btn-ghost">⏭ 下一句</button>
         </div>
+
+        <!-- 极简模式底部进度 -->
+        <div id="zen-progress"></div>
     </div>
 
     <!-- 结束面板 -->
@@ -847,6 +869,9 @@ function updateStats() {
     $('stat-acc').textContent = acc + '%';
     $('stat-wpm').textContent = fmtWpm(elapsed);
     $('progress-bar').style.width = (queue.length ? doneSentences / queue.length * 100 : 0) + '%';
+    // 极简模式底部进度（普通模式隐藏，元素存在即更新）
+    const zp = $('zen-progress');
+    if (zp) zp.textContent = queue.length ? '第 ' + Math.min(idx + 1, queue.length) + ' / ' + queue.length + ' 句' : '';
 }
 
 function focusInput() {
@@ -1114,19 +1139,28 @@ $('typed-input').addEventListener('blur', () => $('typing-zone').classList.remov
 
 $('btn-restart').addEventListener('click', startGame);
 $('btn-again').addEventListener('click', startGame);
+
 // 上一句：纯导航，回退查看/重打，不改动统计
-$('btn-prev').addEventListener('click', () => {
+function goPrev() {
     if (finished || !queue.length || idx <= 0) return;
     clearTimeout(advanceTimer);
     idx--;
     loadSentence();
-});
+}
 // 下一句：纯导航，跳过本句（不计入完成），之后打完末尾会自动回到未完成句
-$('btn-next').addEventListener('click', () => {
+function goNext() {
     if (finished || !queue.length || idx >= queue.length - 1) return;
     clearTimeout(advanceTimer);
     idx++;
     loadSentence();
+}
+$('btn-prev').addEventListener('click', goPrev);
+$('btn-next').addEventListener('click', goNext);
+
+// 键盘：↑ 上一句 / ↓ 下一句（极简模式下同样可用；Esc 退出极简已由上方处理）
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowUp') { e.preventDefault(); goPrev(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); goNext(); }
 });
 
 // ------------------------------ 导出 / 导入 ------------------------------
