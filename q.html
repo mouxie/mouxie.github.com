@@ -431,6 +431,29 @@
         }
         body.is-minimal #minimal-progress { display: block; }
 
+        /* 极简模式错词本操作反馈 toast：快捷键(Alt+.) 或加入/移出错词本时悬浮提醒 */
+        #wrong-toast {
+            display: none;
+            position: fixed;
+            bottom: 64px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            background: rgba(0,0,0,0.78);
+            padding: 8px 18px;
+            border-radius: 999px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 9999;
+            white-space: nowrap;
+            max-width: 90vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #wrong-toast.is-ok { background: rgba(46,164,79,0.92); }
+        #wrong-toast.is-bad { background: rgba(226,74,74,0.92); }
+
         /* 设置模态框 */
         .modal-overlay {
             position: fixed;
@@ -765,7 +788,7 @@
                 听音发音 (快捷键: V)
             </button>
             
-            <button id="btn-toggle-wrong" class="btn-action btn-add-wrong" disabled>✨ 加强 (标记为错词)</button>
+            <button id="btn-toggle-wrong" class="btn-action btn-add-wrong" title="加入/移出错词本 (Alt+.)" disabled>✨ 加强 (标记为错词)</button>
             <button id="btn-example" class="btn-action btn-example" disabled>📖 例句 (DeepSeek)</button>
         </div>
 
@@ -785,7 +808,7 @@
             <div id="example-content" class="example-area__content"></div>
         </div>
         
-        <div class="hint" id="hint-text" style="display: none;">💡 提示：根据释义打出英文，字母逐一变色 | 回车跳下一词 | ←→ 切词(输入为空时) · ↑↓ 随时切词 | Tab 显示字母与释义 · 点击字母区显示字母 | V 发音 | 空格聚焦输入框</div>
+        <div class="hint" id="hint-text" style="display: none;">💡 提示：根据释义打出英文，字母逐一变色 | 回车跳下一词 | ←→ 切词(输入为空时) · ↑↓ 随时切词 | Tab 显示字母与释义 · 点击字母区显示字母 | V 发音 | Alt+. 加强/移出错词本 | 空格聚焦输入框</div>
 
         <div class="hint" id="db-stats-bar" style="display: none;">
             <span id="db-stats-text" title="点击刷新统计" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub);">🗄️ IndexedDB: 词库 0 | 错词本 0 | 语音缓存 0 | 例句缓存 0 | 总占用 0 B</span>
@@ -794,6 +817,9 @@
 
         <!-- 极简模式底部进度（仅极简模式可见） -->
         <div id="minimal-progress">第 0/0 词</div>
+
+        <!-- 错词本操作反馈 toast（极简模式下提醒加入/移除结果） -->
+        <div id="wrong-toast"></div>
     </div>
 
     <!-- DeepSeek 设置面板 -->
@@ -1680,6 +1706,7 @@
             else if (msg.type === 'wrongUpdated') {
                 updateWrongCountUI(msg.totalWrong);
                 updateWrongButtonUI(msg.isWrong);
+                showWrongToast(msg.isWrong);
                 if (currentMode() === 'wrong') {
                     const oldSize = sizeSelect.value;
                     rebuildGroupOptions(msg.totalWrong, oldSize);
@@ -2111,6 +2138,26 @@
             }
         }
 
+        // 错词本操作反馈 toast：极简模式下界面无按钮提示，必须给出视觉反馈
+        // 常规模式下同样显示（1.2s 短暂提示）；极简模式下显示 2s
+        let wrongToastTimer = null;
+        const wrongToastEl = document.getElementById('wrong-toast');
+        function showWrongToast(isWrong) {
+            if (!wrongToastEl) return;
+            const minimal = document.body.classList.contains('is-minimal');
+            if (!minimal) {
+                // 常规模式：按钮文字/颜色本身已变化，无需常驻提示
+                return;
+            }
+            wrongToastEl.textContent = isWrong ? '✅ 已加入错词本' : '➖ 已移出错词本';
+            wrongToastEl.className = isWrong ? 'is-ok' : 'is-bad';
+            wrongToastEl.style.display = 'block';
+            if (wrongToastTimer) clearTimeout(wrongToastTimer);
+            wrongToastTimer = setTimeout(() => {
+                wrongToastEl.style.display = 'none';
+            }, 2000);
+        }
+
         // --- 打字输入事件 ---
         typeInput.addEventListener('input', () => {
             if (resolvingWord) return;
@@ -2253,6 +2300,12 @@
 
         // 键盘快捷键：输入框聚焦时由上方 typeInput 内注册的处理器负责（Enter/方向键），此处分发其余情形
         document.addEventListener('keydown', (e) => {
+            // Alt+.：加入/移出错词本（打字输入框聚焦时同样生效，便于边打边标记）
+            if (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'Period') {
+                e.preventDefault();
+                if (!btnToggleWrong.disabled && currentWordData) btnToggleWrong.click();
+                return;
+            }
             // Tab 键：字母与释义一起显示/收起（打字输入框聚焦时同样生效；其他表单控件聚焦时保留默认的焦点切换）
             if (e.key === 'Tab') {
                 const t = e.target;
