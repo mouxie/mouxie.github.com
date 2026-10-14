@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>打字游戏 - 释义拼写练习版</title>
+    <title>打字-所有</title>
     <style>
         :root {
             --primary: #4A90E2;
@@ -405,6 +405,27 @@
             border-radius: 8px;
         }
 
+        /* 极简模式底部进度条：固定悬浮在页面底部，仅极简模式可见 */
+        #minimal-progress {
+            display: none;
+            position: fixed;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 26px;
+            color: var(--text-sub);
+            background: var(--card-bg);
+            padding: 5px 16px;
+            border-radius: 999px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+            z-index: 998;
+            white-space: nowrap;
+            max-width: 90vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        body.is-minimal #minimal-progress { display: block; }
+
         /* 设置模态框 */
         .modal-overlay {
             position: fixed;
@@ -765,6 +786,9 @@
             <span id="db-stats-text" title="点击刷新统计" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub);">🗄️ IndexedDB: 词库 0 | 错词本 0 | 语音缓存 0 | 例句缓存 0 | 总占用 0 B</span>
             <span id="audio-cache-badge" title="点击清空全部本地语音缓存" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub); margin-left: 12px;">🗑️ 清空语音缓存</span>
         </div>
+
+        <!-- 极简模式底部进度（仅极简模式可见） -->
+        <div id="minimal-progress">第 0/0 词</div>
     </div>
 
     <!-- DeepSeek 设置面板 -->
@@ -1739,6 +1763,13 @@
             if (count !== undefined) audioCacheBadge.innerText = '🗑️ 清空语音缓存 (' + count + ')';
         }
 
+        // 极简模式底部进度：第 absoluteIndex/词库总词数（错词本模式分母为错词总数）
+        const minimalProgressEl = document.getElementById('minimal-progress');
+        function updateMinimalProgress(current, total) {
+            if (!minimalProgressEl) return;
+            minimalProgressEl.textContent = `第 ${current}/${total} 词`;
+        }
+
         function formatBytes(bytes) {
             if (bytes < 1024) return bytes + ' B';
             if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -1843,6 +1874,7 @@
                 }
                 
                 statusText.innerText = `组内: ${relativeIndex + 1}/${totalWordsInGroup} (总第${absoluteIndex}词)`;
+                updateMinimalProgress(absoluteIndex, currentMode() === 'wrong' ? wrongCountLocal : activeDictCount);
                 
                 // 当前组第一个词时不再禁用"上一词"：若前面还有组，点击可自动返回上一组
                 const isFirstInGroup = (relativeIndex === 0);
@@ -2020,6 +2052,7 @@
             typeStatus.textContent = "当前选择的分组内没有数据。";
             typeStatus.className = 'type-status';
             statusText.innerText = "0 / 0";
+            updateMinimalProgress(0, 0, 0);
             btnPrev.disabled = true;
             btnPrev.title = '';
             btnNext.disabled = true;
