@@ -382,6 +382,10 @@
     <!-- 状态区：初始化中 / 无错词 / 错误 -->
     <div id="status-panel" class="panel">
         <div id="status-text" class="status-text">⏳ 正在读取错词本...</div>
+        <!-- 错词本为空 / 打开失败时显示的导入入口 -->
+        <div id="status-actions" class="hidden" style="text-align:center; padding: 0 0 14px;">
+            <button id="btn-import-wrong-empty" class="btn btn-primary">📥 导入错词</button>
+        </div>
     </div>
 
     <!-- 主游戏区（初始化完成后显示） -->
@@ -412,6 +416,8 @@
                             <option value="0">第 1 组</option>
                         </select>
                     </label>
+                    <button id="btn-import-wrong" class="btn btn-plain" style="padding:6px 12px; font-size:12px;" title="导入错词文件：支持 fc.html 导出的错词 JSON、单词数组 JSON、或每行一个单词的 TXT">📥 导入错词</button>
+                    <input type="file" id="wrong-file-input" class="hidden" accept=".json,.txt,application/json,text/plain">
                 </div>
                 <label class="switch-label">
                     <input type="checkbox" id="audio-switch" checked>
@@ -604,6 +610,138 @@ function getWordPhonetic(wordObj) {
     }
     const single = usPhone || ukPhone || wordObj.phonetic || wordObj.phonetics || '';
     return single ? `[${single}]` : '';
+}
+
+// ============================================================
+// 错词导入（支持 fc.html 导出的错词 JSON / 单词对象数组 JSON / 每行一词的 TXT）
+// ============================================================
+function parseWrongFile(text) {
+    const words = [];
+    let skipped = 0;
+    const trimmed = String(text || '').trim();
+    if (!trimmed) return { words, skipped };
+
+    // 尝试 JSON 解析：数组（fc.html 导出 / 单词对象数组 / 字符串数组）或对象包装 { data: [...] }
+    let parsed = null;
+    try { parsed = JSON.parse(trimmed); } catch (e) { /* 非 JSON，按 TXT 处理 */ }
+
+    const rawItems = [];
+    if (Array.isArray(parsed)) {
+        rawItems.push(...parsed);
+    } else if (parsed && typeof parsed === 'object') {
+        for (const field of ['data', 'words', 'list', 'wrongWords']) {
+            if (Array.isArray(parsed[field])) { rawItems.push(...parsed[field]); break; }
+        }
+    }
+    // 非 JSON（或 JSON 但结构不识别）：按行拆分，每行一个单词
+    if (rawItems.length === 0 && !parsed) {
+        trimmed.split(/\r?\n/).forEach(line => {
+            const w = line.trim();
+            if (w) rawItems.push(w);
+        });
+    }
+
+    rawItems.forEach(item => {
+        let rec = null;
+        if (typeof item === 'string') {
+            const w = item.trim();
+            if (w) rec = { name: w };
+        } else if (item && typeof item === 'object') {
+            const key = getWordKey(item);
+            if (key && String(key).trim()) {
+                rec = {
+                    name: String(key).trim(),
+                    // 兼容 trans 数组 / 字符串 / translation 字段
+                    trans: Array.isArray(item.trans) ? item.trans.slice() : (item.trans || item.translation || ''),
+                    usphone: item.usphone || '',
+                    ukphone: item.ukphone || '',
+                    phonetic: item.phonetic || ''
+                };
+            }
+        }
+        if (rec) words.push(rec); else skipped++;
+    });
+    return { words, skipped };
+}
+
+function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('文件读取失败'));
+        reader.readAsText(file, 'utf-8');
+    });
+}
+
+// 导入错词文件：解析 → 写入 IndexedDB（已存在的跳过，保留原加入时间）→ 重新加载并开局
+async function importWrongWordsFromFile(file) {
+    const text = await readFileAsText(file);
+    const { words, skipped } = parseWrongFile(text);
+    if (words.length === 0) {
+        alert('⚠️ 未能从文件中解析出任何单词，请检查文件格式。\n\n支持格式：\n1. fc.html「导出错词本 (JSON)」导出的文件\n2. 单词对象 JSON 数组，如 [{"name":"apple","trans":["苹果"]}]\n3. 每行一个单词的 TXT 文本');
+        return;
+    }
+
+    const db = await openFlashcardDB();
+    let existing = new Set();
+    if (db.objectStoreNames.contains(STORE_WRONG)) {
+        existing = new Set(await new Promise((resolve) => {
+            const req = db.transaction(STORE_WRONG, 'readonly').objectStore(STORE_WRONG).getAllKeys();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => resolve([]);
+        }));
+    }
+
+    let added = 0;
+    if (db.objectStoreNames.contains(STORE_WRONG)) {
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_WRONG, 'readwrite');
+            const store = tx.objectStore(STORE_WRONG);
+            words.forEach(item => {
+                const key = getWordKey(item);
+                if (!existing.has(key)) {
+                    store.put({ wordKey: key, data: item, ts: Date.now() });
+                    added++;
+                }
+            });
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(new Error('写入错词本失败'));
+        });
+    }
+    db.close();
+
+    const dup = words.length - added;
+    alert(`✅ 导入完成：新增 ${added} 个错词` +
+        (dup > 0 ? `，跳过 ${dup} 个重复` : '') +
+        (skipped > 0 ? `，忽略 ${skipped} 条无效数据` : ''));
+    await reloadWrongWords();
+}
+
+// 重新读取错词本并开局（导入完成后调用）
+async function reloadWrongWords() {
+    try {
+        wrongWords = await loadWrongWordsFromDB();
+        wrongWords = wrongWords.filter(w => getWordKey(w).trim() !== '');
+        if (wrongWords.length === 0) {
+            els.totalCount.textContent = '0';
+            els.statusText.textContent = '📭 错词本是空的，还没有可练习的单词。';
+            els.statusText.classList.add('success');
+            els.statusPanel.classList.remove('hidden');
+            els.statusActions.classList.remove('hidden');
+            els.gameArea.classList.add('hidden');
+            return;
+        }
+        els.totalCount.textContent = wrongWords.length;
+        els.statusPanel.classList.add('hidden');
+        els.statusActions.classList.add('hidden');
+        els.gameArea.classList.remove('hidden');
+        // 重设到第 1 组重新开局，避免旧组别越界
+        els.groupSelect.value = '0';
+        startSession();
+    } catch (err) {
+        els.statusText.textContent = '⚠️ ' + err.message;
+        els.statusText.classList.add('error');
+    }
 }
 
 // ============================================================
@@ -820,6 +958,10 @@ const els = {
     wordTransDisplay: document.getElementById('word-trans-display'),
     btnReplay: document.getElementById('btn-replay'),
     answerInput: document.getElementById('answer-input'),
+    btnImportWrong: document.getElementById('btn-import-wrong'),
+    btnImportWrongEmpty: document.getElementById('btn-import-wrong-empty'),
+    wrongFileInput: document.getElementById('wrong-file-input'),
+    statusActions: document.getElementById('status-actions'),
     btnClear: document.getElementById('btn-clear'),
     btnPrevWord: document.getElementById('btn-prev-word'),
     btnNextWord: document.getElementById('btn-next-word'),
@@ -852,17 +994,20 @@ let pendingWordIdx = null;  // 首次开局待恢复的组内词序（进度持�
 // 初始化
 // ============================================================
 async function init() {
+    bindEvents(); // 提前绑定：错词为空/读取失败时，状态区的导入按钮也必须可用
     try {
         wrongWords = await loadWrongWordsFromDB();
         if (wrongWords.length === 0) {
             els.statusText.textContent = '📭 错词本是空的，还没有可练习的单词。';
             els.statusText.classList.add('success');
+            els.statusActions.classList.remove('hidden'); // 显示导入按钮
             return;
         }
         wrongWords = wrongWords.filter(w => getWordKey(w).trim() !== '');
         if (wrongWords.length === 0) {
             els.statusText.textContent = '📭 错词本中的单词无效（缺少 word/name/title 字段）。';
             els.statusText.classList.add('success');
+            els.statusActions.classList.remove('hidden'); // 显示导入按钮
             return;
         }
 
@@ -881,7 +1026,6 @@ async function init() {
         els.statusPanel.classList.add('hidden');
         els.gameArea.classList.remove('hidden');
 
-        bindEvents();
         updateAudioCacheBadge();
         startSession();
     } catch (err) {
@@ -953,6 +1097,21 @@ function bindEvents() {
             await clearAudioCache();
             updateAudioCacheBadge();
         }
+    });
+
+    // 错词导入：设置区按钮 / 空错词状态按钮 共用同一个隐藏文件输入
+    const triggerFilePick = () => { els.wrongFileInput.value = ''; els.wrongFileInput.click(); };
+    els.btnImportWrong.addEventListener('click', triggerFilePick);
+    els.btnImportWrongEmpty.addEventListener('click', triggerFilePick);
+    els.wrongFileInput.addEventListener('change', async () => {
+        const file = els.wrongFileInput.files && els.wrongFileInput.files[0];
+        if (!file) return;
+        try {
+            await importWrongWordsFromFile(file);
+        } catch (err) {
+            alert('❌ 导入失败：' + (err && err.message ? err.message : String(err)));
+        }
+        els.wrongFileInput.value = '';
     });
     els.keyVolume.addEventListener('input', () => {
         els.keyVolumeLabel.textContent = els.keyVolume.value + '%';
