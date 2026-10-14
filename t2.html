@@ -1596,17 +1596,23 @@ els.answerInput.addEventListener('keydown', (e) => {
     } else if (e.key === 'Escape' || (e.ctrlKey && e.key.toLowerCase() === 'z')) {
         e.preventDefault();
         clearInput();
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        goPrevWord();
+    } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        goNextWord();
     }
 });
 
-// 全局：左右方向键 上一词/下一词
+// 全局：上下方向键 上一词/下一词
 document.addEventListener('keydown', (e) => {
     if (isFinished) return;
     if (e.target === els.answerInput) return;
-    if (e.code === 'ArrowLeft') {
+    if (e.code === 'ArrowUp') {
         e.preventDefault();
         goPrevWord();
-    } else if (e.code === 'ArrowRight') {
+    } else if (e.code === 'ArrowDown') {
         e.preventDefault();
         goNextWord();
     }
