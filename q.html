@@ -780,7 +780,7 @@
             <div id="example-content" class="example-area__content"></div>
         </div>
         
-        <div class="hint" id="hint-text" style="display: none;">💡 提示：根据释义打出英文，字母逐一变色 | 回车跳下一词 | ←→ 切词(输入为空时) · ↑↓ 随时切词 | V 发音 | 空格聚焦输入框</div>
+        <div class="hint" id="hint-text" style="display: none;">💡 提示：根据释义打出英文，字母逐一变色 | 回车跳下一词 | ←→ 切词(输入为空时) · ↑↓ 随时切词 | Tab 显示释义 | V 发音 | 空格聚焦输入框</div>
 
         <div class="hint" id="db-stats-bar" style="display: none;">
             <span id="db-stats-text" title="点击刷新统计" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub);">🗄️ IndexedDB: 词库 0 | 错词本 0 | 语音缓存 0 | 例句缓存 0 | 总占用 0 B</span>
@@ -2222,6 +2222,16 @@
 
         // 键盘快捷键：输入框聚焦时由上方 typeInput 内注册的处理器负责（Enter/方向键），此处分发其余情形
         document.addEventListener('keydown', (e) => {
+            // Tab 键：显示当前单词释义（打字输入框聚焦时同样生效；其他表单控件聚焦时保留默认的焦点切换）
+            if (e.key === 'Tab') {
+                const t = e.target;
+                if (t && t !== document.body && t !== typeInput && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
+                e.preventDefault();
+                // 在显示/隐藏之间切换（与点击卡片行为一致）
+                if (elWordCn.classList.contains('is-hidden')) showMeaning();
+                else hideMeaning();
+                return;
+            }
             const activeIsInput = (document.activeElement === typeInput);
             if (activeIsInput) return;
             // 焦点在其他表单控件（词库/分组下拉、设置弹窗输入框）时不劫持按键
