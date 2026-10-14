@@ -269,14 +269,6 @@
             min-height: 20px;
             word-break: break-all;
         }
-        .result-btns {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 14px;
-        }
-
         .btn {
             padding: 10px 22px;
             font-size: 14px;
@@ -292,23 +284,6 @@
         .btn-success { background: var(--success); color: #fff; }
         .btn-danger { background: var(--accent); color: #fff; }
         .btn-plain { background: #eef0f4; color: #555; }
-
-        /* ---------- 错词回顾列表 ---------- */
-        .retry-list { margin-top: 14px; text-align: left; }
-        .retry-list h3 { font-size: 14px; margin: 0 0 8px; color: var(--text-main); }
-        .retry-chip {
-            display: inline-block;
-            background: #ffeaea;
-            color: var(--accent);
-            border: 1px solid #ffcccc;
-            border-radius: 20px;
-            padding: 3px 12px;
-            margin: 3px 4px 3px 0;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .retry-chip:hover { background: #ffd6d6; }
 
         .footer-note {
             text-align: center;
@@ -359,12 +334,6 @@
         :root.dark .hint-row button:hover { background: #343945; }
         :root.dark .btn-plain { background: #31363f; color: #c3c9d2; }
         :root.dark .result-word .word-tag { background: var(--primary); }
-        :root.dark .retry-chip {
-            background: #3a2325;
-            border-color: #553134;
-            color: var(--accent);
-        }
-        :root.dark .retry-chip:hover { background: #4a2c2f; }
         :root.dark #audio-cache-badge { border-bottom-color: #354154; }
 
         /* ---------- 极简模式（body.minimal）：隐藏干扰，只留题目/输入框/重听 ---------- */
@@ -559,14 +528,10 @@
             </div>
         </div>
 
-        <!-- 结果区（隐藏，仅显示四张卡时用） -->
+        <!-- 答题反馈区（答错时闪示正确答案，2.5 秒后自动进下一题） -->
         <div class="panel result hidden" id="result-panel">
             <div class="result-word" id="result-word"></div>
             <div class="result-trans" id="result-trans"></div>
-            <div class="result-btns">
-                <button class="btn btn-primary" id="btn-again">🔁 再练一次</button>
-            </div>
-            <div class="retry-list hidden" id="retry-list"></div>
         </div>
 
     </div>
@@ -1097,8 +1062,6 @@ const els = {
     resultPanel: document.getElementById('result-panel'),
     resultWord: document.getElementById('result-word'),
     resultTrans: document.getElementById('result-trans'),
-    btnAgain: document.getElementById('btn-again'),
-    retryList: document.getElementById('retry-list'),
     linkFc: document.getElementById('link-fc'),
     audioCacheBadge: document.getElementById('audio-cache-badge'),
     btnMinimal: document.getElementById('btn-minimal'),
@@ -1201,26 +1164,6 @@ function bindEvents() {
     els.btnReplay.addEventListener('click', () => { if (currentWord) playWordAudio(currentWord); });
     // 点击单词（或听读音模式下的音标）：显示/隐藏释义
     els.wordDisplay.addEventListener('click', toggleWordTrans);
-    els.btnAgain.addEventListener('click', () => {
-        const groupIdx = parseInt(els.groupSelect.value) || 0;
-        const totalGroups = els.groupSelect.options.length;
-        // 不是最后一个组别：切换到下一组，重新开局
-        if (groupIdx + 1 < totalGroups) {
-            els.groupSelect.value = String(groupIdx + 1);
-            saveProgress();
-            startSession();
-            return;
-        }
-        // 已是最后一组：有错词则只重练错词，无错词则重练本组
-        if (retryWords.length > 0) {
-            sessionWords = shuffle(retryWords.slice());
-            retryWords = [];
-            stats = { total: 0, correct: 0, wrong: 0, heat: 0, maxHeat: 0 };
-            startSession(false);
-        } else {
-            startSession();
-        }
-    });
     els.linkFc.addEventListener('click', () => {
         window.location.href = 'fc.html';
     });
@@ -1319,7 +1262,6 @@ function startSession(resetStats = true) {
     els.answerInput.disabled = false;
     els.answerInput.value = '';
     els.resultPanel.classList.add('hidden');
-    els.retryList.classList.add('hidden');
 
     renderQuestion();
     saveProgress();
@@ -1460,8 +1402,6 @@ function showFlashAnswer() {
     els.resultWord.innerHTML = '<span class="word-tag">❌ 正确答案</span>' + escapeHtml(getWordKey(obj));
     els.resultWord.style.color = 'var(--text-main)';
     els.resultTrans.textContent = (ph ? ph + '　' : '') + getWordTrans(obj);
-    els.btnAgain.classList.add('hidden');
-    els.retryList.classList.add('hidden');
 
     const idx = sessionIndex;
     flashTimer = setTimeout(() => {
@@ -1502,7 +1442,6 @@ function goPrevWord() {
     els.answerInput.disabled = false;
     els.answerInput.value = '';
     els.resultPanel.classList.add('hidden');
-    els.retryList.classList.add('hidden');
     renderQuestion();
     saveProgress();
 }
@@ -1539,15 +1478,6 @@ function rollbackQuestionResult(idx) {
     sessionResults[idx] = null;
 }
 
-function renderRetryList() {
-    els.retryList.classList.remove('hidden');
-    els.retryList.innerHTML = '<h3>📋 本次答错的单词（点击可听发音）</h3>' +
-        retryWords.map(w => `<span class="retry-chip" title="${escapeHtml(getWordTrans(w))}">${escapeHtml(getWordKey(w))}</span>`).join('');
-    els.retryList.querySelectorAll('.retry-chip').forEach(chip => {
-        chip.addEventListener('click', () => playWordAudio(chip.textContent.trim()));
-    });
-}
-
 function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -1556,30 +1486,18 @@ function escapeHtml(s) {
 // 结算
 // ============================================================
 function finishSession() {
-    isFinished = true;
-    els.answerInput.disabled = true;
-    els.answerInput.value = '';
-    els.btnPrevWord.disabled = true;
-    els.btnNextWord.disabled = true;
+    const groupIdx = parseInt(els.groupSelect.value) || 0;
+    const totalGroups = els.groupSelect.options.length;
+    const nextGroupIdx = (groupIdx + 1) % totalGroups; // 最后一组练完后回到第 1 组循环
+    const finishedGroupText = els.groupSelect.options[groupIdx].text;
 
-    els.resultPanel.classList.remove('hidden');
-    els.btnAgain.classList.remove('hidden');
-    els.resultWord.textContent = '🏁 本局结束!';
-    els.resultWord.style.color = 'var(--text-main)';
-    els.resultTrans.textContent = `共 ${stats.total} 题，答对 ${stats.correct} 题`;
-    if (retryWords.length > 0) {
-        els.resultTrans.textContent += `，还有 ${retryWords.length} 个单词需要复习`;
-        renderRetryList();
-    } else {
-        els.retryList.classList.add('hidden');
-    }
+    els.groupSelect.value = String(nextGroupIdx);
+    startSession(); // 内部会重建选项、重置统计、渲染第 1 题并保存进度
 
-    els.progressFill.style.width = '100%';
-    const absoluteTotal = ((parseInt(els.groupSelect.value) || 0) * currentSize()) + sessionWords.length;
-    els.roundText.textContent = `组内: ${sessionWords.length}/${sessionWords.length} (总第${absoluteTotal}词)`;
-    els.answerInput.focus();
-    updateMinimalScore();
-    saveProgress(); // 本组练完：记录末尾词序，下次打开自动回到本组第 1 词
+    els.promptText.textContent = (nextGroupIdx === 0)
+        ? `✅ 已练完全部 ${totalGroups} 组，自动回到第 1 组继续`
+        : `✅ ${finishedGroupText} 已练完，自动进入下一组`;
+    setTimeout(() => { els.promptText.textContent = ''; }, 3200);
 }
 
 // ============================================================
