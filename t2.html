@@ -378,6 +378,30 @@
             color: var(--text-main);
         }
 
+        /* 极简模式顶部居中：当前词进度（第 X / Y 词） */
+        .minimal-progress {
+            position: fixed;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 999;
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--text-main);
+            background: var(--card-bg);
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 999px;
+            padding: 5px 18px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            user-select: none;
+            white-space: nowrap;
+        }
+        :root.dark .minimal-progress {
+            background: #2a2e37;
+            border-color: #3c424d;
+            color: var(--text-main);
+        }
+
         /* 极简布局 */
         body.minimal { padding: 0; }
         body.minimal #app-container {
@@ -544,8 +568,9 @@
     </div>
 </div>
 
-<!-- 极简模式悬浮控件：退出按钮 + 角落得分 -->
+<!-- 极简模式悬浮控件：退出按钮 + 顶部当前词进度 + 角落得分 -->
 <button id="btn-minimal-exit" class="minimal-exit hidden" title="退出极简模式" aria-label="退出极简模式">⚙️</button>
+<div id="minimal-progress" class="minimal-progress hidden">0 / 0 词</div>
 <div id="minimal-score" class="minimal-score hidden"></div>
 
 <!-- 数据库核心（库名/版本/建表/版本探测）：5 个页面共用，升级版本只改 db-core.js 一处 -->
@@ -892,6 +917,7 @@ const MINIMAL_KEY = 't2_minimal_v1';
 function enterMinimal() {
     document.body.classList.add('minimal');
     els.btnMinimalExit.classList.remove('hidden');
+    els.minimalProgress.classList.remove('hidden');
     els.minimalScore.classList.remove('hidden');
     updateMinimalScore();
     try { localStorage.setItem(MINIMAL_KEY, '1'); } catch (e) {}
@@ -901,6 +927,7 @@ function enterMinimal() {
 function exitMinimal() {
     document.body.classList.remove('minimal');
     els.btnMinimalExit.classList.add('hidden');
+    els.minimalProgress.classList.add('hidden');
     els.minimalScore.classList.add('hidden');
     try { localStorage.setItem(MINIMAL_KEY, '0'); } catch (e) {}
     els.answerInput.focus();
@@ -912,10 +939,16 @@ function restoreMinimal() {
     } catch (e) {}
 }
 
-// 极简模式下角落显示累计得分（只在极简模式可见时更新）
+// 极简模式下角落显示累计得分、顶部显示当前词进度（总第 X / 总词数，不限于组内范围）
 function updateMinimalScore() {
     if (!els.minimalScore.classList.contains('hidden')) {
         els.minimalScore.textContent = `✓ ${stats.correct} / ${stats.total}`;
+    }
+    if (!els.minimalProgress.classList.contains('hidden')) {
+        const grandTotal = wrongWords.length || 0;
+        // 与 renderQuestion 的 absoluteIndex 同口径：组起始偏移 + 组内题号（1 基）
+        const idx = ((parseInt(els.groupSelect.value) || 0) * currentSize()) + sessionIndex + 1;
+        els.minimalProgress.textContent = `${Math.min(idx, grandTotal)} / ${grandTotal} 词`;
     }
 }
 
@@ -1066,6 +1099,7 @@ const els = {
     audioCacheBadge: document.getElementById('audio-cache-badge'),
     btnMinimal: document.getElementById('btn-minimal'),
     btnMinimalExit: document.getElementById('btn-minimal-exit'),
+    minimalProgress: document.getElementById('minimal-progress'),
     minimalScore: document.getElementById('minimal-score')
 };
 
