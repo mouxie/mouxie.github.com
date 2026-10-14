@@ -367,6 +367,92 @@
         :root.dark .retry-chip:hover { background: #4a2c2f; }
         :root.dark #audio-cache-badge { border-bottom-color: #354154; }
 
+        /* ---------- 极简模式（body.minimal）：隐藏干扰，只留题目/输入框/重听 ---------- */
+        .minimal-exit {
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            z-index: 999;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.12);
+            background: var(--card-bg);
+            color: var(--text-main);
+            font-size: 15px;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0.4;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: opacity 0.2s, transform 0.2s;
+        }
+        .minimal-exit:hover { opacity: 1; transform: scale(1.08); }
+        .minimal-exit:active { transform: scale(0.95); }
+
+        .minimal-score {
+            position: fixed;
+            bottom: 12px;
+            right: 14px;
+            z-index: 999;
+            font-size: 12px;
+            color: var(--text-sub);
+            opacity: 0.55;
+            user-select: none;
+            pointer-events: none;
+        }
+        :root.dark .minimal-exit {
+            background: #2a2e37;
+            border-color: #3c424d;
+            color: var(--text-main);
+        }
+
+        /* 极简布局 */
+        body.minimal { padding: 0; }
+        body.minimal #app-container {
+            max-width: 100%;
+            min-height: 100vh;
+            justify-content: center;
+            gap: 6px;
+        }
+        body.minimal .header,
+        body.minimal #settings-panel,
+        body.minimal #info-panel,
+        body.minimal .question .phonetic,
+        body.minimal .hint-row,
+        body.minimal .footer-note { display: none; }
+        body.minimal .panel {
+            background: transparent;
+            box-shadow: none;
+            border-radius: 0;
+            padding: 8px 0;
+        }
+        body.minimal .question { padding: 8px 0 4px; }
+        body.minimal .question .word {
+            font-size: clamp(34px, 6vw, 60px);
+            color: var(--text-main);
+            cursor: default;
+        }
+        body.minimal .question .word:hover { background: transparent; }
+        body.minimal .question-actions { margin-top: 8px; }
+        body.minimal .word-trans {
+            background: rgba(0,0,0,0.04);
+            border: none;
+            box-shadow: none;
+            color: var(--text-sub);
+        }
+        :root.dark body.minimal .word-trans { background: rgba(255,255,255,0.05); }
+        body.minimal .input-area input {
+            width: 100%;
+            max-width: 620px;
+            font-size: 24px;
+            padding: 14px 18px;
+            border-radius: 12px;
+        }
+        body.minimal .result { padding: 6px 0; }
+
         .hidden { display: none !important; }
     </style>
 </head>
@@ -391,7 +477,7 @@
     <!-- 主游戏区（初始化完成后显示） -->
     <div id="game-area" class="hidden">
         <!-- 设置区 -->
-        <div class="panel">
+        <div class="panel" id="settings-panel">
             <div class="settings">
                 <div class="settings-row">
                     <span title="fc.html 错词本中的全部单词数">📚 错词库共 <b id="total-count">--</b> 个单词</span>
@@ -419,6 +505,9 @@
                     <button id="btn-import-wrong" class="btn btn-plain" style="padding:6px 12px; font-size:12px;" title="导入错词文件：支持 fc.html 导出的错词 JSON、单词数组 JSON、或每行一个单词的 TXT">📥 导入错词</button>
                     <input type="file" id="wrong-file-input" class="hidden" accept=".json,.txt,application/json,text/plain">
                 </div>
+                <div class="settings-row">
+                    <button id="btn-minimal" class="btn btn-plain" style="padding:6px 12px; font-size:12px;" title="极简模式：只保留题目与输入框，隐藏所有设置与干扰（右上角 ⚙️ 可退出，偏好自动保存）">🪶 极简模式</button>
+                </div>
                 <label class="switch-label">
                     <input type="checkbox" id="audio-switch" checked>
                     🔊 自动播放读音
@@ -440,7 +529,7 @@
         </div>
 
         <!-- 关卡信息 -->
-        <div class="panel">
+        <div class="panel" id="info-panel">
             <div class="info-row">
                 <span class="rounds" id="round-text">第 0 / 0 题</span>
                 <span class="score" id="score-text">得分 0 (0%)</span>
@@ -489,6 +578,10 @@
         </div>
     </div>
 </div>
+
+<!-- 极简模式悬浮控件：退出按钮 + 角落得分 -->
+<button id="btn-minimal-exit" class="minimal-exit hidden" title="退出极简模式" aria-label="退出极简模式">⚙️</button>
+<div id="minimal-score" class="minimal-score hidden"></div>
 
 <!-- 数据库核心（库名/版本/建表/版本探测）：5 个页面共用，升级版本只改 db-core.js 一处 -->
 <script src="db-core.js"></script>
@@ -827,6 +920,41 @@ function restoreTheme() {
 }
 
 // ============================================================
+// 极简模式（localStorage: t2Minimal；隐藏全部干扰，只留题目/输入框/重听）
+// ============================================================
+const MINIMAL_KEY = 't2_minimal_v1';
+
+function enterMinimal() {
+    document.body.classList.add('minimal');
+    els.btnMinimalExit.classList.remove('hidden');
+    els.minimalScore.classList.remove('hidden');
+    updateMinimalScore();
+    try { localStorage.setItem(MINIMAL_KEY, '1'); } catch (e) {}
+    els.answerInput.focus();
+}
+
+function exitMinimal() {
+    document.body.classList.remove('minimal');
+    els.btnMinimalExit.classList.add('hidden');
+    els.minimalScore.classList.add('hidden');
+    try { localStorage.setItem(MINIMAL_KEY, '0'); } catch (e) {}
+    els.answerInput.focus();
+}
+
+function restoreMinimal() {
+    try {
+        if (localStorage.getItem(MINIMAL_KEY) === '1') enterMinimal();
+    } catch (e) {}
+}
+
+// 极简模式下角落显示累计得分（只在极简模式可见时更新）
+function updateMinimalScore() {
+    if (!els.minimalScore.classList.contains('hidden')) {
+        els.minimalScore.textContent = `✓ ${stats.correct} / ${stats.total}`;
+    }
+}
+
+// ============================================================
 // 练习进度持久化（localStorage: t2Progress，恢复每组数量与组别）
 // ============================================================
 const PROGRESS_KEY = 't2_progress_v1';
@@ -972,7 +1100,10 @@ const els = {
     btnAgain: document.getElementById('btn-again'),
     retryList: document.getElementById('retry-list'),
     linkFc: document.getElementById('link-fc'),
-    audioCacheBadge: document.getElementById('audio-cache-badge')
+    audioCacheBadge: document.getElementById('audio-cache-badge'),
+    btnMinimal: document.getElementById('btn-minimal'),
+    btnMinimalExit: document.getElementById('btn-minimal-exit'),
+    minimalScore: document.getElementById('minimal-score')
 };
 
 let wrongWords = [];      // 全部错词（原始数据）
@@ -1027,6 +1158,7 @@ async function init() {
         els.gameArea.classList.remove('hidden');
 
         updateAudioCacheBadge();
+        restoreMinimal(); // 恢复上次的极简模式偏好
         startSession();
     } catch (err) {
         els.statusText.textContent = '⚠️ ' + err.message;
@@ -1119,6 +1251,10 @@ function bindEvents() {
     els.keyVolume.addEventListener('change', saveKeyVolume);
     restoreTheme();
     els.themeSwitch.addEventListener('change', () => applyTheme(els.themeSwitch.checked));
+
+    // 极简模式切换
+    els.btnMinimal.addEventListener('click', enterMinimal);
+    els.btnMinimalExit.addEventListener('click', exitMinimal);
 }
 
 function shuffle(arr) {
@@ -1246,6 +1382,7 @@ function renderQuestion() {
     }
 
     saveProgress(); // 每次切题即写入进度，刷新/关闭后可续练
+    updateMinimalScore();
 }
 
 // 输入命中释义子串时自动跳转（输入过程中实时判定）
@@ -1441,6 +1578,7 @@ function finishSession() {
     const absoluteTotal = ((parseInt(els.groupSelect.value) || 0) * currentSize()) + sessionWords.length;
     els.roundText.textContent = `组内: ${sessionWords.length}/${sessionWords.length} (总第${absoluteTotal}词)`;
     els.answerInput.focus();
+    updateMinimalScore();
     saveProgress(); // 本组练完：记录末尾词序，下次打开自动回到本组第 1 词
 }
 
