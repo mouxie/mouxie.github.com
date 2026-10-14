@@ -97,6 +97,33 @@ body{
 .chip.best{color:var(--primary);font-weight:700;}
 .sutra-actions{display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;}
 
+/* ---------- 经义讲解（十法行） ---------- */
+.dharma-note{
+    background:var(--card-bg);border:1px solid var(--line);border-radius:14px;
+    padding:22px 26px;margin-top:18px;
+    box-shadow:0 4px 12px rgba(0,0,0,.05);
+}
+.dharma-note .note-title{
+    text-align:center;font-size:17px;font-weight:700;letter-spacing:3px;
+    font-family:"Kaiti SC","KaiTi","STKaiti",serif;color:var(--primary);
+    margin-bottom:14px;
+}
+.dharma-note .gatha{
+    background:var(--zone-bg);border:1px solid var(--zone-border);border-radius:12px;
+    padding:14px 18px;margin-bottom:16px;
+}
+.dharma-note .gatha p{
+    font-family:"Kaiti SC","KaiTi","STKaiti","Songti SC",serif;
+    font-size:16px;line-height:2;letter-spacing:1.5px;color:var(--text-main);
+    text-align:center;white-space:pre-line;
+}
+.dharma-note .note-body p{
+    font-size:14px;line-height:1.95;color:var(--text-sub);
+    text-indent:2em;margin-bottom:10px;
+}
+.dharma-note .note-body p:last-child{margin-bottom:0;}
+.dharma-note .note-body b{color:var(--primary);font-weight:700;}
+
 /* ---------- 按钮 ---------- */
 .btn{
     border-radius:9px;padding:8px 18px;font-size:14px;cursor:pointer;
@@ -345,7 +372,7 @@ body.minimal #copy-input:focus{border-bottom-color:var(--primary);}
     <!-- 选经页 -->
     <div id="page-select">
         <div class="page-head">
-            <h1>选一部经，抄写，修定力，积累灵性功德</h1>
+            <h1>闻、思、修</h1>
             <p id="page-head-tip">屏幕显示经文与拼音，用<b>中文输入法</b>在输入框逐字抄写，整句抄对自动进入下一句</p>
             <div class="mode-switch" id="mode-switch">
                 <button type="button" data-mode="copy">✍️ 对照抄写</button>
@@ -353,6 +380,22 @@ body.minimal #copy-input:focus{border-bottom-color:var(--primary);}
             </div>
         </div>
         <div class="sutra-grid" id="sutra-grid"></div>
+
+        <!-- 经义讲解：十法行 -->
+        <div class="dharma-note">
+            <div class="note-title">🪷 十法行 · 无著菩萨</div>
+            <div class="gatha">
+                <p>谓书写供养 施他听披读
+受持正开演 讽诵及思修
+行十法行者 获福聚无量
+胜故无尽故 由摄他不息</p>
+            </div>
+            <div class="note-body">
+                <p>这段偈颂，说的是对学习佛教经典有<b>十种法</b>的行持，第一种是书写。第二种是供养。第三种是施他，比如拿了一本心经去送给别人。第四，就是如果别人在诵读，我专心地聆听。第五就是自己阅读。第六受持，就是真正按照经上说的去行持。第七，正为他开演文义。意思是指为别人解说经文的义理，我们注意到他在开演文义前面用到一个<b>“正”</b>字，就是说讲法不能出错，要符合佛教教义，而且是究竟的义理。第八是背诵朗读，第九思惟。第十修习行。</p>
+                <p>这十种行持，总结起来说，就叫作<b>“十法行”</b>。</p>
+                <p>这十种行，很显然，不仅是要自己行，还要帮助别人行，因此说摄他不息，摄就是摄影的摄，这里是摄受的意思，也就是永远在引领和教导别人走在这条道上，否则，也就不存在第三种行送他人经卷，以及第七种自己为别人开讲经义等等。所以，这个十法行，是只针对于既想自己解脱，又要帮助他人解脱成就的<b>大乘佛教</b>而言。 </p><p>—— 摘自：《一听就懂的心经》金刚师红</p>
+            </div>
+        </div>
     </div>
 
     <!-- 选分页（仅多章经文进入） -->
