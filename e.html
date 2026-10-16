@@ -560,7 +560,7 @@
                 <input id="typed-input" type="text" autocomplete="off" autocorrect="off"
                        autocapitalize="off" spellcheck="false" aria-label="打字输入框">
             </div>
-            <div class="typing-hint">🖱 点击卡片聚焦 · <b>照打上方英文例句</b>，正确变绿、错误标红 · 输完自动下一句 · Enter 跳过等待 · ↑↓ 切换上一句/下一句 · 🔊 朗读例句</div>
+            <div class="typing-hint">🖱 点击卡片聚焦 · <b>照打上方英文例句</b>，正确变绿、错误标红 · 输完自动下一句 · Enter 跳过等待 · ↑↓ 切换上一句/下一句 · 🔊 朗读例句（Alt+V）</div>
             <div id="sentence-result" class="sentence-result"></div>
         </div>
 
@@ -1158,9 +1158,16 @@ $('btn-prev').addEventListener('click', goPrev);
 $('btn-next').addEventListener('click', goNext);
 
 // 键盘：↑ 上一句 / ↓ 下一句（极简模式下同样可用；Esc 退出极简已由上方处理）
+// Alt+V：朗读当前例句（语音播报）
 document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowUp') { e.preventDefault(); goPrev(); }
     else if (e.key === 'ArrowDown') { e.preventDefault(); goNext(); }
+    else if (e.altKey && (e.key === 'v' || e.key === 'V')) {
+        e.preventDefault();
+        e.stopPropagation(); // 防止浏览器默认行为（如地址栏/菜单快捷键）
+        speakSentence(currentTarget);
+        focusInput();
+    }
 });
 
 // ------------------------------ 导出 / 导入 ------------------------------
