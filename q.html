@@ -729,7 +729,7 @@
             
             <div class="control-row">
                 <div>
-                    <span style="font-size: 12px; color: var(--text-label);">每组:</span>
+                     <span style="font-size: 12px; color: var(--text-label);">每组:</span>
                     <select id="size-select">
                         <option value="10">10 个</option>
                         <option value="20" selected>20 个</option>
@@ -808,7 +808,7 @@
             <div id="example-content" class="example-area__content"></div>
         </div>
         
-        <div class="hint" id="hint-text" style="display: none;">💡 提示：根据释义打出英文，字母逐一变色 | 回车跳下一词 | ←→ 切词(输入为空时) · ↑↓ 随时切词 | Tab 显示字母与释义 · 点击字母区显示字母 | V 发音 | Alt+. 加强/移出错词本 | 空格聚焦输入框</div>
+        <div class="hint" id="hint-text" style="display: none;">💡 提示：根据释义打出英文，字母逐一变色 | 回车跳下一词 | ←→ 切词(输入为空时) · ↑↓ 随时切词 | Tab 显示字母与释义 · 点击字母区显示字母 | V / Alt+V 发音 | Alt+. 加强/移出错词本 | 空格聚焦输入框</div>
 
         <div class="hint" id="db-stats-bar" style="display: none;">
             <span id="db-stats-text" title="点击刷新统计" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub);">🗄️ IndexedDB: 词库 0 | 错词本 0 | 语音缓存 0 | 例句缓存 0 | 总占用 0 B</span>
@@ -2300,6 +2300,12 @@
 
         // 键盘快捷键：输入框聚焦时由上方 typeInput 内注册的处理器负责（Enter/方向键），此处分发其余情形
         document.addEventListener('keydown', (e) => {
+            // Alt+V：触发单词读音（与 V 键等效；输入框聚焦时同样生效，便于边打边听）
+            if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'v') {
+                e.preventDefault();
+                if (!btnSpeak.disabled) playAudio();
+                return;
+            }
             // Alt+.：加入/移出错词本（打字输入框聚焦时同样生效，便于边打边标记）
             if (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'Period') {
                 e.preventDefault();
