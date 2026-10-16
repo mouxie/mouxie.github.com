@@ -138,7 +138,6 @@
         .question { text-align: center; padding: 24px 16px 12px; }
         .question .word {
             font-size: 26px;
-            font-weight: bold;
             color: var(--primary);
             letter-spacing: 1px;
             word-break: break-all;
@@ -166,7 +165,7 @@
             background: #fff7e6;
             border: 1px solid #ffd591;
             border-radius: 10px;
-            font-size: 20px;
+            font-size: 28px;
             color: #ad4e00;
             text-align: left;
             line-height: 1.7;
@@ -544,7 +543,7 @@
             <div class="input-area">
                 <input type="text" id="answer-input" placeholder="输入对应的中文释义..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                 <div class="hint-row">
-                    <span id="key-hints">输入释义后按 Enter 判定 | 输对可自动跳转 | Ctrl+Z 清除 | ←/→ 切换</span>
+                    <span id="key-hints">输入释义后按 Enter 判定 | 输对可自动跳转 | Tab 看/藏释义 | Ctrl+Z 清除 | ←/→ 切换</span>
                     <button id="btn-clear" type="button">清除 (Ctrl+Z)</button>
                     <button id="btn-prev-word" type="button">◀ 上一词</button>
                     <button id="btn-next-word" type="button">下一词 ▶</button>
@@ -1577,6 +1576,15 @@ document.addEventListener('keydown', (e) => {
     if (e.code === 'Enter' || e.code === 'Space') {
         e.preventDefault();
         els.answerInput.focus();
+    }
+});
+
+// 全局：Tab 键切换释义浮层显示/隐藏（输入框内/外均可，等同于点击上方单词）
+document.addEventListener('keydown', (e) => {
+    if (isFinished) return;
+    if (e.key === 'Tab') {
+        e.preventDefault(); // 阻止默认的焦点跳转行为
+        toggleWordTrans();
     }
 });
 
