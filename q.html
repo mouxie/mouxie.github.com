@@ -454,6 +454,28 @@
         #wrong-toast.is-ok { background: rgba(46,164,79,0.92); }
         #wrong-toast.is-bad { background: rgba(226,74,74,0.92); }
 
+        /* 极简模式组切换提示 toast：自动跳转组别（上一组/下一组/通关）时悬浮提醒 */
+        #group-toast {
+            display: none;
+            position: fixed;
+            bottom: 64px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            background: rgba(74,144,226,0.92);
+            padding: 8px 18px;
+            border-radius: 999px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 9999;
+            white-space: nowrap;
+            max-width: 90vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #group-toast.is-done { background: rgba(46,164,79,0.92); }
+
         /* 设置模态框 */
         .modal-overlay {
             position: fixed;
@@ -729,7 +751,7 @@
             
             <div class="control-row">
                 <div>
-                     <span style="font-size: 12px; color: var(--text-label);">每组:</span>
+                    <span style="font-size: 12px; color: var(--text-label);">每组:</span>
                     <select id="size-select">
                         <option value="10">10 个</option>
                         <option value="20" selected>20 个</option>
@@ -808,7 +830,7 @@
             <div id="example-content" class="example-area__content"></div>
         </div>
         
-        <div class="hint" id="hint-text" style="display: none;">💡 提示：根据释义打出英文，字母逐一变色 | 回车跳下一词 | ←→ 切词(输入为空时) · ↑↓ 随时切词 | Tab 显示字母与释义 · 点击字母区显示字母 | V / Alt+V 发音 | Alt+. 加强/移出错词本 | 空格聚焦输入框</div>
+        <div class="hint" id="hint-text" style="display: none;">💡 提示：根据释义打出英文，字母逐一变色 | 回车跳下一词 | ←→ 切词(输入为空时) · ↑↓ 随时切词 | Tab 显示字母与释义 · 点击字母区显示字母 | V / Alt+V 发音 | Alt+/ 例句 | Alt+. 加强/移出错词本 | 空格聚焦输入框</div>
 
         <div class="hint" id="db-stats-bar" style="display: none;">
             <span id="db-stats-text" title="点击刷新统计" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub);">🗄️ IndexedDB: 词库 0 | 错词本 0 | 语音缓存 0 | 例句缓存 0 | 总占用 0 B</span>
@@ -820,6 +842,9 @@
 
         <!-- 错词本操作反馈 toast（极简模式下提醒加入/移除结果） -->
         <div id="wrong-toast"></div>
+
+        <!-- 组切换反馈 toast（极简模式下提醒自动跳转组别） -->
+        <div id="group-toast"></div>
     </div>
 
     <!-- DeepSeek 设置面板 -->
@@ -2076,7 +2101,9 @@
                 saveProgress();
             } else if (parseInt(groupSelect.value) < groupSelect.options.length - 1) {
                 // 已到本组最后一个词：自动跳转到下一个组（组选择器 +1 并重新加载）
-                groupSelect.value = String(parseInt(groupSelect.value) + 1);
+                const nextGroup = parseInt(groupSelect.value) + 1;
+                groupSelect.value = String(nextGroup);
+                showGroupToast('⏭️ 已自动进入第 ' + (nextGroup + 1) + ' 组');
                 applyFilters(groupSelect.value);
                 saveProgress();
             } else {
@@ -2084,6 +2111,7 @@
                 typeInput.disabled = true;
                 typeStatus.textContent = '🎉 本组全部完成！选择其他组别继续练习';
                 typeStatus.className = 'type-status success';
+                showGroupToast('🎉 已通关最后一个组！', true);
             }
         }
 
@@ -2156,6 +2184,21 @@
             wrongToastTimer = setTimeout(() => {
                 wrongToastEl.style.display = 'none';
             }, 2000);
+        }
+
+        // 组切换反馈 toast：极简模式下顶栏/组别下拉被隐藏，自动跳组时无法感知，必须给出视觉反馈
+        // （常规模式下组选择器本身可见变化，无需提示；仅极简模式显示，2.5s 自动消失）
+        let groupToastTimer = null;
+        const groupToastEl = document.getElementById('group-toast');
+        function showGroupToast(text, isDone) {
+            if (!groupToastEl || !document.body.classList.contains('is-minimal')) return;
+            groupToastEl.textContent = text;
+            groupToastEl.className = isDone ? 'is-done' : '';
+            groupToastEl.style.display = 'block';
+            if (groupToastTimer) clearTimeout(groupToastTimer);
+            groupToastTimer = setTimeout(() => {
+                groupToastEl.style.display = 'none';
+            }, 2500);
         }
 
         // --- 打字输入事件 ---
@@ -2291,7 +2334,9 @@
                 saveProgress();
             } else if (parseInt(groupSelect.value) > 0) {
                 // 已到本组第一个词：自动返回上一个组，并定位到该组最后一个词（与"下一词"跳组形成闭环）
-                groupSelect.value = String(parseInt(groupSelect.value) - 1);
+                const prevGroup = parseInt(groupSelect.value) - 1;
+                groupSelect.value = String(prevGroup);
+                showGroupToast('⏮️ 已返回第 ' + (prevGroup + 1) + ' 组');
                 pendingWordIndex = Number.MAX_SAFE_INTEGER; // 由 filterApplied 钳制到上一组最后一个词
                 applyFilters(groupSelect.value);
                 saveProgress();
@@ -2304,6 +2349,12 @@
             if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'v') {
                 e.preventDefault();
                 if (!btnSpeak.disabled) playAudio();
+                return;
+            }
+            // Alt+/：触发例句功能（输入框聚焦时同样生效；未配置 API Key 时按钮自身会弹出设置提示）
+            if (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'Slash') {
+                e.preventDefault();
+                if (!btnExample.disabled) btnExample.click();
                 return;
             }
             // Alt+.：加入/移出错词本（打字输入框聚焦时同样生效，便于边打边标记）
