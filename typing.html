@@ -458,6 +458,29 @@
             color: #c3c9d2;
         }
 
+        /* 极简模式跳组提示：仅极简模式下显示，自动跳转下一组/回到第 1 组时短暂提醒 */
+        #group-toast {
+            display: none;
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            padding: 8px 18px;
+            font-size: 14px;
+            color: var(--text-main);
+            background: var(--card-bg);
+            border: 1px solid var(--primary);
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.25s;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        body.minimal #group-toast { display: block; }
+        #group-toast.show { opacity: 1; }
+
         .hidden { display: none !important; }
     </style>
 </head>
@@ -469,6 +492,9 @@
 
     <!-- 极简模式底部进度（默认隐藏，仅极简模式显示） -->
     <div id="minimal-progress" class="hidden"></div>
+
+    <!-- 极简模式跳组提示（默认隐藏，仅极简模式显示） -->
+    <div id="group-toast"></div>
 
     <!-- 标题 -->
     <div class="header">
@@ -560,7 +586,7 @@
             <div class="input-area">
                 <input type="text" id="answer-input" placeholder="在这里输入..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                 <div class="hint-row">
-                    <span id="key-hints">听写输对自动跳转下一题 | Ctrl+Z 清除 | Shift 释义 | ←/→ 切换</span>
+                    <span id="key-hints">听写输对自动跳转下一题 | Ctrl+Z 清除 | Shift/Tab 释义 | ←/→ 切换</span>
                     <button id="btn-clear" type="button">清除 (Ctrl+Z)</button>
                     <button id="btn-prev-word" type="button">◀ 上一词</button>
                     <button id="btn-next-word" type="button">下一词 ▶</button>
@@ -989,7 +1015,8 @@ const els = {
     themeSwitch: document.getElementById('theme-switch'),
     minimalSwitch: document.getElementById('minimal-switch'),
     btnExitMinimal: document.getElementById('btn-exit-minimal'),
-    minimalProgress: document.getElementById('minimal-progress')
+    minimalProgress: document.getElementById('minimal-progress'),
+    groupToast: document.getElementById('group-toast')
 };
 
 let wrongWords = [];      // 全部错词（原始数据）
@@ -1634,13 +1661,32 @@ function rollbackQuestionResult(idx) {
 }
 
 // ============================================================
+// 极简模式跳组提醒：组内练完自动进入下一组时短暂显示 toast
+// （非极简模式下 info-row 本就显示组别范围，无需提醒）
+// ============================================================
+let groupToastTimer = null;
+
+function showGroupToast(text) {
+    if (!document.body.classList.contains('minimal')) return; // 仅极简模式提醒
+    els.groupToast.textContent = text;
+    els.groupToast.classList.add('show');
+    if (groupToastTimer) clearTimeout(groupToastTimer);
+    groupToastTimer = setTimeout(() => {
+        els.groupToast.classList.remove('show');
+    }, 2500);
+}
+
+// ============================================================
 // 组内练完：不做结算展示，直接进入下一组
 // （最后一组练完后回到第 1 组，循环练习不中断）
 // ============================================================
 function finishSession() {
     const groupIdx = parseInt(els.groupSelect.value) || 0;
     const totalGroups = els.groupSelect.options.length;
-    els.groupSelect.value = (groupIdx + 1 < totalGroups) ? String(groupIdx + 1) : '0';
+    const nextIdx = (groupIdx + 1 < totalGroups) ? groupIdx + 1 : 0;
+    els.groupSelect.value = String(nextIdx);
+    // 极简模式下提醒用户已自动跳组（含回绕到第 1 组）
+    showGroupToast(nextIdx === 0 ? '🔄 已回到第 1 组' : `⏩ 已自动进入第 ${nextIdx + 1} 组`);
     startSession(); // 重置本组统计并渲染新组首词
 }
 
@@ -1658,10 +1704,10 @@ els.answerInput.addEventListener('keydown', (e) => {
     } else if (e.key === 'Escape' || (e.ctrlKey && e.key.toLowerCase() === 'z')) {
         e.preventDefault();
         clearInput();
-    } else if (e.key === 'Shift' && !e.repeat) {
+    } else if (e.key === 'Shift' || e.key === 'Tab') {
         // 触发查看释义（e.repeat 过滤长按自动重复，避免反复切换闪动）
         e.preventDefault();
-        toggleTransReveal();
+        if (!e.repeat) toggleTransReveal();
     }
 });
 
@@ -1687,6 +1733,13 @@ document.addEventListener('keydown', (e) => {
         e.preventDefault();
         els.answerInput.focus();
     }
+});
+
+// 全局：Tab 键随时显示/隐藏释义（拦截默认焦点切换）
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab' || e.target === els.answerInput) return; // 输入框内已由上方监听处理
+    e.preventDefault();
+    if (!e.repeat) toggleTransReveal(); // 长按自动重复时保持当前状态，不反复切换
 });
 
 // ============================================================
