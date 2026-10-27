@@ -423,7 +423,7 @@
         }
         body.minimal .question { padding: 8px 0 4px; }
         body.minimal .question .word {
-            font-size: clamp(26px, 6vw, 60px);
+            font-size: clamp(26px, 6vw, 30px);
             color: var(--text-main);
             cursor: default;
         }
@@ -543,7 +543,7 @@
             <div class="input-area">
                 <input type="text" id="answer-input" placeholder="输入对应的中文释义..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                 <div class="hint-row">
-                    <span id="key-hints">输入释义后按 Enter 判定 | 输对可自动跳转 | Tab 看/藏释义 | Ctrl+Z 清除 | ←/→ 切换</span>
+                    <span id="key-hints">输入释义后按 Enter 判定 | 输对可自动跳转 | Tab 看/藏释义 | Ctrl+Z 清除 | ←/→ 切换 | Alt+. 移除当前词</span>
                     <button id="btn-clear" type="button">清除 (Ctrl+Z)</button>
                     <button id="btn-prev-word" type="button">◀ 上一词</button>
                     <button id="btn-next-word" type="button">下一词 ▶</button>
@@ -1511,6 +1511,64 @@ function rollbackQuestionResult(idx) {
     sessionResults[idx] = null;
 }
 
+// ============================================================
+// 从错词本移除当前单词（Alt+. 快捷键）
+// ============================================================
+// 删除 IndexedDB 中的错词记录 → 从内存数组移除 → 刷新当前组与题目
+// 已作答的本题统计会一并回滚（与新题重新作答一致）
+async function removeCurrentWord() {
+    if (isFinished) return;
+    const obj = sessionWords[sessionIndex];
+    if (!obj) return;
+    const key = getWordKey(obj);
+    if (!key) return;
+
+    // 破坏性操作：先确认（提示中也说明词会从 fc.html 的错词本中消失）
+    if (!confirm(`确定将「${key}」从错词本中移除吗？\n\n移除后本页与 fc.html 的闪卡游戏都不会再显示该错词。`)) return;
+
+    // 1) 删除 IndexedDB 错词记录
+    const db = await openFlashcardDB();
+    if (db.objectStoreNames.contains(STORE_WRONG)) {
+        await new Promise((resolve) => {
+            const tx = db.transaction(STORE_WRONG, 'readwrite');
+            tx.objectStore(STORE_WRONG).delete(key);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => resolve();
+        });
+    }
+    db.close();
+
+    // 2) 回滚本题已作答的统计（若已答过）
+    rollbackQuestionResult(sessionIndex);
+
+    // 3) 从内存错词数组移除，同步总计数
+    wrongWords = wrongWords.filter(w => getWordKey(w) !== key);
+    els.totalCount.textContent = wrongWords.length;
+    if (flashTimer) { clearTimeout(flashTimer); flashTimer = null; }
+    els.resultPanel.classList.add('hidden');
+
+    // 4) 错词全删光：回到空状态界面（显示导入入口）
+    if (wrongWords.length === 0) {
+        els.statusText.textContent = '📭 错词本是空的，还没有可练习的单词。';
+        els.statusText.classList.add('success');
+        els.statusActions.classList.remove('hidden');
+        els.statusPanel.classList.remove('hidden');
+        els.gameArea.classList.add('hidden');
+        return;
+    }
+
+    // 5) 重建组选项并重取当前组的单词（当前词已移除，下一词自动顶上来）
+    rebuildGroupOptions();
+    const size = currentSize();
+    const groupIdx = parseInt(els.groupSelect.value) || 0;
+    sessionWords = wrongWords.slice(groupIdx * size, groupIdx * size + size);
+    sessionResults = new Array(sessionWords.length).fill(null);
+    retryWords = [];
+    sessionIndex = Math.min(sessionIndex, Math.max(sessionWords.length - 1, 0));
+    renderQuestion();
+    saveProgress();
+}
+
 function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -1585,6 +1643,14 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Tab') {
         e.preventDefault(); // 阻止默认的焦点跳转行为
         toggleWordTrans();
+    }
+});
+
+// 全局：Alt+. 从错词本移除当前单词（输入框内外均可触发）
+document.addEventListener('keydown', (e) => {
+    if (e.altKey && e.key === '.') {
+        e.preventDefault();
+        removeCurrentWord();
     }
 });
 
