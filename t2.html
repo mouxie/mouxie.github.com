@@ -729,15 +729,21 @@ function parseWrongFile(text) {
             const w = item.trim();
             if (w) rec = { name: w };
         } else if (item && typeof item === 'object') {
-            const key = getWordKey(item);
+            // fc.html 新版导出格式：{ wordKey, data, ts } → 取内层 data 解析，ts 单独保留
+            const src = (item.wordKey !== undefined && item.data && typeof item.data === 'object')
+                ? item.data
+                : item;
+            const key = getWordKey(src);
             if (key && String(key).trim()) {
                 rec = {
                     name: String(key).trim(),
                     // 兼容 trans 数组 / 字符串 / translation 字段
-                    trans: Array.isArray(item.trans) ? item.trans.slice() : (item.trans || item.translation || ''),
-                    usphone: item.usphone || '',
-                    ukphone: item.ukphone || '',
-                    phonetic: item.phonetic || ''
+                    trans: Array.isArray(src.trans) ? src.trans.slice() : (src.trans || src.translation || ''),
+                    usphone: src.usphone || '',
+                    ukphone: src.ukphone || '',
+                    phonetic: src.phonetic || '',
+                    // 导出文件携带的加入时间（数字时间戳），导入时写回，_ts 不进入存储 data
+                    _ts: (typeof item.ts === 'number' && item.ts > 0) ? item.ts : undefined
                 };
             }
         }
@@ -779,10 +785,17 @@ async function importWrongWordsFromFile(file) {
         await new Promise((resolve, reject) => {
             const tx = db.transaction(STORE_WRONG, 'readwrite');
             const store = tx.objectStore(STORE_WRONG);
+            // 同批导入且无 ts 时递增，保证批次内也有时间序（倒序展示后：文件靠后的词排前）
+            let impSeq = 0;
             words.forEach(item => {
                 const key = getWordKey(item);
                 if (!existing.has(key)) {
-                    store.put({ wordKey: key, data: item, ts: Date.now() });
+                    // data 存入 DB 前剥离 _ts 标记，避免污染词条对象
+                    const rec = Object.assign({}, item);
+                    let ts = (typeof item._ts === 'number') ? item._ts : (Date.now() + impSeq);
+                    if (typeof item._ts !== 'number') impSeq++;
+                    delete rec._ts;
+                    store.put({ wordKey: key, data: rec, ts: ts });
                     added++;
                 }
             });
