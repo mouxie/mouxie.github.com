@@ -982,6 +982,7 @@
             let currentMode = 'all'; 
             let wrongWordIdsSet = new Set(); 
             let wrongWordsList = []; 
+            let wrongWordsRecords = []; // 错词完整记录（含 key/ts），供导出携带时间信息
 
             let pageSize = 20;
             let currentGroupIdx = 0;
@@ -1303,6 +1304,8 @@
                             // 最新加入的错词排最前（最近记忆最需巩固）；ts 相同（同一毫秒加入）时按 key 字典序兜底，保证顺序稳定
                             pending.sort((a, b) => (b.ts - a.ts) || String(a.key).localeCompare(String(b.key)));
                             wrongWordsList = pending.map(item => item.data);
+                            // 保留 key/ts 供导出：序列化为 { wordKey, data, ts }，导入方可还原加入时间
+                            wrongWordsRecords = pending.map(item => ({ wordKey: item.key, data: item.data, ts: item.ts }));
                             resolve();
                         }
                     };
@@ -1488,7 +1491,8 @@
 
                 else if (msg.type === 'exportWrong') {
                     await cacheWrongWordsKeys();
-                    self.postMessage({ type: 'wrongExportData', data: wrongWordsList });
+                    // 导出完整记录（含 wordKey/ts），而非纯词条数组，便于其他页面导入时还原顺序与加入时间
+                    self.postMessage({ type: 'wrongExportData', data: wrongWordsRecords });
                 }
 
                 else if (msg.type === 'playAudio') {
