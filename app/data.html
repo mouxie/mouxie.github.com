@@ -431,6 +431,7 @@
                     <option value="100">100</option>
                 </select>
             </label>
+            <button id="btn-idb-clear" class="btn-mini btn-mini--danger" title="清空当前对象仓库全部记录（谨慎！）">🗑️ 清空仓库</button>
         </div>
         <div class="panel-head">
             <span id="idb-stats" class="stats-bar">读取中...</span>
@@ -1039,6 +1040,30 @@ function findBlob(v, seen) {
 
 $('idb-db-select').addEventListener('change', onDbChange);
 $('idb-store-select').addEventListener('change', onStoreChange);
+
+// 一键清空当前对象仓库
+$('btn-idb-clear').addEventListener('click', () => {
+    const db = idbState.db;
+    const storeName = idbState.storeName;
+    if (!db || !storeName || !db.objectStoreNames.contains(storeName)) {
+        toast('❌ 请先选择有效的对象仓库');
+        return;
+    }
+    if (!confirm('⚠️ 确定清空数据库「' + db.name + '」仓库「' + storeName + '」的全部 ' + idbState.keys.length + ' 条记录吗？\n此操作不可恢复！')) return;
+
+    const tx = db.transaction([storeName], 'readwrite');
+    const req = tx.objectStore(storeName).clear();
+    req.onsuccess = () => {
+        toast('🗑️ 仓库「' + storeName + '」已清空');
+        idbState.keys = [];
+        idbState.page = 0;
+        releaseObjectUrls();
+        // 更新统计（与 onStoreChange 中的统计文案保持一致）
+        $('idb-stats').textContent = '数据库「' + db.name + '」(v' + db.version + ') | 仓库「' + storeName + '」共 0 条记录，估算占用 0 B（UTF-16 字节）';
+        renderIdbPage();
+    };
+    req.onerror = () => toast('❌ 清空失败：' + (req.error ? req.error.message : '未知错误'));
+});
 $('idb-page-size').addEventListener('change', (e) => {
     idbState.pageSize = parseInt(e.target.value, 10);
     idbState.page = 0;
