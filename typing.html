@@ -334,6 +334,59 @@
         .colloc-example.en { color: #555; }
         .colloc-example.cn { color: var(--text-sub); }
 
+        .root-reveal {
+            margin-top: 12px;
+            padding: 12px 14px;
+            background: #eef7fb;
+            border: 1px solid #c9e4ee;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.8;
+            word-break: break-all;
+            text-align: left;
+        }
+        .root-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .root-title { font-weight: 700; font-size: 15px; }
+        .root-formula {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            background: #e2f1f8;
+            border: 1px solid #bcdceb;
+            border-radius: 6px;
+            padding: 6px 10px;
+            margin-bottom: 8px;
+            display: inline-block;
+            color: #1f6fa8;
+        }
+        .root-parts { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+        .root-part {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 6px 10px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            background: #f2f9fc;
+            border: 1px solid #d6e9f2;
+        }
+        .root-morpheme { font-weight: 700; color: var(--primary); min-width: 90px; }
+        .root-type {
+            font-size: 11px;
+            background: #d4e8f2;
+            color: #1f6fa8;
+            border-radius: 4px;
+            padding: 1px 6px;
+        }
+        .root-meaning { font-size: 13px; color: var(--text-main); flex: 1; min-width: 140px; }
+        .root-summary { font-size: 13px; color: var(--text-main); border-top: 1px dashed #d5e4ec; padding-top: 6px; }
+
         .char-list {
             display: flex;
             flex-wrap: wrap;
@@ -468,6 +521,11 @@
         :root.dark .colloc-reveal { background: #1a2b20; border-color: #2e4a37; }
         :root.dark .colloc-item { background: #1f3326; border-color: #33523d; }
         :root.dark .colloc-example.en { color: #c3c9d2; }
+        :root.dark .root-reveal { background: #16262e; border-color: #29424f; }
+        :root.dark .root-formula { background: #1d3440; border-color: #2f4a58; color: #7fc1e5; }
+        :root.dark .root-part { background: #1b2f3a; border-color: #2c4654; }
+        :root.dark .root-type { background: #27404c; color: #7fc1e5; }
+        :root.dark .root-summary { border-top-color: #2c4654; }
         :root.dark .example-cn { color: #a6aeb9; }
         :root.dark .example-cache-tip { border-bottom-color: #354154; }
         :root.dark .char-item { background: #2a2e37; }
@@ -695,12 +753,14 @@
                     <button id="btn-toggle-freq" class="btn btn-plain btn-sm icon-btn hidden" title="查看口语使用频率" aria-label="查看口语使用频率">📊</button>
                     <button id="btn-toggle-etym" class="btn btn-plain btn-sm icon-btn hidden" title="查看词源故事" aria-label="查看词源故事">📜</button>
                     <button id="btn-toggle-colloc" class="btn btn-plain btn-sm icon-btn hidden" title="查看固定搭配" aria-label="查看固定搭配">🔗</button>
+                    <button id="btn-toggle-root" class="btn btn-plain btn-sm icon-btn hidden" title="查看词根拆解" aria-label="查看词根拆解">🧩</button>
                 </div>
                 <div class="trans-reveal hidden" id="trans-reveal"></div>
                 <div class="example-reveal hidden" id="example-reveal"></div>
                 <div class="freq-reveal hidden" id="freq-reveal"></div>
                 <div class="etym-reveal hidden" id="etym-reveal"></div>
                 <div class="colloc-reveal hidden" id="colloc-reveal"></div>
+                <div class="root-reveal hidden" id="root-reveal"></div>
             </div>
             <div class="char-list" id="char-list"></div>
             <div class="input-area">
@@ -733,7 +793,7 @@
 // 数据来源：与 fc.html 共用的 IndexedDB (FlashcardDB / wrong_words)
 // 常量与打开逻辑全部来自 db-core.js，本页只做别名，不再各自维护副本
 // ============================================================
-const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_FREQ, STORE_ETYM, STORE_COLLOC, STORE_DICTS } = window.FlashcardDB;
+const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_FREQ, STORE_ETYM, STORE_COLLOC, STORE_ROOT, STORE_DICTS } = window.FlashcardDB;
 // reader 模式：不带版本号探测打开，避免 VersionError（建库/升级由 fc.html/q.html 负责）
 const openFlashcardDB = () => window.FlashcardDB.openFlashcardDB({ mode: 'reader' });
 
@@ -912,6 +972,28 @@ function saveCachedColloc(word, data) {
         if (!db.objectStoreNames.contains(STORE_COLLOC)) { db.close(); resolve(); return; }
         const tx = db.transaction(STORE_COLLOC, 'readwrite');
         tx.objectStore(STORE_COLLOC).put({ word: word, data: data, ts: Date.now() });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); resolve(); };
+    })).catch(() => {});
+}
+
+// ============================================================
+// 词根拆解缓存（IndexedDB: root_cache，key = 单词）
+// ============================================================
+function getCachedRoot(word) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_ROOT)) { db.close(); resolve(null); return; }
+        const req = db.transaction(STORE_ROOT, 'readonly').objectStore(STORE_ROOT).get(word);
+        req.onsuccess = () => { db.close(); resolve(req.result || null); };
+        req.onerror = () => { db.close(); resolve(null); };
+    })).catch(() => null);
+}
+
+function saveCachedRoot(word, data) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_ROOT)) { db.close(); resolve(); return; }
+        const tx = db.transaction(STORE_ROOT, 'readwrite');
+        tx.objectStore(STORE_ROOT).put({ word: word, data: data, ts: Date.now() });
         tx.oncomplete = () => { db.close(); resolve(); };
         tx.onerror = () => { db.close(); resolve(); };
     })).catch(() => {});
@@ -1191,11 +1273,13 @@ const els = {
     btnToggleFreq: document.getElementById('btn-toggle-freq'),
     btnToggleEtym: document.getElementById('btn-toggle-etym'),
     btnToggleColloc: document.getElementById('btn-toggle-colloc'),
+    btnToggleRoot: document.getElementById('btn-toggle-root'),
     transReveal: document.getElementById('trans-reveal'),
     exampleReveal: document.getElementById('example-reveal'),
     freqReveal: document.getElementById('freq-reveal'),
     etymReveal: document.getElementById('etym-reveal'),
     collocReveal: document.getElementById('colloc-reveal'),
+    rootReveal: document.getElementById('root-reveal'),
     charList: document.getElementById('char-list'),
     answerInput: document.getElementById('answer-input'),
     btnClear: document.getElementById('btn-clear'),
@@ -1310,6 +1394,7 @@ function bindEvents() {
     els.btnToggleFreq.addEventListener('click', toggleFreqReveal);
     els.btnToggleEtym.addEventListener('click', toggleEtymReveal);
     els.btnToggleColloc.addEventListener('click', toggleCollocReveal);
+    els.btnToggleRoot.addEventListener('click', toggleRootReveal);
     els.linkFc.addEventListener('click', () => {
         window.location.href = 'fc.html';
     });
@@ -1451,6 +1536,13 @@ function renderQuestion() {
     els.btnToggleColloc.classList.remove('hidden');
     els.btnToggleColloc.textContent = '🔗';
     els.btnToggleColloc.title = '查看固定搭配';
+
+    // 重置词根拆解查看状态（按钮在听写/跟打两种模式下均可用）
+    els.rootReveal.classList.add('hidden');
+    els.rootReveal.textContent = '';
+    els.btnToggleRoot.classList.remove('hidden');
+    els.btnToggleRoot.textContent = '🧩';
+    els.btnToggleRoot.title = '查看词根拆解';
 
     // 重置闪答时设置的红色标记
     els.wordDisplay.style.color = '';
@@ -2082,6 +2174,143 @@ function toggleCollocReveal() {
         });
     } else {
         els.collocReveal.classList.add('hidden');
+    }
+}
+
+// ============================================================
+// 词根拆解（DeepSeek API，与例句/频率/词源/搭配共用设置与 key；结果缓存到 root_cache）
+// ============================================================
+let rootRequestWord = ''; // 词根请求对应的单词（防止切词后旧响应覆盖新题）
+
+// 获取单词词根拆解：IndexedDB 缓存 → DeepSeek API → 写回缓存
+// 返回 { word, formula, parts:[{morpheme,type,meaning}], summary, fromCache } 或 { error }
+async function fetchRootFromModel(word) {
+    if (!word) return { error: '（当前单词无效）' };
+    const settings = loadDSSettings();
+    if (!settings.apiKey) {
+        return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置后再使用词根拆解功能。' };
+    }
+
+    // 1) 优先读缓存
+    const cached = await getCachedRoot(word);
+    if (cached && cached.data) {
+        const r = normalizeRoot(cached.data);
+        if (r) return Object.assign({ fromCache: true }, r);
+    }
+
+    // 2) 未命中：调用 DeepSeek API
+    try {
+        const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+        const sysPrompt = '你是英语构词法专家。对给定单词做词根词缀拆解（前缀 prefix + 词根 root + 后缀 suffix），' +
+            '解释每个构词成分的含义、词源语言与作用，最后用一句话说明各成分如何组合出单词整体含义。' +
+            '若单词无明显构词成分（如单一词根词），如实说明"无词缀，单一词根"。' +
+            '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+            '{"word":"英文单词","formula":"构词公式（如 un- + break + -able）","parts":[' +
+            '{"morpheme":"构词成分","type":"前缀/词根/后缀/连接元音","meaning":"含义与词源说明（中文）"}' +
+            '],"summary":"组合含义一句话总结（中文）"}';
+        const userPrompt = '请对单词 "' + word + '" 做词根词缀拆解。';
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + settings.apiKey
+            },
+            body: JSON.stringify({
+                model: settings.model,
+                messages: [
+                    { role: 'system', content: sysPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                reasoning_effort: settings.reasoningEffort,
+                stream: false,
+                response_format: { type: 'json_object' }
+            })
+        });
+
+        if (!response.ok) {
+            let errMsg = 'HTTP ' + response.status;
+            try { const err = await response.json(); if (err.error && err.error.message) errMsg = err.error.message; } catch (e) { /* 非 JSON 错误体 */ }
+            return { error: '❌ 请求失败: ' + errMsg };
+        }
+
+        const data = await response.json();
+        const content = data.choices && data.choices[0] && data.choices[0].message
+            ? (data.choices[0].message.content || '')
+            : '';
+        const parsed = extractJSON(content);
+        const r = normalizeRoot(parsed);
+        if (!r) return { error: '❌ 模型未返回有效的词根拆解数据' };
+
+        saveCachedRoot(word, parsed);
+        return r;
+    } catch (err) {
+        let msg = err && err.message ? err.message : String(err);
+        if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
+            msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+        }
+        return { error: '❌ 请求失败: ' + msg };
+    }
+}
+
+// 将模型返回的 JSON 归一化为展示用结构
+function normalizeRoot(parsed) {
+    if (!parsed || typeof parsed !== 'object') return null;
+    const formula = parsed.formula || parsed.构词公式 || '';
+    const summary = parsed.summary || parsed.总结 || '';
+    let parts = [];
+    const arr = (Array.isArray(parsed.parts) && parsed.parts.length > 0) ? parsed.parts : [];
+    arr.forEach((item) => {
+        if (!item || typeof item !== 'object') return;
+        const morpheme = item.morpheme || item.root || item.part || '';
+        const type = item.type || item.词缀类型 || '';
+        const meaning = item.meaning || item.含义 || '';
+        if (!morpheme && !meaning) return;
+        parts.push({ morpheme: morpheme, type: type, meaning: meaning });
+    });
+    if (!formula && parts.length === 0 && !summary) return null;
+    return { word: parsed.word || '', formula: formula, parts: parts, summary: summary };
+}
+
+// 渲染词根拆解展示区（构词公式 + 每个成分拆解行 + 组合含义总结）
+function renderRoot(r) {
+    els.rootReveal.classList.remove('hidden');
+    const cacheTip = r.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存词根</span>' : '';
+    els.rootReveal.innerHTML =
+        `<div class="root-head">🧩 <span class="root-title">词根拆解（${escapeHtml(r.word || '')}）</span></div>` +
+        cacheTip +
+        (r.formula ? `<div class="root-formula">${escapeHtml(r.formula)}</div>` : '') +
+        (r.parts.length > 0
+            ? `<div class="root-parts">` + r.parts.map((p) =>
+                `<div class="root-part">` +
+                `<span class="root-morpheme">${escapeHtml(p.morpheme)}</span>` +
+                (p.type ? `<span class="root-type">${escapeHtml(p.type)}</span>` : '') +
+                (p.meaning ? `<span class="root-meaning">${escapeHtml(p.meaning)}</span>` : '') +
+                `</div>`
+            ).join('') + `</div>`
+            : '') +
+        (r.summary ? `<div class="root-summary">💡 ${escapeHtml(r.summary)}</div>` : '');
+}
+
+// 切换词根拆解显示/隐藏
+function toggleRootReveal() {
+    const isHidden = els.rootReveal.classList.contains('hidden');
+    if (isHidden) {
+        rootRequestWord = currentWord;
+        els.rootReveal.textContent = '⏳ 正在请求 DeepSeek 拆解词根...';
+        els.rootReveal.classList.remove('hidden');
+        fetchRootFromModel(currentWord).then((result) => {
+            // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
+            if (els.rootReveal.classList.contains('hidden')) return;
+            if (rootRequestWord !== currentWord) return;
+            if (result.error) {
+                els.rootReveal.textContent = result.error;
+                return;
+            }
+            renderRoot(result);
+        });
+    } else {
+        els.rootReveal.classList.add('hidden');
     }
 }
 
