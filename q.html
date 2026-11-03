@@ -1968,8 +1968,20 @@
             }
             else if (msg.type === 'reviewStats') {
                 updateReviewStatsUI(msg.stats);
+                // 复习模式且队列为空：有新到期的词时自动补齐队列（不打断正在学的词）
+                if (currentMode() === 'review' && totalWordsInGroup === 0 && msg.stats && msg.stats.dueTotal > 0) {
+                    applyFilters(groupSelect.value);
+                }
             }
         };
+
+        // 复习模式队列自动刷新轮询：每 10 秒请求一次到期统计。
+        // 队列为空时若出现新到期词，由上方 reviewStats 分支自动重建队列（避免停留在复习模式时永远看不到新到期词）
+        setInterval(() => {
+            if (currentMode() === 'review') {
+                worker.postMessage({ type: 'getReviewStats' });
+            }
+        }, 10000);
 
         // 更新遗忘曲线复习统计：模式下拉的待复习数
         let lastReviewStats = null; // { dueTotal, learnedTotal, unlearnedTotal }
