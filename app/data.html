@@ -478,6 +478,29 @@
     </div>
 </div>
 
+<!-- ==================== 记录编辑模态框（IndexedDB） ==================== -->
+<div id="edit-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-panel">
+        <div class="modal-header">
+            <h3 id="edit-modal-title">编辑记录</h3>
+            <button id="btn-close-edit-modal" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.6;">
+                以 JSON 格式编辑该记录的值，修改后点击「💾 保存修改」写回 IndexedDB（或按 <b>Ctrl+Enter</b>）。<br>
+                ⚠️ 不可包含 Blob 二进制；若为内联主键（keyPath），对象内必须保留主键字段，否则保存会失败。
+            </div>
+            <textarea id="edit-textarea" spellcheck="false"
+                style="width:100%;height:380px;font-family:Consolas,monospace;font-size:12px;line-height:1.6;background:var(--pre-bg);color:var(--text-main);border:1px solid var(--input-border);border-radius:8px;padding:10px;box-sizing:border-box;resize:vertical;white-space:pre;overflow:auto;"></textarea>
+            <div id="edit-error" class="error-tip" style="text-align:left;margin-top:8px;display:none;"></div>
+        </div>
+        <div class="modal-footer">
+            <button id="btn-edit-cancel" class="btn-mini">取消</button>
+            <button id="btn-edit-save" class="btn-mini btn-mini--primary">💾 保存修改</button>
+        </div>
+    </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -504,6 +527,15 @@ if (window.matchMedia) {
     if (mq.addEventListener) mq.addEventListener('change', onSys);
     else if (mq.addListener) mq.addListener(onSys);
 }
+
+// ============================================================================
+// 数据结构（IndexedDB words 表行新增 3 个字段，不新增表）
+
+// rl = 最后一次打字时间戳
+// rx = 复习阶段（0-6）
+// dx = 下次复习到期时间
+// 遗忘曲线逻辑（Ebbinghaus 间隔 1/2/4/7/15/30 天）
+// ============================================================================
 
 // ============================================================================
 // 工具函数
@@ -987,11 +1019,13 @@ async function renderIdbPage() {
             '<td class="cell-preview"><div class="preview-text">' + escapeHtml(truncatePreview(previewText)) + '</div></td>' +
             '<td><div class="row-actions">' +
                 '<button class="btn-mini btn-mini--primary" data-act="view">🔍 查看</button>' +
+                '<button class="btn-mini" data-act="edit"' + (typeInfo.hasBlob ? ' disabled title="包含 Blob 的记录暂不支持文本编辑"' : ' title="编辑该记录的值"') + '>✏️ 编辑</button>' +
                 '<button class="btn-mini" data-act="copy">📋</button>' +
                 '<button class="btn-mini btn-mini--danger" data-act="del">🗑️</button>' +
             '</div></td>';
 
         tr.querySelector('[data-act="view"]').onclick = () => openValueModal(String(keyText), row.value, null);
+        tr.querySelector('[data-act="edit"]').onclick = () => openEditModal(String(keyText), row.value);
         tr.querySelector('[data-act="copy"]').onclick = () => copyText(safeStringify(row.value, 2));
         tr.querySelector('[data-act="del"]').onclick = () => {
             if (confirm('确定删除数据库「' + db.name + '」仓库「' + storeName + '」中主键为\n' + String(keyText).substring(0, 120) + '\n的记录吗？')) {
@@ -1111,6 +1145,103 @@ function closeValueModal() { valueModal.style.display = 'none'; releaseObjectUrl
 
 btnCloseModal.addEventListener('click', closeValueModal);
 valueModal.addEventListener('click', (e) => { if (e.target === valueModal) closeValueModal(); });
+
+// ============================================================================
+// 记录值编辑（IndexedDB）
+// ============================================================================
+const editModal = $('edit-modal');
+const editTextarea = $('edit-textarea');
+const editError = $('edit-error');
+const btnCloseEditModal = $('btn-close-edit-modal');
+const btnEditCancel = $('btn-edit-cancel');
+const btnEditSave = $('btn-edit-save');
+let editTarget = null; // { db, storeName, key, value }
+
+function closeEditModal() {
+    editModal.style.display = 'none';
+    editTarget = null;
+    editError.style.display = 'none';
+}
+
+function openEditModal(keyText, value) {
+    const db = idbState.db;
+    const storeName = idbState.storeName;
+    if (!db || !storeName) { toast('❌ 请先选择对象仓库'); return; }
+    if (value === undefined) { toast('❌ 记录读取失败，无法编辑'); return; }
+    // 含 Blob 的记录用文本 JSON 编辑会丢失二进制，直接拒绝
+    if (hasBlobDeep(value)) { toast('❌ 该记录包含 Blob 二进制数据，暂不支持文本编辑'); return; }
+
+    editTarget = { db: db, storeName: storeName, key: keyText, value: value };
+    const titleKey = String(keyText);
+    $('edit-modal-title').textContent = '编辑记录（主键: ' + titleKey.substring(0, 80) + (titleKey.length > 80 ? '…' : '') + '）';
+    editTextarea.value = safeStringify(value, 2);
+    editError.style.display = 'none';
+    editModal.style.display = 'flex';
+    editTextarea.focus();
+    editTextarea.select();
+}
+
+btnCloseEditModal.addEventListener('click', closeEditModal);
+btnEditCancel.addEventListener('click', closeEditModal);
+editModal.addEventListener('click', (e) => { if (e.target === editModal) closeEditModal(); });
+
+// Ctrl+Enter 快捷保存
+editTextarea.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') btnEditSave.click();
+});
+
+btnEditSave.addEventListener('click', () => {
+    if (!editTarget) return;
+
+    // 1) 解析 JSON
+    let newValue;
+    try {
+        newValue = JSON.parse(editTextarea.value);
+    } catch (e) {
+        editError.style.display = 'block';
+        editError.textContent = '❌ JSON 解析失败：' + e.message;
+        editTextarea.focus();
+        return;
+    }
+    if (hasBlobDeep(newValue)) {
+        editError.style.display = 'block';
+        editError.textContent = '❌ JSON 中不能包含 Blob（保存后二进制会丢失）。';
+        return;
+    }
+
+    // 2) 写回 IndexedDB：内联主键（keyPath）直接 put 对象；外部主键 put(value, key)
+    let tx, store, req;
+    try {
+        tx = editTarget.db.transaction([editTarget.storeName], 'readwrite');
+        store = tx.objectStore(editTarget.storeName);
+    } catch (e) {
+        editError.style.display = 'block';
+        editError.textContent = '❌ 无法打开写事务：' + e.message;
+        return;
+    }
+    const keyPath = store.keyPath;
+    const isInlineKey = typeof keyPath === 'string' || Array.isArray(keyPath);
+    try {
+        req = isInlineKey ? store.put(newValue) : store.put(newValue, editTarget.key);
+    } catch (e) {
+        editError.style.display = 'block';
+        editError.textContent = '❌ 请求创建失败：' + e.message + '（内联主键模式请确认已保留主键字段）';
+        return;
+    }
+
+    req.onsuccess = () => {
+        toast('✅ 已保存修改');
+        closeEditModal();
+        // 内联主键可能被改动，需重新读取主键列表与统计；外部主键只需要重渲染当前页
+        if (isInlineKey) onStoreChange();
+        else renderIdbPage();
+    };
+    req.onerror = () => {
+        editError.style.display = 'block';
+        editError.textContent = '❌ 保存失败：' + (req.error ? req.error.message : '未知错误') +
+            (isInlineKey ? '（内联主键模式请确认对象内含有效主键字段）' : '');
+    };
+});
 btnModalCopy.addEventListener('click', () => copyText(modalPre.textContent));
 btnModalDownload.addEventListener('click', () => {
     if (!modalDownloadBlob) return;
@@ -1126,7 +1257,7 @@ btnModalDownload.addEventListener('click', () => {
 
 // ESC 关闭模态框
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeValueModal();
+    if (e.key === 'Escape') { closeValueModal(); closeEditModal(); }
 });
 
 // ============================================================================
