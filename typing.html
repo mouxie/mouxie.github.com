@@ -261,29 +261,18 @@
         .freq-badge.mid { background: #e8a13c; }
         .freq-badge.low { background: var(--accent); }
         .freq-desc { font-size: 13px; color: var(--text-sub); }
-        .freq-grid {
+        .freq-segs {
             display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 6px 10px;
+            gap: 5px;
             margin: 10px 0 2px;
         }
-        .freq-stat { display: flex; align-items: center; gap: 6px; font-size: 13px; }
-        .freq-bar-track {
-            width: 110px;
-            height: 8px;
+        .freq-seg {
+            flex: 1;
+            height: 10px;
+            border-radius: 3px;
             background: #e4e1ec;
-            border-radius: 4px;
-            overflow: hidden;
         }
-        .freq-bar-fill {
-            height: 100%;
-            width: 0%;
-            border-radius: 4px;
-            background: var(--primary);
-            transition: width 0.4s ease;
-        }
+        .freq-seg.on { background: var(--primary); }
         .freq-detail { font-size: 13px; color: var(--text-sub); margin-top: 8px; }
         .freq-detail b { color: var(--text-main); }
 
@@ -414,7 +403,7 @@
         :root.dark .trans-reveal { background: #322e1e; border-color: #4a4327; }
         :root.dark .example-reveal { background: #1d2635; border-color: #2d3b52; }
         :root.dark .freq-reveal { background: #251f33; border-color: #3b2f52; }
-        :root.dark .freq-bar-track { background: #3a3348; }
+        :root.dark .freq-seg { background: #3a3348; }
         :root.dark .freq-detail { color: #a6aeb9; }
         :root.dark .example-cn { color: #a6aeb9; }
         :root.dark .example-cache-tip { border-bottom-color: #354154; }
@@ -795,6 +784,28 @@ function saveCachedExample(word, data) {
     })).catch(() => {});
 }
 
+// ============================================================
+// 口语使用频率缓存（IndexedDB: freq_cache，key = 单词）
+// ============================================================
+function getCachedFreq(word) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_FREQ)) { db.close(); resolve(null); return; }
+        const req = db.transaction(STORE_FREQ, 'readonly').objectStore(STORE_FREQ).get(word);
+        req.onsuccess = () => { db.close(); resolve(req.result || null); };
+        req.onerror = () => { db.close(); resolve(null); };
+    })).catch(() => null);
+}
+
+function saveCachedFreq(word, data) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_FREQ)) { db.close(); resolve(); return; }
+        const tx = db.transaction(STORE_FREQ, 'readwrite');
+        tx.objectStore(STORE_FREQ).put({ word: word, data: data, ts: Date.now() });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); resolve(); };
+    })).catch(() => {});
+}
+
 // 获取单词的关键字段（与 fc.html 的 getWordKey 保持兼容）
 function getWordKey(wordObj) {
     return wordObj.name || wordObj.word || wordObj.title || '';
@@ -1066,8 +1077,10 @@ const els = {
     btnReplay: document.getElementById('btn-replay'),
     btnToggleTrans: document.getElementById('btn-toggle-trans'),
     btnToggleExample: document.getElementById('btn-toggle-example'),
+    btnToggleFreq: document.getElementById('btn-toggle-freq'),
     transReveal: document.getElementById('trans-reveal'),
     exampleReveal: document.getElementById('example-reveal'),
+    freqReveal: document.getElementById('freq-reveal'),
     charList: document.getElementById('char-list'),
     answerInput: document.getElementById('answer-input'),
     btnClear: document.getElementById('btn-clear'),
@@ -1179,6 +1192,7 @@ function bindEvents() {
     els.btnReplay.addEventListener('click', () => { if (currentWord) playWordAudio(currentWord); });
     els.btnToggleTrans.addEventListener('click', toggleTransReveal);
     els.btnToggleExample.addEventListener('click', toggleExampleReveal);
+    els.btnToggleFreq.addEventListener('click', toggleFreqReveal);
     els.linkFc.addEventListener('click', () => {
         window.location.href = 'fc.html';
     });
@@ -1299,6 +1313,13 @@ function renderQuestion() {
     els.btnToggleExample.classList.remove('hidden');
     els.btnToggleExample.textContent = '📖';
     els.btnToggleExample.title = '查看例句';
+
+    // 重置口语使用频率查看状态（按钮在听写/跟打两种模式下均可用）
+    els.freqReveal.classList.add('hidden');
+    els.freqReveal.textContent = '';
+    els.btnToggleFreq.classList.remove('hidden');
+    els.btnToggleFreq.textContent = '📊';
+    els.btnToggleFreq.title = '查看口语使用频率';
 
     // 重置闪答时设置的红色标记
     els.wordDisplay.style.color = '';
@@ -1532,6 +1553,145 @@ async function fetchExamplesFromModel(word) {
             msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
         }
         return { error: '❌ 请求失败: ' + msg };
+    }
+}
+
+// ============================================================
+// 口语使用频率（DeepSeek API，与例句共用设置与 key；结果缓存到 freq_cache）
+// 与 fc.html 的 DeepSeek 例句共用 API key 设置，配合语音代理等基础设施无需额外配置
+// ============================================================
+let freqRequestWord = ''; // 频率请求对应的单词（防止切词后旧响应覆盖新题）
+
+// 获取单词口语使用频率：IndexedDB 缓存 → DeepSeek API → 写回缓存
+// 返回 { freq, badge, emoji, summary, desc, examples, level, detail, fromCache }
+// 或 { error }。错误向上返回由调用方展示，不抛异常
+async function fetchFreqFromModel(word) {
+    if (!word) return { error: '（当前单词无效）' };
+    const settings = loadDSSettings();
+    if (!settings.apiKey) {
+        return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置后再使用频率功能。' };
+    }
+
+    // 1) 优先读缓存
+    const cached = await getCachedFreq(word);
+    if (cached && cached.data) {
+        const f = normalizeFreq(cached.data);
+        if (f) return Object.assign({ fromCache: true }, f);
+    }
+
+    // 2) 未命中：调用 DeepSeek API
+    try {
+        const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+        const sysPrompt = '你是英语口语教学助手。判断给定单词在英语日常口语（conversational English）中的使用频率。' +
+            '输出顺序：先给一个 1-5 的等级(1=极低频仅书面/专业语域, 5=日常必用核心词)，再给使用频率百分数(0-100)。' +
+            '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+            '{"level":4,"spokenPercent":85,"summary":"一句话概括其在口语中的出现情况（中文）",' +
+            '"example":"一个地道口语例句（含中文翻译）","detail":"一个要点（举例或辨析，中文，说明为何这个等级、如何在口语中高频使用）"}';
+        const userPrompt = '请判断单词 "' + word + '" 在英语日常口语中的使用频率。';
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + settings.apiKey
+            },
+            body: JSON.stringify({
+                model: settings.model,
+                messages: [
+                    { role: 'system', content: sysPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                reasoning_effort: settings.reasoningEffort,
+                stream: false,
+                response_format: { type: 'json_object' }
+            })
+        });
+
+        if (!response.ok) {
+            let errMsg = 'HTTP ' + response.status;
+            try { const err = await response.json(); if (err.error && err.error.message) errMsg = err.error.message; } catch (e) { /* 非 JSON 错误体 */ }
+            return { error: '❌ 请求失败: ' + errMsg };
+        }
+
+        const data = await response.json();
+        const content = data.choices && data.choices[0] && data.choices[0].message
+            ? (data.choices[0].message.content || '')
+            : '';
+        const parsed = extractJSON(content);
+        const f = normalizeFreq(parsed);
+        if (!f) return { error: '❌ 模型未返回有效的频率数据' };
+
+        saveCachedFreq(word, parsed);
+        return f;
+    } catch (err) {
+        let msg = err && err.message ? err.message : String(err);
+        if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
+            msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+        }
+        return { error: '❌ 请求失败: ' + msg };
+    }
+}
+
+// 将模型返回的 JSON 归一化为展示用结构
+function normalizeFreq(parsed) {
+    if (!parsed || typeof parsed !== 'object') return null;
+    const level = clampInt(parsed.level ?? parsed.frequencyLevel ?? parsed.口语等级 ?? 0, 1, 5);
+    const spokenPercent = clampInt(parsed.spokenPercent ?? parsed.spoken_frequency ?? parsed.口语使用频率 ?? 0, 0, 100);
+    if (!level && !spokenPercent && !parsed.summary) return null;
+    return {
+        level: level,
+        spokenPercent: spokenPercent,
+        summary: parsed.summary || parsed.口语总结 || '',
+        example: parsed.example || parsed.口语例句 || '',
+        detail: parsed.detail || parsed.说明 || '',
+        emoji: level >= 5 ? '🔥' : level >= 4 ? '💬' : level >= 3 ? '🗣' : level >= 2 ? '🤏' : '📚',
+        badge: level >= 5 ? '日常核心' : level >= 4 ? '高频常用' : level >= 3 ? '中等常用' : level >= 2 ? '低频' : '极低频',
+        desc: level >= 5 ? '口语必用词' : level >= 4 ? '口语高频词' : level >= 3 ? '日常偶尔出现' : level >= 2 ? '口语很少出现' : '几乎不说',
+        segs: Math.max(1, Math.min(5, level))
+    };
+}
+function clampInt(n, min, max) {
+    n = parseInt(n, 10);
+    if (isNaN(n)) return 0;
+    return Math.max(min, Math.min(max, n));
+}
+
+// 渲染口语使用频率展示区（5 格分段条 + 徽章 + 总结 + 例句 + 解析）
+function renderFreq(r) {
+    els.freqReveal.classList.remove('hidden');
+    els.freqReveal.innerHTML =
+        `<div class="freq-head"><span class="freq-emoji">${r.emoji}</span>` +
+        `<span class="freq-badge ${r.level >= 4 ? 'high' : r.level >= 3 ? 'mid' : 'low'}">${r.badge}</span>` +
+        (r.fromCache ? '<span class="example-cache-tip" style="margin:0;">📦 已加载本地缓存频率</span>' : '') +
+        `</div>` +
+        `<div class="freq-desc">${escapeHtml(r.summary || r.desc)}</div>` +
+        `<div class="freq-segs">${'<div class="freq-seg on"></div>'.repeat(r.segs) + '<div class="freq-seg"></div>'.repeat(5 - r.segs)}</div>` +
+        `<div class="freq-detail">口语使用：约 <b>${r.spokenPercent || '?'}%</b> · 等级 <b>${r.level}/5</b>（${escapeHtml(r.desc)}）</div>` +
+        (r.example
+            ? `<div class="freq-detail" style="margin-top:4px;">💬 <b>口语示例：</b>${escapeHtml(r.example)}</div>`
+            : '') +
+        (r.detail ? `<div class="freq-detail" style="margin-top:4px;">💡 ${escapeHtml(r.detail)}</div>` : '');
+}
+
+// 切换口语使用频率显示/隐藏
+function toggleFreqReveal() {
+    const isHidden = els.freqReveal.classList.contains('hidden');
+    if (isHidden) {
+        freqRequestWord = currentWord;
+        els.freqReveal.textContent = '⏳ 正在请求 DeepSeek 分析口语使用频率...';
+        els.freqReveal.classList.remove('hidden');
+        fetchFreqFromModel(currentWord).then((result) => {
+            // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
+            if (els.freqReveal.classList.contains('hidden')) return;
+            if (freqRequestWord !== currentWord) return;
+            if (result.error) {
+                els.freqReveal.textContent = result.error;
+                return;
+            }
+            renderFreq(result);
+        });
+    } else {
+        els.freqReveal.classList.add('hidden');
     }
 }
 
