@@ -387,6 +387,58 @@
         .root-meaning { font-size: 13px; color: var(--text-main); flex: 1; min-width: 140px; }
         .root-summary { font-size: 13px; color: var(--text-main); border-top: 1px dashed #d5e4ec; padding-top: 6px; }
 
+        .syn-reveal {
+            margin-top: 12px;
+            padding: 12px 14px;
+            background: #fdf1f6;
+            border: 1px solid #f0d3de;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.8;
+            word-break: break-all;
+            text-align: left;
+        }
+        .syn-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .syn-title { font-weight: 700; font-size: 15px; }
+        .syn-table {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ecd2dc;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .syn-row {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 10px;
+            padding: 7px 10px;
+            background: #fdf7fa;
+            border-bottom: 1px solid #f2e2e8;
+        }
+        .syn-row:last-child { border-bottom: none; }
+        .syn-row.main { background: #fbeef4; }
+        .syn-word { font-weight: 700; color: var(--primary); }
+        .syn-word.main-word { color: var(--accent); }
+        .syn-meaning { font-size: 13px; color: var(--text-main); }
+        .syn-diff { font-size: 12px; color: var(--text-sub); grid-column: 1 / -1; }
+        .syn-contrast {
+            font-size: 13px;
+            color: var(--text-main);
+            background: #fdf1f6;
+            border: 1px solid #f0d3de;
+            border-radius: 6px;
+            padding: 8px 10px;
+        }
+        .syn-contrast b { color: var(--accent); }
+
         .char-list {
             display: flex;
             flex-wrap: wrap;
@@ -526,6 +578,11 @@
         :root.dark .root-part { background: #1b2f3a; border-color: #2c4654; }
         :root.dark .root-type { background: #27404c; color: #7fc1e5; }
         :root.dark .root-summary { border-top-color: #2c4654; }
+        :root.dark .syn-reveal { background: #2b1c24; border-color: #452e3a; }
+        :root.dark .syn-table { border-color: #452e3a; }
+        :root.dark .syn-row { background: #2a2026; border-bottom-color: #3a2b33; }
+        :root.dark .syn-row.main { background: #33222b; }
+        :root.dark .syn-contrast { background: #2b1c24; border-color: #452e3a; }
         :root.dark .example-cn { color: #a6aeb9; }
         :root.dark .example-cache-tip { border-bottom-color: #354154; }
         :root.dark .char-item { background: #2a2e37; }
@@ -754,6 +811,7 @@
                     <button id="btn-toggle-etym" class="btn btn-plain btn-sm icon-btn hidden" title="查看词源故事" aria-label="查看词源故事">📜</button>
                     <button id="btn-toggle-colloc" class="btn btn-plain btn-sm icon-btn hidden" title="查看固定搭配" aria-label="查看固定搭配">🔗</button>
                     <button id="btn-toggle-root" class="btn btn-plain btn-sm icon-btn hidden" title="查看词根拆解" aria-label="查看词根拆解">🧩</button>
+                    <button id="btn-toggle-syn" class="btn btn-plain btn-sm icon-btn hidden" title="近义词辨析" aria-label="近义词辨析">🔀</button>
                 </div>
                 <div class="trans-reveal hidden" id="trans-reveal"></div>
                 <div class="example-reveal hidden" id="example-reveal"></div>
@@ -761,6 +819,7 @@
                 <div class="etym-reveal hidden" id="etym-reveal"></div>
                 <div class="colloc-reveal hidden" id="colloc-reveal"></div>
                 <div class="root-reveal hidden" id="root-reveal"></div>
+                <div class="syn-reveal hidden" id="syn-reveal"></div>
             </div>
             <div class="char-list" id="char-list"></div>
             <div class="input-area">
@@ -793,7 +852,7 @@
 // 数据来源：与 fc.html 共用的 IndexedDB (FlashcardDB / wrong_words)
 // 常量与打开逻辑全部来自 db-core.js，本页只做别名，不再各自维护副本
 // ============================================================
-const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_FREQ, STORE_ETYM, STORE_COLLOC, STORE_ROOT, STORE_DICTS } = window.FlashcardDB;
+const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_FREQ, STORE_ETYM, STORE_COLLOC, STORE_ROOT, STORE_SYN, STORE_DICTS } = window.FlashcardDB;
 // reader 模式：不带版本号探测打开，避免 VersionError（建库/升级由 fc.html/q.html 负责）
 const openFlashcardDB = () => window.FlashcardDB.openFlashcardDB({ mode: 'reader' });
 
@@ -994,6 +1053,28 @@ function saveCachedRoot(word, data) {
         if (!db.objectStoreNames.contains(STORE_ROOT)) { db.close(); resolve(); return; }
         const tx = db.transaction(STORE_ROOT, 'readwrite');
         tx.objectStore(STORE_ROOT).put({ word: word, data: data, ts: Date.now() });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); resolve(); };
+    })).catch(() => {});
+}
+
+// ============================================================
+// 近义词辨析缓存（IndexedDB: syn_cache，key = 单词）
+// ============================================================
+function getCachedSyn(word) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_SYN)) { db.close(); resolve(null); return; }
+        const req = db.transaction(STORE_SYN, 'readonly').objectStore(STORE_SYN).get(word);
+        req.onsuccess = () => { db.close(); resolve(req.result || null); };
+        req.onerror = () => { db.close(); resolve(null); };
+    })).catch(() => null);
+}
+
+function saveCachedSyn(word, data) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_SYN)) { db.close(); resolve(); return; }
+        const tx = db.transaction(STORE_SYN, 'readwrite');
+        tx.objectStore(STORE_SYN).put({ word: word, data: data, ts: Date.now() });
         tx.oncomplete = () => { db.close(); resolve(); };
         tx.onerror = () => { db.close(); resolve(); };
     })).catch(() => {});
@@ -1274,12 +1355,14 @@ const els = {
     btnToggleEtym: document.getElementById('btn-toggle-etym'),
     btnToggleColloc: document.getElementById('btn-toggle-colloc'),
     btnToggleRoot: document.getElementById('btn-toggle-root'),
+    btnToggleSyn: document.getElementById('btn-toggle-syn'),
     transReveal: document.getElementById('trans-reveal'),
     exampleReveal: document.getElementById('example-reveal'),
     freqReveal: document.getElementById('freq-reveal'),
     etymReveal: document.getElementById('etym-reveal'),
     collocReveal: document.getElementById('colloc-reveal'),
     rootReveal: document.getElementById('root-reveal'),
+    synReveal: document.getElementById('syn-reveal'),
     charList: document.getElementById('char-list'),
     answerInput: document.getElementById('answer-input'),
     btnClear: document.getElementById('btn-clear'),
@@ -1395,6 +1478,7 @@ function bindEvents() {
     els.btnToggleEtym.addEventListener('click', toggleEtymReveal);
     els.btnToggleColloc.addEventListener('click', toggleCollocReveal);
     els.btnToggleRoot.addEventListener('click', toggleRootReveal);
+    els.btnToggleSyn.addEventListener('click', toggleSynReveal);
     els.linkFc.addEventListener('click', () => {
         window.location.href = 'fc.html';
     });
@@ -1543,6 +1627,13 @@ function renderQuestion() {
     els.btnToggleRoot.classList.remove('hidden');
     els.btnToggleRoot.textContent = '🧩';
     els.btnToggleRoot.title = '查看词根拆解';
+
+    // 重置近义词辨析查看状态（按钮在听写/跟打两种模式下均可用）
+    els.synReveal.classList.add('hidden');
+    els.synReveal.textContent = '';
+    els.btnToggleSyn.classList.remove('hidden');
+    els.btnToggleSyn.textContent = '🔀';
+    els.btnToggleSyn.title = '近义词辨析';
 
     // 重置闪答时设置的红色标记
     els.wordDisplay.style.color = '';
