@@ -996,7 +996,7 @@
                 <div id="review-info-content" class="review-stats-content">⏳ 读取中...</div>
             </div>
             <div class="modal-footer">
-                <button id="btn-reset-review" class="btn-nav btn-cancel" title="重置后该词视为未学，1 分钟后重新进入复习队列">🔄 重置该词进度</button>
+                <button id="btn-reset-review" class="btn-nav btn-cancel" title="重置后该词视为未学，1 秒后重新进入复习队列">🔄 重置该词进度</button>
                 <button id="btn-review-info-done" class="btn-nav">关闭</button>
             </div>
         </div>
@@ -1069,32 +1069,35 @@
             let currentGroupIdx = 0;
             let currentGroupWords = [];
 
-            // ---------- 遗忘曲线复习（Ebbinghaus 间隔：1分钟 → 1/2/4/7/15/30 天） ----------
+            // ---------- 遗忘曲线复习（Ebbinghaus 间隔：1秒 → 1/2/4/7/15/30 天） ----------
             // 复习字段存在 words 表的行上：dx = 下次复习到期时间戳，rx = 当前复习阶段(0-7)，rl = 最后一次打字时间戳
-            // 打对则 rx+1、间隔依次升级；打错则 rx 重置为 0（1 分钟后复查）；完全通关(rx=7)后 30 天后复查
+            // 打对则 rx+1、间隔依次升级；打错则 rx 重置为 0（1 秒后复查）；完全通关(rx=7)后 30 天后复查
             const DAY_MS = 24 * 60 * 60 * 1000;
             const MINUTE_MS = 60 * 1000;
-            const REVIEW_INTERVALS_MS = [1 * MINUTE_MS, 1 * DAY_MS, 2 * DAY_MS, 4 * DAY_MS, 7 * DAY_MS, 15 * DAY_MS, 30 * DAY_MS];
+            const SECOND_MS = 1000;
+            const REVIEW_INTERVALS_MS = [1 * SECOND_MS, 1 * DAY_MS, 2 * DAY_MS, 4 * DAY_MS, 7 * DAY_MS, 15 * DAY_MS, 30 * DAY_MS];
 
-            // 间隔显示：如 "1 分钟" / "1 天" / "30 天"
+            // 间隔显示：如 "1 秒" / "1 天" / "30 天"
             function formatInterval(ms) {
-                if (ms < DAY_MS) return Math.round(ms / MINUTE_MS) + ' 分钟';
+                if (ms < DAY_MS) return Math.round(ms / 1000) + ' 秒';
                 const days = ms / DAY_MS;
                 return (Number.isInteger(days) ? days : days.toFixed(1)) + ' 天';
             }
 
-            // 时长显示：如 "3 分钟后" / "1 天 2 小时后"（负值表示已逾期多少）
+            // 时长显示：如 "3 分钟后" / "1 天 2 小时后"（负值表示已逾期多少）；不足 1 分钟显示秒
             function formatDuration(ms) {
                 const abs = Math.abs(ms);
                 const days = Math.floor(abs / DAY_MS);
                 const hours = Math.floor((abs % DAY_MS) / (60 * 60 * 1000));
-                const mins = Math.round((abs % (60 * 60 * 1000)) / MINUTE_MS);
+                const mins = Math.floor((abs % (60 * 60 * 1000)) / MINUTE_MS);
+                const secs = Math.round((abs % MINUTE_MS) / 1000);
                 let s = '';
                 if (days > 0) s += days + ' 天 ';
                 if (hours > 0 || days > 0) s += hours + ' 小时 ';
-                if (mins > 0 || (days === 0 && hours === 0)) s += mins + ' 分钟';
+                if (mins > 0 || hours > 0 || days > 0) s += mins + ' 分钟';
+                if (secs > 0 || (days === 0 && hours === 0 && mins === 0)) s += secs + ' 秒';
                 s = s.trim();
-                if (!s) s = '0 分钟';
+                if (!s) s = '0 秒';
                 return (ms < 0 ? '已逾期 ' : '') + s;
             }
 
@@ -1677,7 +1680,7 @@
                 }
 
                 // 打字上报：记录最后一次打字时间并更新遗忘曲线复习进度
-                // 打对(correct=true)：阶段 +1，下次间隔取当前阶段；打错(correct=false)：阶段重置为 0，1 天后复查
+                // 打对(correct=true)：阶段 +1，下次间隔取当前阶段；打错(correct=false)：阶段重置为 0，下次复习间隔回到最短的 1 秒
                 else if (msg.type === 'logTyping') {
                     const success = msg.correct !== false;
                     const key = getWordKey(msg.data);
@@ -1692,7 +1695,7 @@
                     const now = Date.now();
                     const curStage = rec && typeof rec.rx === 'number' ? rec.rx : 0;
                     const maxStage = REVIEW_INTERVALS_MS.length;
-                    // 打对：阶段 +1（封顶不再提升）；打错：重置为 0（1 分钟后立即复查）
+                    // 打对：阶段 +1（封顶不再提升）；打错：重置为 0（1 秒后立即复查）
                     const nextStage = success ? (curStage >= maxStage ? curStage : curStage + 1) : 0;
                     const intervalIdx = success ? Math.min(curStage, maxStage - 1) : 0;
                     const dueTs = now + REVIEW_INTERVALS_MS[intervalIdx];
@@ -1735,7 +1738,7 @@
                     self.postMessage({ type: 'reviewInfo', seq: msg.seq, info: info });
                 }
 
-                // 重置单个词的复习进度（清除 dx/rx/rl，视为未学，1 分钟后重新进入队列）
+                // 重置单个词的复习进度（清除 dx/rx/rl，视为未学，1 秒后重新进入队列）
                 else if (msg.type === 'resetReview') {
                     const key = getWordKey(msg.data);
                     const rowKey = allRowsMap.get(key);
@@ -2407,7 +2410,7 @@
         }
 
         // 打字上报：无论对错都记录最后一次打字时间；仅复习模式下推进遗忘曲线
-        // （打对：间隔升级；打错：阶段重置，1 天后复查）
+        // （打对：间隔升级；打错：阶段重置并回到 1 秒后复查）
         function reportTyping(correct) {
             if (!currentWordData) return;
             worker.postMessage({ type: 'logTyping', data: currentWordData, correct: correct });
@@ -2434,10 +2437,9 @@
             }, 650);
         }
 
-        // 输入长度满但结果错误：错误反馈
-        // 打错同样上报（记录最后打字时间 + 复习阶段重置为 0，1 分钟后复查）
-        // 复习模式：打错也视为"复习过"，显示正确答案后自动进入下一词（不原地重打）
-        // 普通模式：保持原学习逻辑——清空后重新打到对为止
+        // 输入过程中任一字符打错：立即错误反馈
+        // 打错同样上报（记录最后打字时间 + 复习阶段重置为 0，1 秒后复查）
+        // 复习模式与普通模式一致：清空并允许立刻重打（不显示答案、不自动跳词）
         function onWordWrong() {
             resolvingWord = true;
             const isReview = currentMode() === 'review';
@@ -2446,29 +2448,17 @@
             meaningCard.classList.remove('is-success');
             void meaningCard.offsetWidth; // 重新触发 shake 动画
             meaningCard.classList.add('is-error');
-            if (isReview) {
-                // 复习模式：亮出正确答案，短暂停留后重建队列进入下一个词
-                revealLetters();
-                typeStatus.textContent = '❌ 拼写有误，已记录复习（1 分钟后复查）';
-                typeStatus.className = 'type-status error';
-                setTimeout(() => {
-                    pendingWordIndex = currentRelativeIndex;
-                    applyFilters(groupSelect.value); // 重建队列：该词被安排到 1 天后，自然移出当前队列
-                }, 1500);
-                return;
-            }
-            typeStatus.textContent = '❌ 字母不对，已清空，请重新输入';
+            typeStatus.textContent = isReview ? '❌ 拼写有误，已记录复习（1 秒后复查）' : '❌ 字母不对，已清空，请重新输入';
             typeStatus.className = 'type-status error';
-            setTimeout(() => {
-                resolvingWord = false;
-                typeInput.readOnly = false;
-                typeInput.value = '';
-                meaningCard.classList.remove('is-error');
-                typeStatus.textContent = '';
-                typeStatus.className = 'type-status';
-                updateLetterHighlight();
-                typeInput.focus();
-            }, 600);
+            // 立即清空并允许重打：不等待 600ms 恢复
+            resolvingWord = false;
+            typeInput.readOnly = false;
+            typeInput.value = '';
+            meaningCard.classList.remove('is-error');
+            typeStatus.textContent = '';
+            typeStatus.className = 'type-status';
+            updateLetterHighlight();
+            typeInput.focus();
         }
 
         // 跳下一个词（打字成功后自动调用 / 回车跳过 / 点击下一词共用）
@@ -2512,7 +2502,7 @@
                 elWordCn.innerHTML = "📭 暂无到期复习" +
                     `<br><span style="font-size:13px; color:var(--text-sub); line-height:1.8;">` +
                     `已学 ${lastReviewStats ? lastReviewStats.learnedTotal : 0} 词 · 未学 ${unlearned} 词<br>` +
-                    `去「📖 当前词库」打几个词，1 分钟/1 天后会回到这里！</span>`;
+                    `去「📖 当前词库」打几个词，1 秒/1 天后会回到这里！</span>`;
             } else {
                 elWordCn.innerHTML = "📭 分组空空";
             }
@@ -2595,10 +2585,20 @@
         }
 
         // --- 打字输入事件 ---
+        // 判定规则：实时逐字符比对——只要某一字符打错（与目标位置不一致）立即判错，不再等打满长度。
+        // 旧逻辑允许先打错再退格修改（最终判定只看完整输入），新逻辑打错即判错，无法蒙混
         typeInput.addEventListener('input', () => {
             if (resolvingWord) return;
             const typed = typeInput.value;
             updateLetterHighlight();
+
+            // 实时判定：逐个字符与目标比对，出现第一个错字立即判错并清空重打
+            for (let i = 0; i < typed.length; i++) {
+                if (typed[i] !== currentWordString[i]) {
+                    onWordWrong();
+                    return;
+                }
+            }
 
             // 进度提示（非统计性质，仅帮助用户感知还剩几个字母）
             if (typed.length < currentWordString.length) {
@@ -2606,13 +2606,9 @@
                 typeStatus.className = 'type-status';
             }
 
-            // 长度达到单词长度：立即判定（相等=正确，不等=错误重来）
+            // 实时比对已保证无错字：长度达到即判定正确
             if (typed.length === currentWordString.length) {
-                if (typed === currentWordString) {
-                    onWordCorrect();
-                } else {
-                    onWordWrong();
-                }
+                onWordCorrect();
             }
         });
 
@@ -2734,7 +2730,7 @@
         const btnResetReview = document.getElementById('btn-reset-review');
 
         // 阶段名称（与 REVIEW_INTERVALS_MS 对应）
-        const STAGE_LABELS = ['1 分钟', '1 天', '2 天', '4 天', '7 天', '15 天', '30 天'];
+        const STAGE_LABELS = ['1 秒', '1 天', '2 天', '4 天', '7 天', '15 天', '30 天'];
 
         function escapeHtmlLocal(s) {
             return String(s == null ? '' : s)
@@ -2789,7 +2785,7 @@
                     html += `<span class="item"><span class="dot" style="background:${segColors[i]}"></span>阶段${i}(${STAGE_LABELS[i]}) ${cnt}</span>`;
                 }
                 html += '</div>';
-                html += '<div style="font-size:11px;color:var(--text-sub);margin-top:10px;line-height:1.6;">💡 打对升级阶段（间隔翻倍），打错回到阶段 0（1 分钟后复查）。到期词会自动进入复习队列。</div>';
+                html += '<div style="font-size:11px;color:var(--text-sub);margin-top:10px;line-height:1.6;">💡 打对升级阶段（间隔翻倍），打错回到阶段 0（1 秒后复查）。到期词会自动进入复习队列。</div>';
             }
             reviewStatsContent.innerHTML = html;
         }
@@ -2861,7 +2857,7 @@
         // 重置确认 + 执行
         btnResetReview.addEventListener('click', async () => {
             if (!currentWordData) return;
-            if (!confirm('确定重置「' + currentWordString + '」的复习进度吗？\n重置后该词视为未学，1 分钟后重新进入复习队列。')) return;
+            if (!confirm('确定重置「' + currentWordString + '」的复习进度吗？\n重置后该词视为未学，1 秒后重新进入复习队列。')) return;
             btnResetReview.disabled = true;
             btnResetReview.innerText = '⏳ 重置中...';
             const stats = await requestReviewReset(currentWordData);
