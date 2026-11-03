@@ -276,6 +276,31 @@
         .freq-detail { font-size: 13px; color: var(--text-sub); margin-top: 8px; }
         .freq-detail b { color: var(--text-main); }
 
+        .etym-reveal {
+            margin-top: 12px;
+            padding: 12px 14px;
+            background: #fdf8ee;
+            border: 1px solid #eadfc2;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.8;
+            word-break: break-all;
+            text-align: left;
+        }
+        .etym-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .etym-title { font-weight: 700; color: var(--text-main); }
+        .etym-origin { font-size: 12px; color: var(--text-sub); }
+        .etym-story { margin: 8px 0 0; white-space: pre-line; }
+        .etym-story .etym-para { margin: 6px 0; }
+        .etym-story .etym-strong { color: var(--primary); font-weight: 600; }
+
         .char-list {
             display: flex;
             flex-wrap: wrap;
@@ -405,6 +430,8 @@
         :root.dark .freq-reveal { background: #251f33; border-color: #3b2f52; }
         :root.dark .freq-seg { background: #3a3348; }
         :root.dark .freq-detail { color: #a6aeb9; }
+        :root.dark .etym-reveal { background: #2b2418; border-color: #4a3f24; }
+        :root.dark .etym-origin { color: #a6aeb9; }
         :root.dark .example-cn { color: #a6aeb9; }
         :root.dark .example-cache-tip { border-bottom-color: #354154; }
         :root.dark .char-item { background: #2a2e37; }
@@ -630,10 +657,12 @@
                     <button id="btn-toggle-trans" class="btn btn-plain btn-sm icon-btn hidden" title="查看释义" aria-label="查看释义">👁</button>
                     <button id="btn-toggle-example" class="btn btn-plain btn-sm icon-btn hidden" title="查看例句" aria-label="查看例句">📖</button>
                     <button id="btn-toggle-freq" class="btn btn-plain btn-sm icon-btn hidden" title="查看口语使用频率" aria-label="查看口语使用频率">📊</button>
+                    <button id="btn-toggle-etym" class="btn btn-plain btn-sm icon-btn hidden" title="查看词源故事" aria-label="查看词源故事">📜</button>
                 </div>
                 <div class="trans-reveal hidden" id="trans-reveal"></div>
                 <div class="example-reveal hidden" id="example-reveal"></div>
                 <div class="freq-reveal hidden" id="freq-reveal"></div>
+                <div class="etym-reveal hidden" id="etym-reveal"></div>
             </div>
             <div class="char-list" id="char-list"></div>
             <div class="input-area">
@@ -666,7 +695,7 @@
 // 数据来源：与 fc.html 共用的 IndexedDB (FlashcardDB / wrong_words)
 // 常量与打开逻辑全部来自 db-core.js，本页只做别名，不再各自维护副本
 // ============================================================
-const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_FREQ, STORE_DICTS } = window.FlashcardDB;
+const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_FREQ, STORE_ETYM, STORE_DICTS } = window.FlashcardDB;
 // reader 模式：不带版本号探测打开，避免 VersionError（建库/升级由 fc.html/q.html 负责）
 const openFlashcardDB = () => window.FlashcardDB.openFlashcardDB({ mode: 'reader' });
 
@@ -801,6 +830,28 @@ function saveCachedFreq(word, data) {
         if (!db.objectStoreNames.contains(STORE_FREQ)) { db.close(); resolve(); return; }
         const tx = db.transaction(STORE_FREQ, 'readwrite');
         tx.objectStore(STORE_FREQ).put({ word: word, data: data, ts: Date.now() });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); resolve(); };
+    })).catch(() => {});
+}
+
+// ============================================================
+// 词源故事缓存（IndexedDB: etym_cache，key = 单词）
+// ============================================================
+function getCachedEtym(word) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_ETYM)) { db.close(); resolve(null); return; }
+        const req = db.transaction(STORE_ETYM, 'readonly').objectStore(STORE_ETYM).get(word);
+        req.onsuccess = () => { db.close(); resolve(req.result || null); };
+        req.onerror = () => { db.close(); resolve(null); };
+    })).catch(() => null);
+}
+
+function saveCachedEtym(word, data) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_ETYM)) { db.close(); resolve(); return; }
+        const tx = db.transaction(STORE_ETYM, 'readwrite');
+        tx.objectStore(STORE_ETYM).put({ word: word, data: data, ts: Date.now() });
         tx.oncomplete = () => { db.close(); resolve(); };
         tx.onerror = () => { db.close(); resolve(); };
     })).catch(() => {});
@@ -1078,9 +1129,11 @@ const els = {
     btnToggleTrans: document.getElementById('btn-toggle-trans'),
     btnToggleExample: document.getElementById('btn-toggle-example'),
     btnToggleFreq: document.getElementById('btn-toggle-freq'),
+    btnToggleEtym: document.getElementById('btn-toggle-etym'),
     transReveal: document.getElementById('trans-reveal'),
     exampleReveal: document.getElementById('example-reveal'),
     freqReveal: document.getElementById('freq-reveal'),
+    etymReveal: document.getElementById('etym-reveal'),
     charList: document.getElementById('char-list'),
     answerInput: document.getElementById('answer-input'),
     btnClear: document.getElementById('btn-clear'),
@@ -1193,6 +1246,7 @@ function bindEvents() {
     els.btnToggleTrans.addEventListener('click', toggleTransReveal);
     els.btnToggleExample.addEventListener('click', toggleExampleReveal);
     els.btnToggleFreq.addEventListener('click', toggleFreqReveal);
+    els.btnToggleEtym.addEventListener('click', toggleEtymReveal);
     els.linkFc.addEventListener('click', () => {
         window.location.href = 'fc.html';
     });
@@ -1320,6 +1374,13 @@ function renderQuestion() {
     els.btnToggleFreq.classList.remove('hidden');
     els.btnToggleFreq.textContent = '📊';
     els.btnToggleFreq.title = '查看口语使用频率';
+
+    // 重置词源故事查看状态（按钮在听写/跟打两种模式下均可用）
+    els.etymReveal.classList.add('hidden');
+    els.etymReveal.textContent = '';
+    els.btnToggleEtym.classList.remove('hidden');
+    els.btnToggleEtym.textContent = '📜';
+    els.btnToggleEtym.title = '查看词源故事';
 
     // 重置闪答时设置的红色标记
     els.wordDisplay.style.color = '';
@@ -1692,6 +1753,131 @@ function toggleFreqReveal() {
         });
     } else {
         els.freqReveal.classList.add('hidden');
+    }
+}
+
+// ============================================================
+// 词源故事（DeepSeek API，与例句/频率共用设置与 key；结果缓存到 etym_cache）
+// ============================================================
+let etymRequestWord = ''; // 词源请求对应的单词（防止切词后旧响应覆盖新题）
+
+// 获取单词词源故事：IndexedDB 缓存 → DeepSeek API → 写回缓存
+// 返回 { title, origin, story, storyHtml, fromCache } 或 { error }
+async function fetchEtymFromModel(word) {
+    if (!word) return { error: '（当前单词无效）' };
+    const settings = loadDSSettings();
+    if (!settings.apiKey) {
+        return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置后再使用词源功能。' };
+    }
+
+    // 1) 优先读缓存
+    const cached = await getCachedEtym(word);
+    if (cached && cached.data) {
+        const e = normalizeEtym(cached.data);
+        if (e) return Object.assign({ fromCache: true }, e);
+    }
+
+    // 2) 未命中：调用 DeepSeek API
+    try {
+        const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+        const sysPrompt = '你是资深英语词源学家。为给定单词讲一个有意思且史实准确的词源故事（etymology）。' +
+            '覆盖：源自何种语言（如古英语/拉丁语/希腊语/古法语）、原始含义与拼写、语义演变（含关键时间点）、' +
+            '有趣的关联词或文化典故。中文讲解，保留必要的英文原词。' +
+            '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+            '{"word":"英文单词","origin":"一句话概括词源（中文）","story":"完整词源故事（中文，300字左右，分2-3段，用\\n分隔段落）"}';
+        const userPrompt = '请为单词 "' + word + '" 讲一个词源故事。';
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + settings.apiKey
+            },
+            body: JSON.stringify({
+                model: settings.model,
+                messages: [
+                    { role: 'system', content: sysPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                reasoning_effort: settings.reasoningEffort,
+                stream: false,
+                response_format: { type: 'json_object' }
+            })
+        });
+
+        if (!response.ok) {
+            let errMsg = 'HTTP ' + response.status;
+            try { const err = await response.json(); if (err.error && err.error.message) errMsg = err.error.message; } catch (e) { /* 非 JSON 错误体 */ }
+            return { error: '❌ 请求失败: ' + errMsg };
+        }
+
+        const data = await response.json();
+        const content = data.choices && data.choices[0] && data.choices[0].message
+            ? (data.choices[0].message.content || '')
+            : '';
+        const parsed = extractJSON(content);
+        const e = normalizeEtym(parsed);
+        if (!e) return { error: '❌ 模型未返回有效的词源数据' };
+
+        saveCachedEtym(word, parsed);
+        return e;
+    } catch (err) {
+        let msg = err && err.message ? err.message : String(err);
+        if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
+            msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+        }
+        return { error: '❌ 请求失败: ' + msg };
+    }
+}
+
+// 将模型返回的 JSON 归一化为展示用结构
+function normalizeEtym(parsed) {
+    if (!parsed || typeof parsed !== 'object') return null;
+    const story = parsed.story || parsed.词源故事 || '';
+    if (!story && !parsed.origin) return null;
+    return {
+        title: parsed.word || '',
+        origin: parsed.origin || parsed.词源概括 || '',
+        story: story,
+        // 故事按空行/换行切成段落；连续 3 个英文大写字母开头视为专有名词/词根，加粗高亮
+        storyHtml: story.split(/\n+/).filter(Boolean).map((para) =>
+            `<div class="etym-para">${escapeHtml(para).replace(/\b([A-Z][a-zA-Z]{1,20}(?:[ -][A-Za-z]{2,20})*)\b/g, '<span class="etym-strong">$1</span>')}</div>`
+        ).join('')
+    };
+}
+
+// 渲染词源故事展示区
+function renderEtym(e) {
+    els.etymReveal.classList.remove('hidden');
+    els.etymReveal.innerHTML =
+        `<div class="etym-head">` +
+        `<span>📜</span>` +
+        `<span class="etym-title">词源故事${e.title ? '：' + escapeHtml(e.title) : ''}</span>` +
+        (e.fromCache ? '<span class="example-cache-tip" style="margin:0;">📦 已加载本地缓存词源</span>' : '') +
+        `</div>` +
+        (e.origin ? `<div class="etym-origin">🌍 ${escapeHtml(e.origin)}</div>` : '') +
+        (e.storyHtml ? `<div class="etym-story">${e.storyHtml}</div>` : '<div class="etym-story">（模型未返回词源故事）</div>');
+}
+
+// 切换词源故事显示/隐藏
+function toggleEtymReveal() {
+    const isHidden = els.etymReveal.classList.contains('hidden');
+    if (isHidden) {
+        etymRequestWord = currentWord;
+        els.etymReveal.textContent = '⏳ 正在请求 DeepSeek 讲词源故事...';
+        els.etymReveal.classList.remove('hidden');
+        fetchEtymFromModel(currentWord).then((result) => {
+            // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
+            if (els.etymReveal.classList.contains('hidden')) return;
+            if (etymRequestWord !== currentWord) return;
+            if (result.error) {
+                els.etymReveal.textContent = result.error;
+                return;
+            }
+            renderEtym(result);
+        });
+    } else {
+        els.etymReveal.classList.add('hidden');
     }
 }
 
