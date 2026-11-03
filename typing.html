@@ -439,6 +439,59 @@
         }
         .syn-contrast b { color: var(--accent); }
 
+        .family-reveal {
+            margin-top: 12px;
+            padding: 12px 14px;
+            background: #f4f7ee;
+            border: 1px solid #dce5c9;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.8;
+            word-break: break-all;
+            text-align: left;
+        }
+        .family-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .family-title { font-weight: 700; font-size: 15px; }
+        .family-core {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            background: #eaf0dd;
+            border: 1px solid #d0dbb8;
+            border-radius: 6px;
+            padding: 6px 10px;
+            margin-bottom: 8px;
+            display: inline-block;
+            color: #5c7a2e;
+            font-weight: 600;
+        }
+        .family-groups { display: flex; flex-direction: column; gap: 8px; }
+        .family-group { border-radius: 8px; overflow: hidden; border: 1px solid #dce5c9; }
+        .family-group-head {
+            background: #eaf0dd;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #5c7a2e;
+        }
+        .family-items { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px; background: #fafcf4; }
+        .family-item {
+            padding: 3px 10px;
+            border-radius: 12px;
+            background: #eef3e3;
+            border: 1px solid #d8e2c4;
+            font-size: 13px;
+            color: var(--text-main);
+        }
+        .family-item strong { color: var(--primary); }
+        .family-note { font-size: 12px; color: var(--text-sub); padding: 0 10px 8px; background: #fafcf4; }
+
         .char-list {
             display: flex;
             flex-wrap: wrap;
@@ -583,6 +636,12 @@
         :root.dark .syn-row { background: #2a2026; border-bottom-color: #3a2b33; }
         :root.dark .syn-row.main { background: #33222b; }
         :root.dark .syn-contrast { background: #2b1c24; border-color: #452e3a; }
+        :root.dark .family-reveal { background: #1d2416; border-color: #37432a; }
+        :root.dark .family-core { background: #26301c; border-color: #3a4a2a; color: #a8cc6a; }
+        :root.dark .family-group { border-color: #37432a; }
+        :root.dark .family-group-head { background: #26301c; color: #a8cc6a; }
+        :root.dark .family-items { background: #222b19; }
+        :root.dark .family-item { background: #2c3820; border-color: #43522e; }
         :root.dark .example-cn { color: #a6aeb9; }
         :root.dark .example-cache-tip { border-bottom-color: #354154; }
         :root.dark .char-item { background: #2a2e37; }
@@ -812,6 +871,7 @@
                     <button id="btn-toggle-colloc" class="btn btn-plain btn-sm icon-btn hidden" title="查看固定搭配" aria-label="查看固定搭配">🔗</button>
                     <button id="btn-toggle-root" class="btn btn-plain btn-sm icon-btn hidden" title="查看词根拆解" aria-label="查看词根拆解">🧩</button>
                     <button id="btn-toggle-syn" class="btn btn-plain btn-sm icon-btn hidden" title="近义词辨析" aria-label="近义词辨析">🔀</button>
+                    <button id="btn-toggle-family" class="btn btn-plain btn-sm icon-btn hidden" title="查看同族词" aria-label="查看同族词">🏠</button>
                 </div>
                 <div class="trans-reveal hidden" id="trans-reveal"></div>
                 <div class="example-reveal hidden" id="example-reveal"></div>
@@ -820,6 +880,7 @@
                 <div class="colloc-reveal hidden" id="colloc-reveal"></div>
                 <div class="root-reveal hidden" id="root-reveal"></div>
                 <div class="syn-reveal hidden" id="syn-reveal"></div>
+                <div class="family-reveal hidden" id="family-reveal"></div>
             </div>
             <div class="char-list" id="char-list"></div>
             <div class="input-area">
@@ -852,7 +913,7 @@
 // 数据来源：与 fc.html 共用的 IndexedDB (FlashcardDB / wrong_words)
 // 常量与打开逻辑全部来自 db-core.js，本页只做别名，不再各自维护副本
 // ============================================================
-const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_FREQ, STORE_ETYM, STORE_COLLOC, STORE_ROOT, STORE_SYN, STORE_DICTS } = window.FlashcardDB;
+const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_FREQ, STORE_ETYM, STORE_COLLOC, STORE_ROOT, STORE_SYN, STORE_FAMILY, STORE_DICTS } = window.FlashcardDB;
 // reader 模式：不带版本号探测打开，避免 VersionError（建库/升级由 fc.html/q.html 负责）
 const openFlashcardDB = () => window.FlashcardDB.openFlashcardDB({ mode: 'reader' });
 
@@ -1075,6 +1136,28 @@ function saveCachedSyn(word, data) {
         if (!db.objectStoreNames.contains(STORE_SYN)) { db.close(); resolve(); return; }
         const tx = db.transaction(STORE_SYN, 'readwrite');
         tx.objectStore(STORE_SYN).put({ word: word, data: data, ts: Date.now() });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); resolve(); };
+    })).catch(() => {});
+}
+
+// ============================================================
+// 同族词缓存（IndexedDB: family_cache，key = 单词）
+// ============================================================
+function getCachedFamily(word) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_FAMILY)) { db.close(); resolve(null); return; }
+        const req = db.transaction(STORE_FAMILY, 'readonly').objectStore(STORE_FAMILY).get(word);
+        req.onsuccess = () => { db.close(); resolve(req.result || null); };
+        req.onerror = () => { db.close(); resolve(null); };
+    })).catch(() => null);
+}
+
+function saveCachedFamily(word, data) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_FAMILY)) { db.close(); resolve(); return; }
+        const tx = db.transaction(STORE_FAMILY, 'readwrite');
+        tx.objectStore(STORE_FAMILY).put({ word: word, data: data, ts: Date.now() });
         tx.oncomplete = () => { db.close(); resolve(); };
         tx.onerror = () => { db.close(); resolve(); };
     })).catch(() => {});
@@ -1356,6 +1439,7 @@ const els = {
     btnToggleColloc: document.getElementById('btn-toggle-colloc'),
     btnToggleRoot: document.getElementById('btn-toggle-root'),
     btnToggleSyn: document.getElementById('btn-toggle-syn'),
+    btnToggleFamily: document.getElementById('btn-toggle-family'),
     transReveal: document.getElementById('trans-reveal'),
     exampleReveal: document.getElementById('example-reveal'),
     freqReveal: document.getElementById('freq-reveal'),
@@ -1363,6 +1447,7 @@ const els = {
     collocReveal: document.getElementById('colloc-reveal'),
     rootReveal: document.getElementById('root-reveal'),
     synReveal: document.getElementById('syn-reveal'),
+    familyReveal: document.getElementById('family-reveal'),
     charList: document.getElementById('char-list'),
     answerInput: document.getElementById('answer-input'),
     btnClear: document.getElementById('btn-clear'),
@@ -1479,6 +1564,7 @@ function bindEvents() {
     els.btnToggleColloc.addEventListener('click', toggleCollocReveal);
     els.btnToggleRoot.addEventListener('click', toggleRootReveal);
     els.btnToggleSyn.addEventListener('click', toggleSynReveal);
+    els.btnToggleFamily.addEventListener('click', toggleFamilyReveal);
     els.linkFc.addEventListener('click', () => {
         window.location.href = 'fc.html';
     });
@@ -1634,6 +1720,13 @@ function renderQuestion() {
     els.btnToggleSyn.classList.remove('hidden');
     els.btnToggleSyn.textContent = '🔀';
     els.btnToggleSyn.title = '近义词辨析';
+
+    // 重置同族词查看状态（按钮在听写/跟打两种模式下均可用）
+    els.familyReveal.classList.add('hidden');
+    els.familyReveal.textContent = '';
+    els.btnToggleFamily.classList.remove('hidden');
+    els.btnToggleFamily.textContent = '🏠';
+    els.btnToggleFamily.title = '查看同族词';
 
     // 重置闪答时设置的红色标记
     els.wordDisplay.style.color = '';
@@ -2550,6 +2643,154 @@ function toggleSynReveal() {
         });
     } else {
         els.synReveal.classList.add('hidden');
+    }
+}
+
+// ============================================================
+// 同族词（word family，DeepSeek API，与例句/频率/词源/搭配/词根/辨析共用设置与 key；结果缓存到 family_cache）
+// 展示同一词根衍生出的不同词性词形（名词/动词/形容词/副词等）
+// ============================================================
+let familyRequestWord = ''; // 同族词请求对应的单词（防止切词后旧响应覆盖新题）
+
+// 获取单词同族词：IndexedDB 缓存 → DeepSeek API → 写回缓存
+// 返回 { word, core, note, groups:[{pos, words:[{word, meaning}]}], fromCache } 或 { error }
+async function fetchFamilyFromModel(word) {
+    if (!word) return { error: '（当前单词无效）' };
+    const settings = loadDSSettings();
+    if (!settings.apiKey) {
+        return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置后再使用同族词功能。' };
+    }
+
+    // 1) 优先读缓存
+    const cached = await getCachedFamily(word);
+    if (cached && cached.data) {
+        const f = normalizeFamily(cached.data);
+        if (f) return Object.assign({ fromCache: true }, f);
+    }
+
+    // 2) 未命中：调用 DeepSeek API
+    try {
+        const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+        const sysPrompt = '你是英语构词法专家。给定一个英文单词，找出它的同族词（word family，即由同一词根衍生的词形变化），' +
+            '按词性分组：名词（含单复数/动名词）、动词（含过去式/分词）、形容词（含比较级/最高级）、副词等。' +
+            '每个词附中文释义。若某词性无衍生词则省略该组。用中文讲解，保留英文原词。' +
+            '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+            '{"word":"目标单词","core":"核心词根及含义（如 act = 行动）","groups":[' +
+            '{"pos":"n.","words":[{"word":"名词词形","meaning":"中文释义"}]},' +
+            '{"pos":"v.","words":[{"word":"动词词形","meaning":"中文释义"}]}' +
+            '],"note":"记忆要点（中文，如词根提示、易混词提醒，可省略）"}';
+        const userPrompt = '请列出单词 "' + word + '" 的同族词。';
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + settings.apiKey
+            },
+            body: JSON.stringify({
+                model: settings.model,
+                messages: [
+                    { role: 'system', content: sysPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                reasoning_effort: settings.reasoningEffort,
+                stream: false,
+                response_format: { type: 'json_object' }
+            })
+        });
+
+        if (!response.ok) {
+            let errMsg = 'HTTP ' + response.status;
+            try { const err = await response.json(); if (err.error && err.error.message) errMsg = err.error.message; } catch (e) { /* 非 JSON 错误体 */ }
+            return { error: '❌ 请求失败: ' + errMsg };
+        }
+
+        const data = await response.json();
+        const content = data.choices && data.choices[0] && data.choices[0].message
+            ? (data.choices[0].message.content || '')
+            : '';
+        const parsed = extractJSON(content);
+        const f = normalizeFamily(parsed);
+        if (!f) return { error: '❌ 模型未返回有效的同族词数据' };
+
+        saveCachedFamily(word, parsed);
+        return f;
+    } catch (err) {
+        let msg = err && err.message ? err.message : String(err);
+        if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
+            msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+        }
+        return { error: '❌ 请求失败: ' + msg };
+    }
+}
+
+// 将模型返回的 JSON 归一化为展示用结构
+function normalizeFamily(parsed) {
+    if (!parsed || typeof parsed !== 'object') return null;
+    const arr = (Array.isArray(parsed.groups) && parsed.groups.length > 0) ? parsed.groups : [];
+    const groups = [];
+    arr.forEach((g) => {
+        if (!g || typeof g !== 'object') return;
+        const pos = g.pos || g.partOfSpeech || g.词性 || '';
+        const words = [];
+        const wArr = (Array.isArray(g.words) && g.words.length > 0) ? g.words : [];
+        wArr.forEach((w) => {
+            if (!w || typeof w !== 'object') return;
+            const ww = w.word || w.词形 || '';
+            const meaning = w.meaning || w.释义 || '';
+            if (!ww && !meaning) return;
+            words.push({ word: ww, meaning: meaning });
+        });
+        if (pos || words.length > 0) groups.push({ pos: pos, words: words });
+    });
+    const core = parsed.core || parsed.词根 || '';
+    const note = parsed.note || parsed.记忆要点 || '';
+    if (groups.length === 0 && !core) return null;
+    return { word: parsed.word || '', core: core, note: note, groups: groups };
+}
+
+// 渲染同族词展示区（核心词根 + 按词性分组 + 记忆要点）
+function renderFamily(f) {
+    els.familyReveal.classList.remove('hidden');
+    const cacheTip = f.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存同族词</span>' : '';
+    els.familyReveal.innerHTML =
+        `<div class="family-head">🏠 <span class="family-title">同族词（${escapeHtml(f.word || '')}）</span></div>` +
+        cacheTip +
+        (f.core ? `<div class="family-core">${escapeHtml(f.core)}</div>` : '') +
+        (f.groups.length > 0
+            ? `<div class="family-groups">` + f.groups.map((g) =>
+                `<div class="family-group">` +
+                `<div class="family-group-head">${escapeHtml(g.pos || '')}</div>` +
+                `<div class="family-items">` +
+                g.words.map((w) =>
+                    `<span class="family-item"><strong>${escapeHtml(w.word)}</strong>${w.meaning ? ' ' + escapeHtml(w.meaning) : ''}</span>`
+                ).join('') +
+                `</div>` +
+                `</div>`
+            ).join('') + `</div>`
+            : '') +
+        (f.note ? `<div class="family-note">💡 ${escapeHtml(f.note)}</div>` : '');
+}
+
+// 切换同族词显示/隐藏
+function toggleFamilyReveal() {
+    const isHidden = els.familyReveal.classList.contains('hidden');
+    if (isHidden) {
+        familyRequestWord = currentWord;
+        els.familyReveal.textContent = '⏳ 正在请求 DeepSeek 查询同族词...';
+        els.familyReveal.classList.remove('hidden');
+        fetchFamilyFromModel(currentWord).then((result) => {
+            // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
+            if (els.familyReveal.classList.contains('hidden')) return;
+            if (familyRequestWord !== currentWord) return;
+            if (result.error) {
+                els.familyReveal.textContent = result.error;
+                return;
+            }
+            renderFamily(result);
+        });
+    } else {
+        els.familyReveal.classList.add('hidden');
     }
 }
 
