@@ -745,6 +745,7 @@
                 <select id="mode-select">
                     <option value="all">📖 当前词库</option>
                     <option value="wrong">❌ 我的错词本 (0)</option>
+                    <option value="review">🧠 遗忘曲线复习 (0)</option>
                 </select>
                 <div id="status-text">⏳ 加载中...</div>
             </div>
@@ -988,11 +989,41 @@
             let currentGroupIdx = 0;
             let currentGroupWords = [];
 
+            // ---------- 遗忘曲线复习（Ebbinghaus 间隔：1分钟 → 1/2/4/7/15/30 天） ----------
+            // 复习字段存在 words 表的行上：dx = 下次复习到期时间戳，rx = 当前复习阶段(0-7)，rl = 最后一次打字时间戳
+            // 打对则 rx+1、间隔依次升级；打错则 rx 重置为 0（1 分钟后复查）；完全通关(rx=7)后 30 天后复查
+            const DAY_MS = 24 * 60 * 60 * 1000;
+            const MINUTE_MS = 60 * 1000;
+            const REVIEW_INTERVALS_MS = [1 * MINUTE_MS, 1 * DAY_MS, 2 * DAY_MS, 4 * DAY_MS, 7 * DAY_MS, 15 * DAY_MS, 30 * DAY_MS];
+
+            // 更新某个单词行的复习进度（row 需为完整行：id/data/dx/rx/rl）
+            function saveReviewRecord(rowKey, row) {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(STORE_ALL) || !rowKey || !row) { resolve(); return; }
+                    const tx = db.transaction([STORE_ALL], 'readwrite');
+                    tx.objectStore(STORE_ALL).put(row);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                    tx.onabort = () => resolve();
+                });
+            }
+
+            function getReviewRecord(rowKey) {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(STORE_ALL) || !rowKey) { resolve(null); return; }
+                    const req = db.transaction([STORE_ALL], 'readonly').objectStore(STORE_ALL).get(rowKey);
+                    req.onsuccess = () => { const r = req.result || null; if (r && typeof r === 'object') resolve(r); else resolve(null); };
+                    req.onerror = () => resolve(null);
+                });
+            }
+
             // Cloudflare Worker 语音代理地址（固定指向已部署的代理服务）
             const currentAudioProxyUrl = 'https://audio-proxy.mouxieyan.workers.dev/';
 
             // 全量词库索引：key -> 完整词条数据（含音标），用于错词数据补全
             let allWordsMap = new Map();
+            // 单词原文 -> 该词所在行主键（"dictId#序号"），用于打字上报时定位并更新复习字段
+            let allRowsMap = new Map();
 
             // owner 模式：直接以 DB_VERSION 打开并负责建库/升级建表（逻辑在 db-core.js）
             function initDB() {
@@ -1267,7 +1298,10 @@
                         if (cursor) {
                             const data = cursor.value.data;
                             const key = getWordKey(data);
-                            if (key) allWordsMap.set(key, data);
+                            if (key) {
+                                allWordsMap.set(key, data);
+                                allRowsMap.set(key, cursor.key);
+                            }
                             cursor.continue();
                         } else { resolve(); }
                     };
@@ -1313,6 +1347,41 @@
                 });
             }
 
+            // ---------- 遗忘曲线复习统计 ----------
+            // 统计当前词库中：已学词数、待复习数（仅已学且到期的词；从未学过的词不进入复习队列）
+            function getReviewStats() {
+                if (!db || !db.objectStoreNames.contains(STORE_ALL)) return Promise.resolve({ dueTotal: 0, learnedTotal: 0, unlearnedTotal: 0 });
+                const now = Date.now();
+                let dueTotal = 0, learnedTotal = 0, unlearnedTotal = 0;
+                const transaction = db.transaction([STORE_ALL], 'readonly');
+                const store = transaction.objectStore(STORE_ALL);
+                const range = IDBKeyRange.bound(dictKeyPrefix(activeDictId), dictKeyPrefix(activeDictId) + '\uffff');
+                const req = store.openCursor(range);
+                return new Promise((resolve) => {
+                    req.onsuccess = function(e) {
+                        const cursor = e.target.result;
+                        if (cursor) {
+                            const v = cursor.value || {};
+                            if (typeof v.dx === 'number') {
+                                learnedTotal++;
+                                if (v.dx <= now) dueTotal++;
+                            } else {
+                                unlearnedTotal++; // 未学词不计入待复习
+                            }
+                            cursor.continue();
+                        } else { resolve({ dueTotal: dueTotal, learnedTotal: learnedTotal, unlearnedTotal: unlearnedTotal }); }
+                    };
+                    req.onerror = () => resolve({ dueTotal: 0, learnedTotal: 0, unlearnedTotal: 0 });
+                });
+            }
+
+            async function loadCurrentGroupTotal() {
+                if (currentMode === 'all') return getActiveDictCount();
+                if (currentMode === 'wrong') return wrongWordsList.length;
+                if (currentMode === 'review') return (await getReviewStats()).dueTotal;
+                return 0;
+            }
+
             async function loadCurrentGroupData() {
                 currentGroupWords = [];
                 const offset = currentGroupIdx * pageSize;
@@ -1337,8 +1406,38 @@
                         };
                         req.onerror = () => resolve();
                     });
-                } else {
+                } else if (currentMode === 'wrong') {
                     currentGroupWords = wrongWordsList.slice(offset, offset + pageSize);
+                } else {
+                    // 'review' 复习模式：仅已学且到期的词；到期时间升序（最早到期排最前）
+                    return new Promise((resolve) => {
+                        if (!db || !db.objectStoreNames.contains(STORE_ALL)) {
+                            resolve();
+                            return;
+                        }
+                        const now = Date.now();
+                        const scheduled = []; // 已学过的到期词，按下次复习时间升序
+                        const transaction = db.transaction([STORE_ALL], 'readonly');
+                        const store = transaction.objectStore(STORE_ALL);
+                        const range = IDBKeyRange.bound(dictKeyPrefix(activeDictId), dictKeyPrefix(activeDictId) + '\uffff');
+                        const req = store.openCursor(range);
+                        req.onsuccess = function(e) {
+                            const cursor = e.target.result;
+                            if (cursor) {
+                                const v = cursor.value || {};
+                                // 仅收集已学（有 dx 字段）且已到期的词；未学过的词不进入复习队列
+                                if (typeof v.dx === 'number' && v.dx <= now) {
+                                    scheduled.push({ rowKey: cursor.key, due: v.dx });
+                                }
+                                cursor.continue();
+                            } else {
+                                scheduled.sort((a, b) => (a.due - b.due) || String(a.rowKey).localeCompare(String(b.rowKey)));
+                                currentGroupWords = scheduled.slice(offset, offset + pageSize).map(item => item.rowKey);
+                                resolve();
+                            }
+                        };
+                        req.onerror = () => resolve();
+                    });
                 }
             }
 
@@ -1384,7 +1483,7 @@
 
                     if (currentMode === 'wrong') await cacheWrongWordsKeys();
 
-                    const totalCount = currentMode === 'all' ? getActiveDictCount() : wrongWordsList.length;
+                    const totalCount = await loadCurrentGroupTotal();
                     await loadCurrentGroupData();
 
                     self.postMessage({ type: 'filterApplied', totalCount: totalCount, groupWordsCount: currentGroupWords.length, groupIdx: currentGroupIdx });
@@ -1454,7 +1553,13 @@
 
                 else if (msg.type === 'getCard') {
                     const idx = msg.index;
-                    const wordData = currentGroupWords[idx];
+                    let wordData = currentGroupWords[idx];
+
+                    if (currentMode === 'review') {
+                        // 复习模式：组内元素为 words 表主键（rowKey），读出行的完整词条
+                        const record = await getReviewRecord(wordData);
+                        wordData = record && record.data ? record.data : (wordData ? { word: wordData } : null);
+                    }
 
                     if (wordData) {
                         const key = getWordKey(wordData);
@@ -1462,6 +1567,40 @@
                         const absoluteIndex = (currentGroupIdx * pageSize) + idx + 1;
                         self.postMessage({ type: 'cardData', index: idx, absoluteIndex, data: wordData, isWrong });
                     }
+                }
+
+                // 打字上报：记录最后一次打字时间并更新遗忘曲线复习进度
+                // 打对(correct=true)：阶段 +1，下次间隔取当前阶段；打错(correct=false)：阶段重置为 0，1 天后复查
+                else if (msg.type === 'logTyping') {
+                    const success = msg.correct !== false;
+                    const key = getWordKey(msg.data);
+                    const rowKey = allRowsMap.get(key);
+                    if (!rowKey) {
+                        // 未在当前词库索引中（如跨词库错词），跳过进度更新
+                        const stats0 = await getReviewStats();
+                        self.postMessage({ type: 'typingLogged', dueTs: 0, stage: 0, stats: stats0 });
+                        return;
+                    }
+                    const rec = await getReviewRecord(rowKey);
+                    const now = Date.now();
+                    const curStage = rec && typeof rec.rx === 'number' ? rec.rx : 0;
+                    const maxStage = REVIEW_INTERVALS_MS.length;
+                    // 打对：阶段 +1（封顶不再提升）；打错：重置为 0（1 分钟后立即复查）
+                    const nextStage = success ? (curStage >= maxStage ? curStage : curStage + 1) : 0;
+                    const intervalIdx = success ? Math.min(curStage, maxStage - 1) : 0;
+                    const dueTs = now + REVIEW_INTERVALS_MS[intervalIdx];
+                    const row = { id: rowKey, data: (rec && rec.data) || msg.data, dx: dueTs, rx: nextStage, rl: now };
+                    if (rec && rec.dictId) row.dictId = rec.dictId;
+                    await saveReviewRecord(rowKey, row);
+                    // 写库完成后再统计，避免下拉计数差 1
+                    const stats = await getReviewStats();
+                    self.postMessage({ type: 'typingLogged', dueTs: dueTs, stage: nextStage, stats: stats });
+                }
+
+                // 复习统计：到期 + 未学 等
+                else if (msg.type === 'getReviewStats') {
+                    const stats = await getReviewStats();
+                    self.postMessage({ type: 'reviewStats', stats: stats });
                 }
 
                 else if (msg.type === 'addToWrong') {
@@ -1696,7 +1835,7 @@
                 // 恢复上次浏览进度（模式 / 每组数量 / 组别 / 组内单词索引）
                 const saved = loadProgress();
                 if (saved) {
-                    if (saved.mode === 'all' || saved.mode === 'wrong') modeSelect.value = saved.mode;
+                    if (saved.mode === 'all' || saved.mode === 'wrong' || saved.mode === 'review') modeSelect.value = saved.mode;
                     const sizeOptions = Array.from(sizeSelect.options).map(o => o.value);
                     if (sizeOptions.includes(String(saved.pageSize))) sizeSelect.value = String(saved.pageSize);
                 }
@@ -1706,6 +1845,7 @@
                 document.getElementById('db-stats-bar').style.display = 'block';
                 worker.postMessage({ type: 'getAudioCacheInfo' });
                 worker.postMessage({ type: 'getDbStats' });
+                worker.postMessage({ type: 'getReviewStats' }); // 初始化复习模式待复习统计（填充分组下拉计数）
 
                 if (saved) {
                     const maxGroup = Math.max(groupSelect.options.length - 1, 0);
@@ -1716,11 +1856,15 @@
             }
             else if (msg.type === 'filterApplied') {
                 totalWordsInGroup = msg.groupWordsCount;
-                updateWrongCountUI(currentMode() === 'wrong' ? msg.totalCount : null);
+                if (currentMode() === 'review' && msg.totalCount !== undefined) {
+                    updateWrongCountUI(msg.totalCount, true); // 复习模式：待复习总数
+                } else {
+                    updateWrongCountUI(currentMode() === 'wrong' ? msg.totalCount : null);
+                }
                 // 同步组选择器（上一组/下一组自动跳组时 worker 会钳制越界的 groupIdx）
                 if (msg.groupIdx !== undefined) groupSelect.value = String(msg.groupIdx);
                 if (pendingWordIndex !== null) {
-                    // 首次加载：跳到上次记录的单词索引（越界时自动钳制到组内最后一张）
+                    // 首次加载/复习打对后：跳到上次记录的单词索引（越界时自动钳制到组内最后一张）
                     currentRelativeIndex = Math.min(pendingWordIndex, Math.max(totalWordsInGroup - 1, 0));
                     pendingWordIndex = null;
                 } else {
@@ -1818,7 +1962,22 @@
                 // 例句写入缓存后刷新页脚统计
                 worker.postMessage({ type: 'getDbStats' });
             }
+            else if (msg.type === 'typingLogged') {
+                // 复习进度已更新：刷新底部统计标签与模式下拉计数
+                if (msg.stats) updateReviewStatsUI(msg.stats);
+            }
+            else if (msg.type === 'reviewStats') {
+                updateReviewStatsUI(msg.stats);
+            }
         };
+
+        // 更新遗忘曲线复习统计：模式下拉的待复习数
+        let lastReviewStats = null; // { dueTotal, learnedTotal, unlearnedTotal }
+        function updateReviewStatsUI(stats) {
+            if (!stats) return;
+            lastReviewStats = stats;
+            updateWrongCountUI(stats.dueTotal, true);
+        }
 
         function updateAudioCacheBadge(count) {
             if (count !== undefined) audioCacheBadge.innerText = '🗑️ 清空语音缓存 (' + count + ')';
@@ -1935,7 +2094,9 @@
                 }
                 
                 statusText.innerText = `组内: ${relativeIndex + 1}/${totalWordsInGroup} (总第${absoluteIndex}词)`;
-                updateMinimalProgress(absoluteIndex, currentMode() === 'wrong' ? wrongCountLocal : activeDictCount);
+                const progressTotal = currentMode() === 'wrong' ? wrongCountLocal
+                    : (currentMode() === 'review' ? (lastReviewStats ? lastReviewStats.dueTotal : 0) : activeDictCount);
+                updateMinimalProgress(absoluteIndex, progressTotal);
                 
                 // 当前组第一个词时不再禁用"上一词"：若前面还有组，点击可自动返回上一组
                 const isFirstInGroup = (relativeIndex === 0);
@@ -2061,9 +2222,17 @@
             updateLetterHighlight();
         }
 
+        // 打字上报：无论对错都记录最后一次打字时间；仅复习模式下推进遗忘曲线
+        // （打对：间隔升级；打错：阶段重置，1 天后复查）
+        function reportTyping(correct) {
+            if (!currentWordData) return;
+            worker.postMessage({ type: 'logTyping', data: currentWordData, correct: correct });
+        }
+
         // 输入完成且完全正确：成功反馈，短暂延迟后自动进入下一词
         function onWordCorrect() {
             resolvingWord = true;
+            reportTyping(true);
             // 用 readOnly 而非 disabled：iOS Safari 上 disabled 会立即收起键盘并丢失焦点，
             // 之后在 setTimeout 里 focus() 属于非用户手势，无法重新唤起键盘
             typeInput.readOnly = true;
@@ -2071,17 +2240,39 @@
             typeStatus.textContent = '✅ 正确！即将进入下一词...';
             typeStatus.className = 'type-status success';
             setTimeout(() => {
-                goNextWord();
+                if (currentMode() === 'review') {
+                    // 复习模式：打对的词已在 worker 中标记为未来到期，重建队列把它移除，原地续接下一个
+                    pendingWordIndex = currentRelativeIndex;
+                    applyFilters(groupSelect.value);
+                } else {
+                    goNextWord();
+                }
             }, 650);
         }
 
-        // 输入长度满但结果错误：错误反馈，清空后重打（不统计对错，只要求打对）
+        // 输入长度满但结果错误：错误反馈
+        // 打错同样上报（记录最后打字时间 + 复习阶段重置为 0，1 分钟后复查）
+        // 复习模式：打错也视为"复习过"，显示正确答案后自动进入下一词（不原地重打）
+        // 普通模式：保持原学习逻辑——清空后重新打到对为止
         function onWordWrong() {
             resolvingWord = true;
+            const isReview = currentMode() === 'review';
+            reportTyping(false);
             typeInput.readOnly = true; // 同 onWordCorrect：避免 iOS 键盘被强制收起
             meaningCard.classList.remove('is-success');
             void meaningCard.offsetWidth; // 重新触发 shake 动画
             meaningCard.classList.add('is-error');
+            if (isReview) {
+                // 复习模式：亮出正确答案，短暂停留后重建队列进入下一个词
+                revealLetters();
+                typeStatus.textContent = '❌ 拼写有误，已记录复习（1 分钟后复查）';
+                typeStatus.className = 'type-status error';
+                setTimeout(() => {
+                    pendingWordIndex = currentRelativeIndex;
+                    applyFilters(groupSelect.value); // 重建队列：该词被安排到 1 天后，自然移出当前队列
+                }, 1500);
+                return;
+            }
             typeStatus.textContent = '❌ 字母不对，已清空，请重新输入';
             typeStatus.className = 'type-status error';
             setTimeout(() => {
@@ -2152,10 +2343,14 @@
             btnExample.disabled = true;
         }
 
-        function updateWrongCountUI(count) {
+        function updateWrongCountUI(count, isReviewStat) {
             if (count !== null) {
-                wrongCountLocal = count;
-                modeSelect.options[1].text = `❌ 我的错词本 (${count})`;
+                if (isReviewStat) {
+                    modeSelect.options[2].text = `🧠 遗忘曲线复习 (${count})`;
+                } else {
+                    wrongCountLocal = count;
+                    modeSelect.options[1].text = `❌ 我的错词本 (${count})`;
+                }
             }
         }
 
@@ -2269,7 +2464,7 @@
         modeSelect.addEventListener('change', () => {
             // 统一刷新路径：按新模式取总数重建组选项，再一次性下发筛选
             // （多词库下 words 表含全部词库，不能直接 count 整表，改用前端同步的计数）
-            const count = currentMode() === 'all' ? activeDictCount : wrongCountLocal;
+            const count = currentMode() === 'all' ? activeDictCount : (currentMode() === 'review' ? (lastReviewStats ? lastReviewStats.dueTotal : 0) : wrongCountLocal);
             groupSelect.value = '0';
             rebuildGroupOptions(count, currentSize());
             applyFilters(0);
@@ -2278,7 +2473,7 @@
 
         sizeSelect.addEventListener('change', (e) => {
             const newSize = parseInt(e.target.value);
-            const count = currentMode() === 'all' ? activeDictCount : wrongCountLocal;
+            const count = currentMode() === 'all' ? activeDictCount : (currentMode() === 'review' ? (lastReviewStats ? lastReviewStats.dueTotal : 0) : wrongCountLocal);
             rebuildGroupOptions(count, newSize);
             applyFilters(0);
             saveProgress();
