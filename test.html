@@ -289,7 +289,7 @@
 <div id="app-container">
     <div class="header">
         <h1>📝 错词选择题测试</h1>
-        <p>读取「闪卡游戏 fc.html」的错词本，DeepSeek 为每个单词生成 4 选 1 选择题，点选后核对答案，帮助记忆错词 (IndexedDB: FlashcardDB / wrong_words + quiz_cache)</p>
+        <p>读取「闪卡游戏 fc.html」的错词本，DeepSeek 为每个单词生成 4 选 1 选择题（完形填空 + 形近词辨析），一个单词可有多道题随机抽测，点选后核对答案，帮助记忆错词 (IndexedDB: FlashcardDB / wrong_words + quiz_cache)</p>
     </div>
 
     <div id="status-panel" class="panel">
@@ -316,17 +316,11 @@
                             <option value="0">第 1 组</option>
                         </select>
                     </label>
-                    <label>题型
-                        <select id="type-select">
-                            <option value="EN2CN" selected>英→中 (看单词选释义)</option>
-                            <option value="CN2EN">中→英 (看释义选单词)</option>
-                            <option value="FILL">填空 (选单词填句子)</option>
-                        </select>
-                    </label>
+                    <span title="为避免偷看，做题前题面不显示单词本身">🔒 单词已隐藏</span>
                 </div>
                 <label class="switch-label" title="题目生成后可重试重新生成本题">
                     <input type="checkbox" id="retry-switch" checked>
-                    🔄 允许重试(换一题)
+                    🎲 允许换题(缓存内随机)
                 </label>
             </div>
         </div>
@@ -347,8 +341,10 @@
             <div class="options" id="options-box"></div>
             <div class="feedback" id="feedback-text"></div>
             <div class="hint-row">
-                <span id="key-hints">点选答案即核对 | ←/→ 切换 | 数字键 1-4 快速答题</span>
+                <span id="key-hints">点选答案即核对 | 数字键 1-4 答题 | R 换一题 | N 生成新题 | ←/→ 切换</span>
                 <button id="btn-prev-word" type="button">◀ 上一题</button>
+                <button id="btn-reroll" type="button">🎲 换一题</button>
+                <button id="btn-new-quiz" type="button">✨ 生成新题</button>
                 <button id="btn-next-word" type="button">下一题 ▶</button>
             </div>
         </div>
@@ -476,53 +472,84 @@ function extractJSON(text) {
 }
 
 // ============================================================
-// 生成 4 选 1 选择题（缓存放行，未命中调 DeepSeek）
+// 选择题题库（quiz_cache，key = word，值 = { word, list, ts }）
+// 一个单词可有多道题：list 每项 = { type, stem, choices, answer, ts }
+//   FILL 完形填空（题面：带 ____ 的英文句子，选词填句）
+//   NEAR 形近词辨析（题面：中文释义，4 个形近/音近词选正确拼写）
+// 每次加载/换题从 list 随机抽；「生成新题」追加进 list，不覆盖旧题
 // ============================================================
-let quizRequestKey = ''; // 请求对应的 "word#题型"，防旧响应覆盖新题
+const QUIZ_TYPES = ['FILL', 'NEAR'];
+let quizLoadKey = ''; // 当前加载请求对应的单词，防旧响应覆盖新词
+
+// 读缓存题库（兼容旧版本单题缓存 key = "word#FILL"）
+function getCachedQuizList(word) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_QUIZ)) { db.close(); resolve(null); return; }
+        const tx = db.transaction(STORE_QUIZ, 'readonly');
+        const store = tx.objectStore(STORE_QUIZ);
+        const req = store.get(word);
+        req.onsuccess = () => {
+            const rec = req.result;
+            if (rec && Array.isArray(rec.list) && rec.list.length) {
+                db.close();
+                resolve({ word: word, list: rec.list, ts: rec.ts || 0 });
+                return;
+            }
+            // 旧版单题缓存：key = "word#FILL"，值 { word, data } —— 迁移
+            const legacyReq = store.get(word + '#FILL');
+            legacyReq.onsuccess = () => {
+                const legacy = legacyReq.result;
+                const q = (legacy && legacy.data) ? normalizeQuiz(legacy.data, word, 'FILL') : null;
+                db.close();
+                if (q) resolve({ word: word, list: [q], ts: legacy.ts || 0 });
+                else resolve(null);
+            };
+            legacyReq.onerror = () => { db.close(); resolve(null); };
+        };
+        req.onerror = () => { db.close(); resolve(null); };
+    })).catch(() => null);
+}
+
+function saveQuizList(word, list) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_QUIZ)) { db.close(); resolve(); return; }
+        const tx = db.transaction(STORE_QUIZ, 'readwrite');
+        tx.objectStore(STORE_QUIZ).put({ word: word, list: list, ts: Date.now() });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); resolve(); };
+    })).catch(() => {});
+}
 
 const TYPE_PROMPTS = {
-    EN2CN: {
-        sys: '你是英语测试出题员。为给定英文单词生成一道 4 选 1 单选题：题干显示单词，要求选出正确的中文释义。'
-            + '1 个正确释义 + 3 个迷惑性干扰项（尽量是与该词形近或义近的词义，避免一眼排除）。'
-            + '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字）：'
-            + '{"word":"英文单词","stem":"可用题干补充说明（可为空字符串）","choices":["选项A","选项B","选项C","选项D"],"answer":0}'
-            + '，其中 answer 为正确选项索引(0-3)。',
-        user: (w) => '为单词 "' + w + '" 生成一道英译中选择题。'
-    },
-    CN2EN: {
-        sys: '你是英语测试出题员。为给定英文单词生成一道 4 选 1 单选题：题干显示中文释义，要求选出对应的英文单词。'
-            + '1 个正确单词 + 3 个形近或义近的干扰单词。'
-            + '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字）：'
-            + '{"word":"英文单词","stem":"中文释义（题干）","choices":["选项A","选项B","选项C","选项D"],"answer":0}'
-            + '，其中 answer 为正确选项索引(0-3)。',
-        user: (w) => '为单词 "' + w + '" 生成一道中译英选择题（题干为其中文释义）。'
-    },
     FILL: {
-        sys: '你是英语测试出题员。为给定英文单词生成一道 4 选 1 完形填空题：题干为一个带空格的英文句子，要求选出填入空格的单词。'
-            + '1 个正确单词（即给定单词的适当词形，尽量用原形）+ 3 个语义/形近干扰词。'
+        label: '✍️ 完形填空',
+        sys: '你是英语测试出题员。为给定英文单词生成一道 4 选 1 完形填空题：题干为一个带空格的英文短句，空格处应填该单词（用 ____ 表示），句子自然通顺、8-22 词。'
+            + '1 个正确单词（尽量用原形）+ 3 个语义或形近干扰词。'
             + '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字）：'
             + '{"word":"英文单词","stem":"带 ____ 的英文句子","choices":["选项A","选项B","选项C","选项D"],"answer":0}'
             + '，其中 answer 为正确选项索引(0-3)。',
-        user: (w) => '为单词 "' + w + '" 生成一道填空选择题（句子中该词处用 ____ 表示）。'
+        user: (w) => '为单词 "' + w + '" 生成一道填空选择题，句子中该词处用 ____ 表示。不要与其他已生成题目雷同。'
+    },
+    NEAR: {
+        label: '🔀 形近辨析',
+        sys: '你是英语测试出题员。为给定英文单词生成一道形近词辨析 4 选 1 选择题：题干显示该单词的核心中文释义，选项为 4 个拼写相似的英文单词，要求选出拼写正确的主词。'
+            + '3 个干扰词必须真实存在、与主词拼写高度相似（形近或音近），且含义明显不同；不要选与被测词义相近的词。'
+            + '题干中文释义只取 1-2 个最常见义项，不超过 12 字。'
+            + '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字）：'
+            + '{"word":"英文单词","stem":"中文释义（题干，不得含英文）","choices":["选项A","选项B","选项C","选项D"],"answer":0}'
+            + '，其中 answer 为正确选项索引(0-3)，正确选项必须与 word 完全一致。',
+        user: (w) => '为单词 "' + w + '" 生成一道形近词辨析选择题：题干给它的中文释义，4 个选项为形近/音近英文词（含正确拼写）。不要与其他已生成题目雷同。'
     }
 };
 
-// 生成一题：缓存 → DeepSeek → 写回缓存
-// 返回 { word, type, stem, choices, answer, fromCache } 或 { error }
-async function fetchQuiz(word, type) {
+// 调一次 DeepSeek 生成 1 道题；返回 题目对象 或 { error }
+async function callDeepSeekQuiz(word, type) {
     if (!word) return { error: '（当前单词无效）' };
     const settings = loadDSSettings();
     if (!settings.apiKey) {
         return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置（⚙️ 设置 → DeepSeek API Key）。' };
     }
-
-    const cached = await getCachedQuiz(word, type);
-    if (cached && cached.data) {
-        const q = normalizeQuiz(cached.data, word);
-        if (q) return Object.assign({ fromCache: true }, q);
-    }
-
-    const prompt = TYPE_PROMPTS[type] || TYPE_PROMPTS.EN2CN;
+    const prompt = TYPE_PROMPTS[type] || TYPE_PROMPTS.FILL;
     try {
         const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
         const response = await fetch(url, {
@@ -554,10 +581,9 @@ async function fetchQuiz(word, type) {
             ? (data.choices[0].message.content || '')
             : '';
         const parsed = extractJSON(content);
-        const q = normalizeQuiz(parsed, word);
+        const q = normalizeQuiz(parsed, word, type);
         if (!q) return { error: '❌ 模型未返回有效题目' };
-
-        saveCachedQuiz(word, type, parsed);
+        q.ts = Date.now();
         return q;
     } catch (err) {
         let msg = err && err.message ? err.message : String(err);
@@ -568,8 +594,50 @@ async function fetchQuiz(word, type) {
     }
 }
 
+// 取一题：缓存随机 → 首访并行生成 2 道（填空+形近）入库 → 随机
+// 返回 { quiz, fromCache } 或 { error }
+async function getOneQuiz(word) {
+    const cached = await getCachedQuizList(word);
+    if (cached) {
+        const q = cached.list[Math.floor(Math.random() * cached.list.length)];
+        return { quiz: q, fromCache: true };
+    }
+    const results = await Promise.all([
+        callDeepSeekQuiz(word, 'FILL'),
+        callDeepSeekQuiz(word, 'NEAR')
+    ]);
+    const list = results.filter(r => r && !r.error);
+    const firstErr = results.find(r => r && r.error);
+    if (!list.length) return { error: firstErr ? firstErr.error : '❌ 题目生成失败' };
+    await saveQuizList(word, list);
+    const q = list[Math.floor(Math.random() * list.length)];
+    return { quiz: q, fromCache: false };
+}
+
+// 换一题：只在缓存题库内随机抽，不调 API
+async function rerollQuiz(word) {
+    const cached = await getCachedQuizList(word);
+    if (!cached || cached.list.length <= 1) {
+        return { error: '本题库暂时只有 1 道题，点「✨ 生成新题」添加更多后再换吧' };
+    }
+    const q = cached.list[Math.floor(Math.random() * cached.list.length)];
+    return { quiz: q };
+}
+
+// 生成新题：随机题型调 API → 追加进缓存题库 → 返回新题
+async function addNewQuiz(word) {
+    const type = QUIZ_TYPES[Math.floor(Math.random() * QUIZ_TYPES.length)];
+    const result = await callDeepSeekQuiz(word, type);
+    if (result.error) return result;
+    const cached = await getCachedQuizList(word);
+    const list = cached ? cached.list.slice() : [];
+    list.push(result);
+    await saveQuizList(word, list);
+    return { quiz: result, isNew: true };
+}
+
 // 归一化题目：校验 4 个选项 + answer 索引 0-3
-function normalizeQuiz(parsed, word) {
+function normalizeQuiz(parsed, word, type) {
     if (!parsed || typeof parsed !== 'object') return null;
     const choices = (Array.isArray(parsed.choices) && parsed.choices.length === 4)
         ? parsed.choices.map(c => String(c || '').trim()).filter(Boolean)
@@ -584,6 +652,7 @@ function normalizeQuiz(parsed, word) {
     }
     return {
         word: parsed.word || word,
+        type: type || 'FILL',
         stem: parsed.stem || '',
         choices: choices,
         answer: answer
@@ -599,8 +668,9 @@ const els = {
     gameArea: document.getElementById('game-area'),
     sizeSelect: document.getElementById('size-select'),
     groupSelect: document.getElementById('group-select'),
-    typeSelect: document.getElementById('type-select'),
     retrySwitch: document.getElementById('retry-switch'),
+    btnReroll: document.getElementById('btn-reroll'),
+    btnNewQuiz: document.getElementById('btn-new-quiz'),
     roundText: document.getElementById('round-text'),
     scoreText: document.getElementById('score-text'),
     progressFill: document.getElementById('progress-fill'),
@@ -618,8 +688,7 @@ let wrongWords = [];      // 全部错词
 let sessionWords = [];    // 本局单词
 let sessionIndex = 0;     // 当前题号
 let currentWord = '';     // 当前单词
-let currentType = 'EN2CN'; // 题型
-let currentQuiz = null;   // 当前题目 { stem, choices, answer }
+let currentQuiz = null;   // 当前题目 { type, stem, choices, answer }
 let answered = false;     // 当前题是否已作答
 let selectedIdx = -1;     // 用户选择的索引
 let stats = { total: 0, correct: 0, wrong: 0 };
@@ -662,15 +731,11 @@ function bindEvents() {
         startSession();
     });
     els.groupSelect.addEventListener('change', startSession);
-    els.typeSelect.addEventListener('change', () => {
-        // 题型变化：重新加载当前题（换缓存键）
-        currentType = els.typeSelect.value;
-        loadCurrentQuestion();
-        saveProgress();
-    });
-    els.retrySwitch.addEventListener('change', () => { /* 开关仅影响按钮显隐 */ });
+    els.retrySwitch.addEventListener('change', () => { els.btnReroll.disabled = !els.retrySwitch.checked; });
     els.btnPrevWord.addEventListener('click', goPrevWord);
     els.btnNextWord.addEventListener('click', goNextWord);
+    els.btnReroll.addEventListener('click', onRerollQuiz);
+    els.btnNewQuiz.addEventListener('click', onNewQuiz);
     els.linkFc.addEventListener('click', () => { window.location.href = 'fc.html'; });
 }
 
@@ -707,7 +772,6 @@ function startSession() {
     sessionWords = wrongWords.slice(offset, offset + size);
     sessionIndex = 0;
     stats = { total: 0, correct: 0, wrong: 0 };
-    currentType = els.typeSelect.value;
     loadCurrentQuestion();
     saveProgress();
 }
@@ -729,37 +793,36 @@ async function loadCurrentQuestion() {
     els.btnPrevWord.disabled = (sessionIndex <= 0);
     els.btnNextWord.disabled = false;
 
-    els.wordDisplay.textContent = currentWord;
-    els.promptText.textContent = '⏳ DeepSeek 正在生成题目...';
+    // 加载中不显示单词本身，避免偷看
+    els.wordDisplay.textContent = '🔒';
+    els.promptText.textContent = '⏳ 正在出题…（首次访问每个词会调用 DeepSeek 生成题目）';
     els.optionsBox.innerHTML = '';
     els.feedbackText.textContent = '';
     els.feedbackText.className = 'feedback';
+    els.btnReroll.disabled = true;
 
-    quizRequestKey = currentWord + '#' + currentType;
-    const result = await fetchQuiz(currentWord, currentType);
-    if (quizRequestKey !== currentWord + '#' + currentType) return; // 已切题/换题型，放弃
+    quizLoadKey = currentWord;
+    const result = await getOneQuiz(currentWord);
+    if (quizLoadKey !== currentWord) return; // 已切词/换题，放弃
 
     if (result.error) {
+        els.wordDisplay.textContent = '❓';
         els.promptText.textContent = result.error;
         return;
     }
-    currentQuiz = result;
-    renderQuestion();
+    currentQuiz = result.quiz;
+    renderQuestion(!!result.fromCache);
 }
 
 function renderQuestion() {
     const q = currentQuiz;
     if (!q) return;
-    // 题干：填空/中译英题显示 stem；英译中题 stem 为空时显示「选出正确的中文释义」
+    const def = TYPE_PROMPTS[q.type] || TYPE_PROMPTS.FILL;
+    // 大字区只显示题型徽标，不显示单词本身（避免偷看）
+    els.wordDisplay.textContent = def.label;
     els.promptText.textContent = q.stem
         ? q.stem
-        : (currentType === 'FILL' ? '选出填入空格的单词' : '选出正确的中文释义');
-    if (currentType === 'FILL') {
-        // 填空题型：题干已含句子，单词大字区显示「____」
-        els.wordDisplay.textContent = '____';
-    } else {
-        els.wordDisplay.textContent = q.word;
-    }
+        : (q.type === 'NEAR' ? '选出与释义匹配的单词（注意形近词）' : '选出填入空格的单词');
 
     const labels = ['A', 'B', 'C', 'D'];
     els.optionsBox.innerHTML = q.choices.map((c, i) =>
@@ -777,6 +840,9 @@ function renderQuestion() {
             selectAnswer(idx);
         });
     });
+
+    els.btnReroll.disabled = !els.retrySwitch.checked;
+    updateNewQuizBtn();
 }
 
 function selectAnswer(idx) {
@@ -797,9 +863,13 @@ function selectAnswer(idx) {
         else o.classList.add('disabled');
     });
 
+    const q = currentQuiz;
+    const wordNote = (q.type === 'NEAR')
+        ? '正确拼写：' + q.word
+        : '这个词是 ' + q.word;
     els.feedbackText.textContent = isCorrect
-        ? `✅ 回答正确！正确答案：${labels[currentQuiz.answer]}`
-        : `❌ 回答错误。正确答案：${labels[currentQuiz.answer]}（${escapeHtml(currentQuiz.choices[currentQuiz.answer])}）`;
+        ? '✅ 回答正确！' + wordNote
+        : '❌ 回答错误。正确答案：' + labels[q.answer] + '（' + escapeHtml(q.choices[q.answer]) + '）｜' + wordNote;
     els.feedbackText.className = isCorrect ? 'feedback ok' : 'feedback no';
 
     // 更新得分
@@ -856,8 +926,7 @@ function saveProgress() {
         localStorage.setItem(PROGRESS_KEY, JSON.stringify({
             pageSize: currentSize(),
             groupIdx: parseInt(els.groupSelect.value) || 0,
-            wordIdx: sessionIndex,
-            quizType: els.typeSelect.value
+            wordIdx: sessionIndex
         }));
     } catch (e) { /* 忽略 */ }
 }
@@ -881,29 +950,69 @@ document.addEventListener('keydown', (e) => {
     } else if (e.code === 'ArrowRight') {
         e.preventDefault();
         goNextWord();
-    } else if (e.key.toLowerCase() === 'r' && currentQuiz) {
-        // 重试：清缓存重新生成本题（仅当开关打开）
-        if (!els.retrySwitch.checked) return;
-        retryCurrentQuestion();
+    } else if (e.key.toLowerCase() === 'r') {
+        // 换一题：缓存内随机（仅当开关打开）
+        onRerollQuiz();
+    } else if (e.key.toLowerCase() === 'n') {
+        // 生成新题：调 DeepSeek 追加进题库
+        onNewQuiz();
     }
 });
 
-async function retryCurrentQuestion() {
+// ============================================================
+// 换一题 / 生成新题
+// ============================================================
+const NEW_QUIZ_COOLDOWN = 30000; // 生成新题冷却，防止狂点刷爆 API
+let lastNewQuizTs = 0;
+
+function updateNewQuizBtn() {
+    if (!els.btnNewQuiz) return;
+    const wait = NEW_QUIZ_COOLDOWN - (Date.now() - lastNewQuizTs);
+    if (wait > 0) {
+        els.btnNewQuiz.disabled = true;
+        els.btnNewQuiz.textContent = '✨ 生成新题 (' + Math.ceil(wait / 1000) + 's)';
+    } else {
+        els.btnNewQuiz.disabled = false;
+        els.btnNewQuiz.textContent = '✨ 生成新题';
+    }
+}
+setInterval(updateNewQuizBtn, 1000);
+
+async function onRerollQuiz() {
     if (!currentWord) return;
-    const key = currentWord + '#' + currentType;
-    // 删除缓存后重新生成
-    await clearQuizCache(key);
-    loadCurrentQuestion();
+    if (!els.retrySwitch.checked) return;
+    const loadKey = currentWord;
+    els.promptText.textContent = '⏳ 换题中…';
+    const result = await rerollQuiz(currentWord);
+    if (loadKey !== currentWord) return; // 已切词，放弃
+    if (result.error) {
+        els.promptText.textContent = result.error;
+        return;
+    }
+    currentQuiz = result.quiz;
+    answered = false;
+    selectedIdx = -1;
+    renderQuestion(true);
 }
 
-function clearQuizCache(key) {
-    return openFlashcardDB().then((db) => new Promise((resolve) => {
-        if (!db.objectStoreNames.contains(STORE_QUIZ)) { db.close(); resolve(); return; }
-        const tx = db.transaction(STORE_QUIZ, 'readwrite');
-        tx.objectStore(STORE_QUIZ).delete(key);
-        tx.oncomplete = () => { db.close(); resolve(); };
-        tx.onerror = () => { db.close(); resolve(); };
-    })).catch(() => {});
+async function onNewQuiz() {
+    if (!currentWord) return;
+    const wait = NEW_QUIZ_COOLDOWN - (Date.now() - lastNewQuizTs);
+    if (wait > 0) return; // 冷却中，按钮已禁用
+    const loadKey = currentWord;
+    els.promptText.textContent = '⏳ 正在生成新题…（约 10-20 秒）';
+    const result = await addNewQuiz(currentWord);
+    if (loadKey !== currentWord) return; // 已切词，放弃
+    if (result.error) {
+        els.promptText.textContent = result.error;
+        return;
+    }
+    lastNewQuizTs = Date.now();
+    currentQuiz = result.quiz;
+    answered = false;
+    selectedIdx = -1;
+    renderQuestion(false);
+    updateNewQuizBtn();
 }
 
 // ============================================================
