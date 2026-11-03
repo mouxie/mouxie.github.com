@@ -301,6 +301,39 @@
         .etym-story .etym-para { margin: 6px 0; }
         .etym-story .etym-strong { color: var(--primary); font-weight: 600; }
 
+        .colloc-reveal {
+            margin-top: 12px;
+            padding: 12px 14px;
+            background: #eefaf1;
+            border: 1px solid #c9e8d2;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.8;
+            word-break: break-all;
+            text-align: left;
+        }
+        .colloc-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .colloc-title { font-weight: 700; font-size: 15px; }
+        .colloc-list { display: flex; flex-direction: column; gap: 8px; }
+        .colloc-item {
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: #f3faf5;
+            border: 1px solid #d9eedd;
+        }
+        .colloc-phrase { font-weight: 600; color: var(--primary); font-size: 14px; }
+        .colloc-meaning { font-size: 13px; color: var(--text-main); margin-top: 2px; }
+        .colloc-example { font-size: 13px; color: var(--text-sub); margin-top: 4px; line-height: 1.7; }
+        .colloc-example.en { color: #555; }
+        .colloc-example.cn { color: var(--text-sub); }
+
         .char-list {
             display: flex;
             flex-wrap: wrap;
@@ -432,6 +465,9 @@
         :root.dark .freq-detail { color: #a6aeb9; }
         :root.dark .etym-reveal { background: #2b2418; border-color: #4a3f24; }
         :root.dark .etym-origin { color: #a6aeb9; }
+        :root.dark .colloc-reveal { background: #1a2b20; border-color: #2e4a37; }
+        :root.dark .colloc-item { background: #1f3326; border-color: #33523d; }
+        :root.dark .colloc-example.en { color: #c3c9d2; }
         :root.dark .example-cn { color: #a6aeb9; }
         :root.dark .example-cache-tip { border-bottom-color: #354154; }
         :root.dark .char-item { background: #2a2e37; }
@@ -658,11 +694,13 @@
                     <button id="btn-toggle-example" class="btn btn-plain btn-sm icon-btn hidden" title="查看例句" aria-label="查看例句">📖</button>
                     <button id="btn-toggle-freq" class="btn btn-plain btn-sm icon-btn hidden" title="查看口语使用频率" aria-label="查看口语使用频率">📊</button>
                     <button id="btn-toggle-etym" class="btn btn-plain btn-sm icon-btn hidden" title="查看词源故事" aria-label="查看词源故事">📜</button>
+                    <button id="btn-toggle-colloc" class="btn btn-plain btn-sm icon-btn hidden" title="查看固定搭配" aria-label="查看固定搭配">🔗</button>
                 </div>
                 <div class="trans-reveal hidden" id="trans-reveal"></div>
                 <div class="example-reveal hidden" id="example-reveal"></div>
                 <div class="freq-reveal hidden" id="freq-reveal"></div>
                 <div class="etym-reveal hidden" id="etym-reveal"></div>
+                <div class="colloc-reveal hidden" id="colloc-reveal"></div>
             </div>
             <div class="char-list" id="char-list"></div>
             <div class="input-area">
@@ -695,7 +733,7 @@
 // 数据来源：与 fc.html 共用的 IndexedDB (FlashcardDB / wrong_words)
 // 常量与打开逻辑全部来自 db-core.js，本页只做别名，不再各自维护副本
 // ============================================================
-const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_FREQ, STORE_ETYM, STORE_DICTS } = window.FlashcardDB;
+const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_FREQ, STORE_ETYM, STORE_COLLOC, STORE_DICTS } = window.FlashcardDB;
 // reader 模式：不带版本号探测打开，避免 VersionError（建库/升级由 fc.html/q.html 负责）
 const openFlashcardDB = () => window.FlashcardDB.openFlashcardDB({ mode: 'reader' });
 
@@ -852,6 +890,28 @@ function saveCachedEtym(word, data) {
         if (!db.objectStoreNames.contains(STORE_ETYM)) { db.close(); resolve(); return; }
         const tx = db.transaction(STORE_ETYM, 'readwrite');
         tx.objectStore(STORE_ETYM).put({ word: word, data: data, ts: Date.now() });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); resolve(); };
+    })).catch(() => {});
+}
+
+// ============================================================
+// 固定搭配缓存（IndexedDB: colloc_cache，key = 单词）
+// ============================================================
+function getCachedColloc(word) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_COLLOC)) { db.close(); resolve(null); return; }
+        const req = db.transaction(STORE_COLLOC, 'readonly').objectStore(STORE_COLLOC).get(word);
+        req.onsuccess = () => { db.close(); resolve(req.result || null); };
+        req.onerror = () => { db.close(); resolve(null); };
+    })).catch(() => null);
+}
+
+function saveCachedColloc(word, data) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_COLLOC)) { db.close(); resolve(); return; }
+        const tx = db.transaction(STORE_COLLOC, 'readwrite');
+        tx.objectStore(STORE_COLLOC).put({ word: word, data: data, ts: Date.now() });
         tx.oncomplete = () => { db.close(); resolve(); };
         tx.onerror = () => { db.close(); resolve(); };
     })).catch(() => {});
@@ -1130,10 +1190,12 @@ const els = {
     btnToggleExample: document.getElementById('btn-toggle-example'),
     btnToggleFreq: document.getElementById('btn-toggle-freq'),
     btnToggleEtym: document.getElementById('btn-toggle-etym'),
+    btnToggleColloc: document.getElementById('btn-toggle-colloc'),
     transReveal: document.getElementById('trans-reveal'),
     exampleReveal: document.getElementById('example-reveal'),
     freqReveal: document.getElementById('freq-reveal'),
     etymReveal: document.getElementById('etym-reveal'),
+    collocReveal: document.getElementById('colloc-reveal'),
     charList: document.getElementById('char-list'),
     answerInput: document.getElementById('answer-input'),
     btnClear: document.getElementById('btn-clear'),
@@ -1247,6 +1309,7 @@ function bindEvents() {
     els.btnToggleExample.addEventListener('click', toggleExampleReveal);
     els.btnToggleFreq.addEventListener('click', toggleFreqReveal);
     els.btnToggleEtym.addEventListener('click', toggleEtymReveal);
+    els.btnToggleColloc.addEventListener('click', toggleCollocReveal);
     els.linkFc.addEventListener('click', () => {
         window.location.href = 'fc.html';
     });
@@ -1381,6 +1444,13 @@ function renderQuestion() {
     els.btnToggleEtym.classList.remove('hidden');
     els.btnToggleEtym.textContent = '📜';
     els.btnToggleEtym.title = '查看词源故事';
+
+    // 重置固定搭配查看状态（按钮在听写/跟打两种模式下均可用）
+    els.collocReveal.classList.add('hidden');
+    els.collocReveal.textContent = '';
+    els.btnToggleColloc.classList.remove('hidden');
+    els.btnToggleColloc.textContent = '🔗';
+    els.btnToggleColloc.title = '查看固定搭配';
 
     // 重置闪答时设置的红色标记
     els.wordDisplay.style.color = '';
@@ -1878,6 +1948,140 @@ function toggleEtymReveal() {
         });
     } else {
         els.etymReveal.classList.add('hidden');
+    }
+}
+
+// ============================================================
+// 固定搭配/常见搭配（DeepSeek API，与例句/频率/词源共用设置与 key；结果缓存到 colloc_cache）
+// ============================================================
+let collocRequestWord = ''; // 搭配请求对应的单词（防止切词后旧响应覆盖新题）
+
+// 获取单词固定搭配：IndexedDB 缓存 → DeepSeek API → 写回缓存
+// 返回 { word, list:[{phrase, meaning, exampleEn, exampleCn}], fromCache } 或 { error }
+async function fetchCollocFromModel(word) {
+    if (!word) return { error: '（当前单词无效）' };
+    const settings = loadDSSettings();
+    if (!settings.apiKey) {
+        return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置后再使用搭配功能。' };
+    }
+
+    // 1) 优先读缓存
+    const cached = await getCachedColloc(word);
+    if (cached && cached.data) {
+        const list = normalizeColloc(cached.data);
+        if (list.length > 0) return { word: word, list: list, fromCache: true };
+    }
+
+    // 2) 未命中：调用 DeepSeek API
+    try {
+        const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+        const sysPrompt = '你是英语搭配（collocation）专家。为给定单词列出最常用最常见的固定搭配与常见搭配（含短语动词、介词搭配、形容词+名词、动词+宾语等），' +
+            '每条搭配附中文释义和一个真实地道的英文例句（附中文翻译）。优先口语/写作高频用例。' +
+            '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+            '{"word":"英文单词","collocations":[{"phrase":"搭配短语","meaning":"中文释义",' +
+            '"exampleEn":"英文例句","exampleCn":"例句中文翻译"}]}';
+        const userPrompt = '请为单词 "' + word + '" 列出 5-8 个最常用的固定搭配。';
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + settings.apiKey
+            },
+            body: JSON.stringify({
+                model: settings.model,
+                messages: [
+                    { role: 'system', content: sysPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                reasoning_effort: settings.reasoningEffort,
+                stream: false,
+                response_format: { type: 'json_object' }
+            })
+        });
+
+        if (!response.ok) {
+            let errMsg = 'HTTP ' + response.status;
+            try { const err = await response.json(); if (err.error && err.error.message) errMsg = err.error.message; } catch (e) { /* 非 JSON 错误体 */ }
+            return { error: '❌ 请求失败: ' + errMsg };
+        }
+
+        const data = await response.json();
+        const content = data.choices && data.choices[0] && data.choices[0].message
+            ? (data.choices[0].message.content || '')
+            : '';
+        const parsed = extractJSON(content);
+        const list = normalizeColloc(parsed);
+        if (list.length === 0) return { error: '❌ 模型未返回有效的搭配数据' };
+
+        saveCachedColloc(word, parsed);
+        return { word: word, list: list };
+    } catch (err) {
+        let msg = err && err.message ? err.message : String(err);
+        if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
+            msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+        }
+        return { error: '❌ 请求失败: ' + msg };
+    }
+}
+
+// 将模型返回的 JSON 归一化为搭配数组 [{phrase, meaning, exampleEn, exampleCn}]
+function normalizeColloc(parsed) {
+    if (!parsed || typeof parsed !== 'object') return [];
+    const arr = (Array.isArray(parsed.collocations) && parsed.collocations.length > 0)
+        ? parsed.collocations
+        : (Array.isArray(parsed.list) ? parsed.list : []);
+    const out = [];
+    arr.forEach((item) => {
+        if (!item || typeof item !== 'object') return;
+        const phrase = item.phrase || item.collocation || item.pattern || '';
+        const meaning = item.meaning || item.释义 || '';
+        const en = item.exampleEn || item.example_en || item.example || '';
+        const cn = item.exampleCn || item.example_cn || item.cn || '';
+        if (!phrase && !en && !meaning) return;
+        out.push({ phrase: phrase, meaning: meaning, exampleEn: en, exampleCn: cn });
+    });
+    return out;
+}
+
+// 渲染固定搭配展示区（每条：搭配短语 + 释义 + 英文例句 + 中文翻译）
+function renderColloc(r) {
+    els.collocReveal.classList.remove('hidden');
+    const cacheTip = r.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存搭配</span>' : '';
+    els.collocReveal.innerHTML =
+        `<div class="colloc-head">🔗 <span class="colloc-title">固定搭配（${escapeHtml(r.word)}）</span></div>` +
+        cacheTip +
+        `<div class="colloc-list">` +
+        r.list.map((it) =>
+            `<div class="colloc-item">` +
+            `<div class="colloc-phrase">${escapeHtml(it.phrase)}</div>` +
+            (it.meaning ? `<div class="colloc-meaning">${escapeHtml(it.meaning)}</div>` : '') +
+            (it.exampleEn ? `<div class="colloc-example en">📝 ${escapeHtml(it.exampleEn)}</div>` : '') +
+            (it.exampleCn ? `<div class="colloc-example cn">🇨🇳 ${escapeHtml(it.exampleCn)}</div>` : '') +
+            `</div>`
+        ).join('') +
+        `</div>`;
+}
+
+// 切换固定搭配显示/隐藏
+function toggleCollocReveal() {
+    const isHidden = els.collocReveal.classList.contains('hidden');
+    if (isHidden) {
+        collocRequestWord = currentWord;
+        els.collocReveal.textContent = '⏳ 正在请求 DeepSeek 生成固定搭配...';
+        els.collocReveal.classList.remove('hidden');
+        fetchCollocFromModel(currentWord).then((result) => {
+            // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
+            if (els.collocReveal.classList.contains('hidden')) return;
+            if (collocRequestWord !== currentWord) return;
+            if (result.error) {
+                els.collocReveal.textContent = result.error;
+                return;
+            }
+            renderColloc(result);
+        });
+    } else {
+        els.collocReveal.classList.add('hidden');
     }
 }
 
