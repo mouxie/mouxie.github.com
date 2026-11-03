@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>错词-测试</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --accent: #E24A4A;
+            --success: #2EA44F;
+            --bg: #F5F7FA;
+            --card-bg: #FFFFFF;
+            --text-main: #333333;
+            --text-sub: #888888;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        #app-container {
+            width: 100%;
+            max-width: 720px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .header { text-align: center; padding: 10px 0; }
+        .header h1 { margin: 0; font-size: 24px; color: var(--text-main); }
+        .header p { margin: 6px 0 0; font-size: 13px; color: var(--text-sub); }
+
+        .theme-btn {
+            position: fixed;
+            top: 14px;
+            right: 14px;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: 1px solid #dde3ea;
+            background: #fff;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            z-index: 20;
+            transition: all 0.2s;
+            line-height: 1;
+        }
+        .theme-btn:hover { transform: scale(1.08); }
+
+        .panel {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .status-text {
+            text-align: center;
+            font-size: 14px;
+            color: var(--text-main);
+            padding: 30px 10px;
+            min-height: 60px;
+        }
+        .status-text.error { color: var(--accent); }
+        .status-text.success { color: var(--success); }
+
+        .settings {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        .settings-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: #555;
+        }
+        select, input[type="number"] {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 13px;
+            background-color: white;
+            cursor: pointer;
+            outline: none;
+        }
+        .switch-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+            color: var(--text-main);
+            font-size: 14px;
+        }
+        .switch-label input { width: 16px; height: 16px; margin: 0; cursor: pointer; }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            color: var(--text-main);
+        }
+        .info-row .rounds { font-weight: 600; }
+        .info-row .score { font-weight: 600; color: var(--primary); }
+
+        .progress-track { margin-top: 8px; height: 8px; background: #e9edf2; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; width: 0%; background: var(--primary); border-radius: 4px; transition: width 0.3s ease; }
+
+        .question { text-align: center; padding: 10px 0 4px; }
+        .question .word {
+            font-size: 34px;
+            font-weight: bold;
+            color: var(--primary);
+            letter-spacing: 1px;
+            word-break: break-all;
+            padding: 12px 0;
+        }
+        .question .prompt { font-size: 14px; color: var(--text-sub); margin-top: 6px; }
+
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 10px 0 4px;
+        }
+        .option {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 2px solid #dde3ea;
+            background: #fafbfc;
+            font-size: 15px;
+            line-height: 1.6;
+            cursor: pointer;
+            color: var(--text-main);
+            transition: all 0.15s;
+            text-align: left;
+            word-break: break-all;
+        }
+        .option:hover { border-color: var(--primary); background: #f0f6fd; }
+        .option .opt-label {
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #e5eaf1;
+            color: #555;
+            font-size: 13px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .option.selected { border-color: var(--primary); background: #e8f1fc; }
+        .option.selected .opt-label { background: var(--primary); color: #fff; }
+        .option.answered { cursor: default; }
+        .option.correct { border-color: var(--success); background: #e6f4ea; }
+        .option.correct .opt-label { background: var(--success); color: #fff; }
+        .option.wrong { border-color: var(--accent); background: #ffeaea; }
+        .option.wrong .opt-label { background: var(--accent); color: #fff; }
+        .option.disabled { opacity: 0.55; }
+
+        .feedback {
+            text-align: center;
+            font-size: 14px;
+            padding: 8px 0 2px;
+            min-height: 24px;
+            font-weight: 600;
+        }
+        .feedback.ok { color: var(--success); }
+        .feedback.no { color: var(--accent); }
+
+        .hint-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: var(--text-sub);
+        }
+        .hint-row button {
+            border: 1px solid #ccc;
+            background: #fff;
+            color: #555;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .hint-row button:hover { background: #f0f3f7; }
+
+        .btn {
+            padding: 10px 22px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-danger { background: var(--accent); color: #fff; }
+        .btn-plain { background: #eef0f4; color: #555; }
+
+        .footer-note {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-sub);
+            padding-bottom: 20px;
+        }
+        .footer-note a { color: var(--primary); cursor: pointer; text-decoration: none; }
+
+        [data-theme="dark"] {
+            --primary: #6aa9e8;
+            --accent: #ff7b7b;
+            --success: #56c474;
+            --bg: #16181d;
+            --card-bg: #21242b;
+            --text-main: #e6e8ec;
+            --text-sub: #98a0ab;
+            color-scheme: dark;
+        }
+        [data-theme="dark"] .panel { box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+        [data-theme="dark"] select,
+        [data-theme="dark"] input[type="number"] {
+            background-color: #2a2e37;
+            border-color: #3c424d;
+            color: var(--text-main);
+        }
+        [data-theme="dark"] .settings-row { color: #c3c9d2; }
+        [data-theme="dark"] .progress-track { background: #31363f; }
+        [data-theme="dark"] .option { background: #262a33; border-color: #3c424d; }
+        [data-theme="dark"] .option:hover { border-color: var(--primary); background: #22364c; }
+        [data-theme="dark"] .option .opt-label { background: #333945; color: #c3c9d2; }
+        [data-theme="dark"] .option.selected { border-color: var(--primary); background: #22364c; }
+        [data-theme="dark"] .option.selected .opt-label { background: var(--primary); color: #fff; }
+        [data-theme="dark"] .option.correct { border-color: var(--success); background: #1d3324; }
+        [data-theme="dark"] .option.wrong { border-color: var(--accent); background: #3a2325; }
+        [data-theme="dark"] .hint-row button {
+            background: #2a2e37;
+            border-color: #3c424d;
+            color: #c3c9d2;
+        }
+        [data-theme="dark"] .hint-row button:hover { background: #343945; }
+        [data-theme="dark"] .btn-plain { background: #31363f; color: #c3c9d2; }
+        [data-theme="dark"] .theme-btn { background: #2a2e37; border-color: #3c424d; color: var(--text-main); }
+
+        .hidden { display: none !important; }
+    </style>
+    <script>
+    // 尽早应用已保存的主题，避免刷新时闪白（与 fc.html / e.html 共用同一份设置）
+    (function () {
+        try {
+            var saved = localStorage.getItem('example_typing_theme_v1');
+            var dark = saved ? saved === 'dark'
+                : !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+        } catch (e) { /* 隐私模式等读取失败时保持日间 */ }
+    })();
+    </script>
+</head>
+<body>
+
+<button id="btn-theme" class="theme-btn" type="button" title="切换夜间模式">🌙</button>
+
+<div id="app-container">
+    <div class="header">
+        <h1>📝 错词选择题测试</h1>
+        <p>读取「闪卡游戏 fc.html」的错词本，DeepSeek 为每个单词生成 4 选 1 选择题，点选后核对答案，帮助记忆错词 (IndexedDB: FlashcardDB / wrong_words + quiz_cache)</p>
+    </div>
+
+    <div id="status-panel" class="panel">
+        <div id="status-text" class="status-text">⏳ 正在读取错词本...</div>
+    </div>
+
+    <div id="game-area" class="hidden">
+        <div class="panel">
+            <div class="settings">
+                <div class="settings-row">
+                    <span>📚 错词库共 <b id="total-count">--</b> 个单词</span>
+                </div>
+                <div class="settings-row">
+                    <label>每组
+                        <select id="size-select">
+                            <option value="10">10 个</option>
+                            <option value="20" selected>20 个</option>
+                            <option value="50">50 个</option>
+                            <option value="100">100 个</option>
+                        </select>
+                    </label>
+                    <label>组别
+                        <select id="group-select">
+                            <option value="0">第 1 组</option>
+                        </select>
+                    </label>
+                    <label>题型
+                        <select id="type-select">
+                            <option value="EN2CN" selected>英→中 (看单词选释义)</option>
+                            <option value="CN2EN">中→英 (看释义选单词)</option>
+                            <option value="FILL">填空 (选单词填句子)</option>
+                        </select>
+                    </label>
+                </div>
+                <label class="switch-label" title="题目生成后可重试重新生成本题">
+                    <input type="checkbox" id="retry-switch" checked>
+                    🔄 允许重试(换一题)
+                </label>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="info-row">
+                <span class="rounds" id="round-text">第 0 / 0 题</span>
+                <span class="score" id="score-text">得分 0 (0%)</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+        </div>
+
+        <div class="panel">
+            <div class="question">
+                <div class="word" id="word-display">—</div>
+                <div class="prompt" id="prompt-text">&nbsp;</div>
+            </div>
+            <div class="options" id="options-box"></div>
+            <div class="feedback" id="feedback-text"></div>
+            <div class="hint-row">
+                <span id="key-hints">点选答案即核对 | ←/→ 切换 | 数字键 1-4 快速答题</span>
+                <button id="btn-prev-word" type="button">◀ 上一题</button>
+                <button id="btn-next-word" type="button">下一题 ▶</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-note">
+        数据来源：<a id="link-fc" title="打开闪卡游戏">fc.html 的错词本</a> · 题目由 DeepSeek 生成并本地缓存，无需重复请求
+    </div>
+</div>
+
+<script src="db-core.js"></script>
+<script>
+'use strict';
+
+// ============================================================
+// 与 fc.html / typing.html 共用 IndexedDB (FlashcardDB / wrong_words)
+// ============================================================
+const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_QUIZ, STORE_DICTS } = window.FlashcardDB;
+const openFlashcardDB = () => window.FlashcardDB.openFlashcardDB({ mode: 'reader' });
+
+// ============================================================
+// 读取错词本（与 typing.html 相同逻辑：全词库补全 + ts 倒序）
+// ============================================================
+function getWordKey(wordObj) {
+    return wordObj.name || wordObj.word || wordObj.title || '';
+}
+
+async function loadWrongWordsFromDB() {
+    const db = await openFlashcardDB();
+
+    const allWordsMap = new Map();
+    if (db.objectStoreNames.contains(STORE_ALL)) {
+        await new Promise((resolve) => {
+            const req = db.transaction(STORE_ALL, 'readonly').objectStore(STORE_ALL).openCursor();
+            req.onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (cursor) {
+                    const key = getWordKey(cursor.value && cursor.value.data);
+                    if (key && !allWordsMap.has(key)) allWordsMap.set(key, cursor.value.data);
+                    cursor.continue();
+                } else { resolve(); }
+            };
+            req.onerror = () => resolve();
+        });
+    }
+
+    let words = [];
+    if (db.objectStoreNames.contains(STORE_WRONG)) {
+        words = await new Promise((resolve, reject) => {
+            const req = db.transaction(STORE_WRONG, 'readonly').objectStore(STORE_WRONG).getAll();
+            req.onsuccess = () => {
+                const records = req.result || [];
+                const mapped = records
+                    .map(r => ({ data: allWordsMap.get(r.wordKey) || r.data, ts: r.ts || 0, key: r.wordKey }))
+                    .filter(item => Boolean(item.data));
+                mapped.sort((a, b) => (b.ts - a.ts) || String(a.key).localeCompare(String(b.key)));
+                resolve(mapped.map(item => item.data));
+            };
+            req.onerror = () => { reject(new Error('读取错词本失败')); };
+        });
+    }
+
+    db.close();
+    return words;
+}
+
+// ============================================================
+// 选择题缓存（IndexedDB: quiz_cache，key = "word#题型"）
+// ============================================================
+function getCachedQuiz(word, type) {
+    const key = word + '#' + type;
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_QUIZ)) { db.close(); resolve(null); return; }
+        const req = db.transaction(STORE_QUIZ, 'readonly').objectStore(STORE_QUIZ).get(key);
+        req.onsuccess = () => { db.close(); resolve(req.result || null); };
+        req.onerror = () => { db.close(); resolve(null); };
+    })).catch(() => null);
+}
+
+function saveCachedQuiz(word, type, data) {
+    const key = word + '#' + type;
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_QUIZ)) { db.close(); resolve(); return; }
+        const tx = db.transaction(STORE_QUIZ, 'readwrite');
+        tx.objectStore(STORE_QUIZ).put({ word: key, data: data, ts: Date.now() });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); resolve(); };
+    })).catch(() => {});
+}
+
+// ============================================================
+// DeepSeek 设置（与 fc.html / typing.html 共用）
+// ============================================================
+const DS_SETTINGS_KEY = 'deepseek_settings_v1';
+const DEFAULT_DS_SETTINGS = {
+    apiKey: '',
+    baseUrl: 'https://api.deepseek.com',
+    model: 'deepseek-chat',
+    reasoningEffort: 'medium'
+};
+
+function loadDSSettings() {
+    try {
+        const raw = localStorage.getItem(DS_SETTINGS_KEY);
+        return raw ? Object.assign({}, DEFAULT_DS_SETTINGS, JSON.parse(raw)) : Object.assign({}, DEFAULT_DS_SETTINGS);
+    } catch (e) { return Object.assign({}, DEFAULT_DS_SETTINGS); }
+}
+
+function extractJSON(text) {
+    const t = (text || '').trim();
+    const cleaned = t.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+    try {
+        const parsed = JSON.parse(cleaned);
+        if (parsed && typeof parsed === 'object') return parsed;
+    } catch (e) { /* fall through */ }
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+        try {
+            const parsed = JSON.parse(cleaned.substring(start, end + 1));
+            if (parsed && typeof parsed === 'object') return parsed;
+        } catch (e) { /* fall through */ }
+    }
+    return null;
+}
+
+// ============================================================
+// 生成 4 选 1 选择题（缓存放行，未命中调 DeepSeek）
+// ============================================================
+let quizRequestKey = ''; // 请求对应的 "word#题型"，防旧响应覆盖新题
+
+const TYPE_PROMPTS = {
+    EN2CN: {
+        sys: '你是英语测试出题员。为给定英文单词生成一道 4 选 1 单选题：题干显示单词，要求选出正确的中文释义。'
+            + '1 个正确释义 + 3 个迷惑性干扰项（尽量是与该词形近或义近的词义，避免一眼排除）。'
+            + '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字）：'
+            + '{"word":"英文单词","stem":"可用题干补充说明（可为空字符串）","choices":["选项A","选项B","选项C","选项D"],"answer":0}'
+            + '，其中 answer 为正确选项索引(0-3)。',
+        user: (w) => '为单词 "' + w + '" 生成一道英译中选择题。'
+    },
+    CN2EN: {
+        sys: '你是英语测试出题员。为给定英文单词生成一道 4 选 1 单选题：题干显示中文释义，要求选出对应的英文单词。'
+            + '1 个正确单词 + 3 个形近或义近的干扰单词。'
+            + '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字）：'
+            + '{"word":"英文单词","stem":"中文释义（题干）","choices":["选项A","选项B","选项C","选项D"],"answer":0}'
+            + '，其中 answer 为正确选项索引(0-3)。',
+        user: (w) => '为单词 "' + w + '" 生成一道中译英选择题（题干为其中文释义）。'
+    },
+    FILL: {
+        sys: '你是英语测试出题员。为给定英文单词生成一道 4 选 1 完形填空题：题干为一个带空格的英文句子，要求选出填入空格的单词。'
+            + '1 个正确单词（即给定单词的适当词形，尽量用原形）+ 3 个语义/形近干扰词。'
+            + '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字）：'
+            + '{"word":"英文单词","stem":"带 ____ 的英文句子","choices":["选项A","选项B","选项C","选项D"],"answer":0}'
+            + '，其中 answer 为正确选项索引(0-3)。',
+        user: (w) => '为单词 "' + w + '" 生成一道填空选择题（句子中该词处用 ____ 表示）。'
+    }
+};
+
+// 生成一题：缓存 → DeepSeek → 写回缓存
+// 返回 { word, type, stem, choices, answer, fromCache } 或 { error }
+async function fetchQuiz(word, type) {
+    if (!word) return { error: '（当前单词无效）' };
+    const settings = loadDSSettings();
+    if (!settings.apiKey) {
+        return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置（⚙️ 设置 → DeepSeek API Key）。' };
+    }
+
+    const cached = await getCachedQuiz(word, type);
+    if (cached && cached.data) {
+        const q = normalizeQuiz(cached.data, word);
+        if (q) return Object.assign({ fromCache: true }, q);
+    }
+
+    const prompt = TYPE_PROMPTS[type] || TYPE_PROMPTS.EN2CN;
+    try {
+        const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + settings.apiKey
+            },
+            body: JSON.stringify({
+                model: settings.model,
+                messages: [
+                    { role: 'system', content: prompt.sys },
+                    { role: 'user', content: prompt.user(word) }
+                ],
+                reasoning_effort: settings.reasoningEffort,
+                stream: false,
+                response_format: { type: 'json_object' }
+            })
+        });
+
+        if (!response.ok) {
+            let errMsg = 'HTTP ' + response.status;
+            try { const err = await response.json(); if (err.error && err.error.message) errMsg = err.error.message; } catch (e) { /* 非 JSON */ }
+            return { error: '❌ 请求失败: ' + errMsg };
+        }
+
+        const data = await response.json();
+        const content = data.choices && data.choices[0] && data.choices[0].message
+            ? (data.choices[0].message.content || '')
+            : '';
+        const parsed = extractJSON(content);
+        const q = normalizeQuiz(parsed, word);
+        if (!q) return { error: '❌ 模型未返回有效题目' };
+
+        saveCachedQuiz(word, type, parsed);
+        return q;
+    } catch (err) {
+        let msg = err && err.message ? err.message : String(err);
+        if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
+            msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+        }
+        return { error: '❌ 请求失败: ' + msg };
+    }
+}
+
+// 归一化题目：校验 4 个选项 + answer 索引 0-3
+function normalizeQuiz(parsed, word) {
+    if (!parsed || typeof parsed !== 'object') return null;
+    const choices = (Array.isArray(parsed.choices) && parsed.choices.length === 4)
+        ? parsed.choices.map(c => String(c || '').trim()).filter(Boolean)
+        : [];
+    if (choices.length !== 4) return null;
+    let answer = parseInt(parsed.answer, 10);
+    if (isNaN(answer) || answer < 0 || answer > 3) {
+        // 兼容 answer 为选项文本本身的情况
+        const idx = choices.findIndex(c => c === parsed.answer);
+        if (idx === -1) return null;
+        answer = idx;
+    }
+    return {
+        word: parsed.word || word,
+        stem: parsed.stem || '',
+        choices: choices,
+        answer: answer
+    };
+}
+
+// ============================================================
+// 游戏状态
+// ============================================================
+const els = {
+    statusPanel: document.getElementById('status-panel'),
+    statusText: document.getElementById('status-text'),
+    gameArea: document.getElementById('game-area'),
+    sizeSelect: document.getElementById('size-select'),
+    groupSelect: document.getElementById('group-select'),
+    typeSelect: document.getElementById('type-select'),
+    retrySwitch: document.getElementById('retry-switch'),
+    roundText: document.getElementById('round-text'),
+    scoreText: document.getElementById('score-text'),
+    progressFill: document.getElementById('progress-fill'),
+    wordDisplay: document.getElementById('word-display'),
+    promptText: document.getElementById('prompt-text'),
+    optionsBox: document.getElementById('options-box'),
+    feedbackText: document.getElementById('feedback-text'),
+    btnPrevWord: document.getElementById('btn-prev-word'),
+    btnNextWord: document.getElementById('btn-next-word'),
+    totalCount: document.getElementById('total-count'),
+    linkFc: document.getElementById('link-fc')
+};
+
+let wrongWords = [];      // 全部错词
+let sessionWords = [];    // 本局单词
+let sessionIndex = 0;     // 当前题号
+let currentWord = '';     // 当前单词
+let currentType = 'EN2CN'; // 题型
+let currentQuiz = null;   // 当前题目 { stem, choices, answer }
+let answered = false;     // 当前题是否已作答
+let selectedIdx = -1;     // 用户选择的索引
+let stats = { total: 0, correct: 0, wrong: 0 };
+let pendingGroupIdx = null;
+
+// ============================================================
+// 初始化
+// ============================================================
+async function init() {
+    try {
+        wrongWords = await loadWrongWordsFromDB();
+        if (wrongWords.length === 0) {
+            els.statusText.textContent = '📭 错词本是空的，还没有可测试的单词。';
+            els.statusText.classList.add('success');
+            return;
+        }
+        wrongWords = wrongWords.filter(w => getWordKey(w).trim() !== '');
+        if (wrongWords.length === 0) {
+            els.statusText.textContent = '📭 错词本中的单词无效。';
+            els.statusText.classList.add('success');
+            return;
+        }
+
+        els.totalCount.textContent = wrongWords.length;
+        els.statusPanel.classList.add('hidden');
+        els.gameArea.classList.remove('hidden');
+
+        bindEvents();
+        startSession();
+    } catch (err) {
+        els.statusText.textContent = '⚠️ ' + err.message;
+        els.statusText.classList.add('error');
+    }
+}
+
+function bindEvents() {
+    els.sizeSelect.addEventListener('change', () => {
+        els.groupSelect.value = '0';
+        rebuildGroupOptions();
+        startSession();
+    });
+    els.groupSelect.addEventListener('change', startSession);
+    els.typeSelect.addEventListener('change', () => {
+        // 题型变化：重新加载当前题（换缓存键）
+        currentType = els.typeSelect.value;
+        loadCurrentQuestion();
+        saveProgress();
+    });
+    els.retrySwitch.addEventListener('change', () => { /* 开关仅影响按钮显隐 */ });
+    els.btnPrevWord.addEventListener('click', goPrevWord);
+    els.btnNextWord.addEventListener('click', goNextWord);
+    els.linkFc.addEventListener('click', () => { window.location.href = 'fc.html'; });
+}
+
+function currentSize() {
+    return parseInt(els.sizeSelect.value) || 20;
+}
+
+function rebuildGroupOptions(forceSelect) {
+    const selected = (forceSelect !== undefined) ? forceSelect : (parseInt(els.groupSelect.value) || 0);
+    const size = currentSize();
+    const totalGroups = Math.max(Math.ceil(wrongWords.length / size), 1);
+    els.groupSelect.innerHTML = '';
+    for (let i = 0; i < totalGroups; i++) {
+        const start = i * size + 1;
+        const end = Math.min((i + 1) * size, wrongWords.length);
+        const option = document.createElement('option');
+        option.value = i;
+        option.text = `第 ${i + 1} 组 (${start}-${end})`;
+        els.groupSelect.appendChild(option);
+    }
+    if (pendingGroupIdx !== null) {
+        if (pendingGroupIdx < totalGroups) els.groupSelect.value = String(pendingGroupIdx);
+        pendingGroupIdx = null;
+    } else if (selected < totalGroups) {
+        els.groupSelect.value = String(selected);
+    }
+}
+
+function startSession() {
+    rebuildGroupOptions();
+    const size = currentSize();
+    const groupIdx = parseInt(els.groupSelect.value) || 0;
+    const offset = groupIdx * size;
+    sessionWords = wrongWords.slice(offset, offset + size);
+    sessionIndex = 0;
+    stats = { total: 0, correct: 0, wrong: 0 };
+    currentType = els.typeSelect.value;
+    loadCurrentQuestion();
+    saveProgress();
+}
+
+// ============================================================
+// 渲染题目
+// ============================================================
+async function loadCurrentQuestion() {
+    if (sessionIndex >= sessionWords.length) { finishSession(); return; }
+    currentWord = getWordKey(sessionWords[sessionIndex]);
+    answered = false;
+    selectedIdx = -1;
+    currentQuiz = null;
+
+    const absoluteIndex = ((parseInt(els.groupSelect.value) || 0) * currentSize()) + sessionIndex + 1;
+    els.roundText.textContent = `第 ${sessionIndex + 1}/${sessionWords.length} 题 (总第${absoluteIndex}词)`;
+    els.scoreText.textContent = `得分 ${stats.correct} (${Math.round((stats.correct / Math.max(stats.total, 1)) * 100)}%)`;
+    els.progressFill.style.width = `${(sessionIndex / sessionWords.length) * 100}%`;
+    els.btnPrevWord.disabled = (sessionIndex <= 0);
+    els.btnNextWord.disabled = false;
+
+    els.wordDisplay.textContent = currentWord;
+    els.promptText.textContent = '⏳ DeepSeek 正在生成题目...';
+    els.optionsBox.innerHTML = '';
+    els.feedbackText.textContent = '';
+    els.feedbackText.className = 'feedback';
+
+    quizRequestKey = currentWord + '#' + currentType;
+    const result = await fetchQuiz(currentWord, currentType);
+    if (quizRequestKey !== currentWord + '#' + currentType) return; // 已切题/换题型，放弃
+
+    if (result.error) {
+        els.promptText.textContent = result.error;
+        return;
+    }
+    currentQuiz = result;
+    renderQuestion();
+}
+
+function renderQuestion() {
+    const q = currentQuiz;
+    if (!q) return;
+    // 题干：填空/中译英题显示 stem；英译中题 stem 为空时显示「选出正确的中文释义」
+    els.promptText.textContent = q.stem
+        ? q.stem
+        : (currentType === 'FILL' ? '选出填入空格的单词' : '选出正确的中文释义');
+    if (currentType === 'FILL') {
+        // 填空题型：题干已含句子，单词大字区显示「____」
+        els.wordDisplay.textContent = '____';
+    } else {
+        els.wordDisplay.textContent = q.word;
+    }
+
+    const labels = ['A', 'B', 'C', 'D'];
+    els.optionsBox.innerHTML = q.choices.map((c, i) =>
+        `<div class="option" data-idx="${i}">` +
+        `<span class="opt-label">${labels[i]}</span>` +
+        `<span>${escapeHtml(c)}</span>` +
+        `</div>`
+    ).join('');
+
+    // 绑定点击：点选即核对
+    els.optionsBox.querySelectorAll('.option').forEach((opt) => {
+        opt.addEventListener('click', () => {
+            if (answered) return;
+            const idx = parseInt(opt.dataset.idx, 10);
+            selectAnswer(idx);
+        });
+    });
+}
+
+function selectAnswer(idx) {
+    if (answered || !currentQuiz) return;
+    answered = true;
+    selectedIdx = idx;
+    stats.total++;
+
+    const isCorrect = (idx === currentQuiz.answer);
+    if (isCorrect) { stats.correct++; } else { stats.wrong++; }
+
+    // 选项着色：正确项绿色；选错的红色；其余淡化
+    const opts = els.optionsBox.querySelectorAll('.option');
+    opts.forEach((o, i) => {
+        o.classList.add('answered');
+        if (i === currentQuiz.answer) o.classList.add('correct');
+        else if (i === idx) o.classList.add('wrong');
+        else o.classList.add('disabled');
+    });
+
+    els.feedbackText.textContent = isCorrect
+        ? `✅ 回答正确！正确答案：${labels[currentQuiz.answer]}`
+        : `❌ 回答错误。正确答案：${labels[currentQuiz.answer]}（${escapeHtml(currentQuiz.choices[currentQuiz.answer])}）`;
+    els.feedbackText.className = isCorrect ? 'feedback ok' : 'feedback no';
+
+    // 更新得分
+    const absoluteIndex = ((parseInt(els.groupSelect.value) || 0) * currentSize()) + sessionIndex + 1;
+    els.roundText.textContent = `第 ${sessionIndex + 1}/${sessionWords.length} 题 (总第${absoluteIndex}词)`;
+    els.scoreText.textContent = `得分 ${stats.correct} (${Math.round((stats.correct / Math.max(stats.total, 1)) * 100)}%)`;
+}
+
+const labels = ['A', 'B', 'C', 'D'];
+
+function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ============================================================
+// 上一题 / 下一题 / 重试
+// ============================================================
+function goPrevWord() {
+    if (sessionIndex > 0) {
+        sessionIndex--;
+        loadCurrentQuestion();
+    }
+}
+
+function goNextWord() {
+    if (sessionIndex >= sessionWords.length - 1) {
+        // 最后一题：进入下一组（无下一组则回到第 1 组）
+        const groupIdx = parseInt(els.groupSelect.value) || 0;
+        const hasNextGroup = (groupIdx + 1 < els.groupSelect.options.length);
+        if (!hasNextGroup) return;
+        els.groupSelect.value = String(groupIdx + 1);
+        saveProgress();
+        startSession();
+        return;
+    }
+    sessionIndex++;
+    loadCurrentQuestion();
+}
+
+function finishSession() {
+    const groupIdx = parseInt(els.groupSelect.value) || 0;
+    const nextIdx = (groupIdx + 1 < els.groupSelect.options.length) ? groupIdx + 1 : 0;
+    els.groupSelect.value = String(nextIdx);
+    startSession();
+}
+
+// ============================================================
+// 进度持久化（独立 key，不与 typing.html 冲突）
+// ============================================================
+const PROGRESS_KEY = 'typing_test_progress_v1';
+
+function saveProgress() {
+    try {
+        localStorage.setItem(PROGRESS_KEY, JSON.stringify({
+            pageSize: currentSize(),
+            groupIdx: parseInt(els.groupSelect.value) || 0,
+            wordIdx: sessionIndex,
+            quizType: els.typeSelect.value
+        }));
+    } catch (e) { /* 忽略 */ }
+}
+
+// ============================================================
+// 键盘事件：数字键 1-4 快速答题，←/→ 切换
+// ============================================================
+document.addEventListener('keydown', (e) => {
+    if (e.target && (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT')) {
+        // 下拉/输入框聚焦时方向键与数字键交还控件
+        return;
+    }
+    if (e.code >= 'Digit1' && e.code <= 'Digit4') {
+        const idx = parseInt(e.code.slice(-1), 10) - 1;
+        if (!answered && currentQuiz && idx < currentQuiz.choices.length) {
+            selectAnswer(idx);
+        }
+    } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        goPrevWord();
+    } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        goNextWord();
+    } else if (e.key.toLowerCase() === 'r' && currentQuiz) {
+        // 重试：清缓存重新生成本题（仅当开关打开）
+        if (!els.retrySwitch.checked) return;
+        retryCurrentQuestion();
+    }
+});
+
+async function retryCurrentQuestion() {
+    if (!currentWord) return;
+    const key = currentWord + '#' + currentType;
+    // 删除缓存后重新生成
+    await clearQuizCache(key);
+    loadCurrentQuestion();
+}
+
+function clearQuizCache(key) {
+    return openFlashcardDB().then((db) => new Promise((resolve) => {
+        if (!db.objectStoreNames.contains(STORE_QUIZ)) { db.close(); resolve(); return; }
+        const tx = db.transaction(STORE_QUIZ, 'readwrite');
+        tx.objectStore(STORE_QUIZ).delete(key);
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); resolve(); };
+    })).catch(() => {});
+}
+
+// ============================================================
+// 夜间模式（与 fc.html / e.html 共用 example_typing_theme_v1，主题互通）
+// ============================================================
+const THEME_KEY = 'example_typing_theme_v1';
+
+function isDarkTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'dark';
+}
+
+// persist=false 用于跟随系统主题，不写入 localStorage（保留“未手动设置”状态）
+function setTheme(dark, persist) {
+    if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+    else document.documentElement.removeAttribute('data-theme');
+    const btn = document.getElementById('btn-theme');
+    if (btn) {
+        btn.textContent = dark ? '☀️' : '🌙';
+        btn.title = dark ? '切换到日间模式' : '切换到夜间模式';
+    }
+    if (persist) {
+        try { localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light'); } catch (e) { /* 忽略 */ }
+    }
+}
+
+function hasSavedTheme() {
+    try { return !!localStorage.getItem(THEME_KEY); } catch (e) { return false; }
+}
+
+// head 内置 JS 已按 localStorage + 系统偏好预应用主题，这里只同步按钮图标
+(function applyThemeButton() {
+    const saved = (function () { try { return localStorage.getItem(THEME_KEY); } catch (e) { return null; } })();
+    const dark = saved ? saved === 'dark'
+        : !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    setTheme(dark, false);
+})();
+
+document.getElementById('btn-theme').addEventListener('click', () => setTheme(!isDarkTheme(), true));
+
+// 用户未手动选择时，实时跟随系统深浅色
+if (window.matchMedia) {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onSysTheme = (e) => { if (!hasSavedTheme()) setTheme(e.matches, false); };
+    if (mq.addEventListener) mq.addEventListener('change', onSysTheme);
+    else if (mq.addListener) mq.addListener(onSysTheme); // Safari < 14
+}
+
+// ============================================================
+// 启动
+// ============================================================
+init();
+</script>
+</body>
+</html>
