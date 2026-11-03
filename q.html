@@ -2334,7 +2334,16 @@
             currentWordData = null;
             currentWordString = "";
             meaningCard.classList.remove('is-success', 'is-error');
-            elWordCn.innerHTML = "📭 分组空空";
+            // 复习模式空队列：提示如何产生复习词
+            if (currentMode() === 'review') {
+                const unlearned = lastReviewStats ? lastReviewStats.unlearnedTotal : 0;
+                elWordCn.innerHTML = "📭 暂无到期复习" +
+                    `<br><span style="font-size:13px; color:var(--text-sub); line-height:1.8;">` +
+                    `已学 ${lastReviewStats ? lastReviewStats.learnedTotal : 0} 词 · 未学 ${unlearned} 词<br>` +
+                    `去「📖 当前词库」打几个词，1 分钟/1 天后会回到这里！</span>`;
+            } else {
+                elWordCn.innerHTML = "📭 分组空空";
+            }
             showMeaning(); // 空状态提示直接可见，无需点击
             elWordPhonetic.innerText = '';
             elWordPhonetic.style.display = 'none';
