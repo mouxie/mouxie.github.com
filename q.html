@@ -619,6 +619,51 @@
         }
         .example-refresh:hover { color: #2a6db8; }
 
+        /* ==================== 复习统计面板 ==================== */
+        .review-stats-content {
+            font-size: 13px;
+            color: var(--text-main);
+            line-height: 1.9;
+        }
+        .review-stats-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+        .review-stats-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border: 1px solid #e3e6ea;
+            border-radius: 8px;
+            background: #fafbfd;
+        }
+        .review-stats-row .label { color: var(--text-label); }
+        .review-stats-row .value { font-weight: 700; font-size: 15px; color: var(--text-main); }
+        .review-stats-row .value.due { color: var(--accent); }
+        .review-stats-row .value.ok { color: var(--success); }
+        /* 阶段分布横条 */
+        .stage-bar {
+            display: flex;
+            height: 10px;
+            border-radius: 5px;
+            overflow: hidden;
+            background: #e9edf2;
+            margin: 8px 0 4px;
+        }
+        .stage-bar .seg { height: 100%; min-width: 2px; }
+        .stage-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 11px; color: var(--text-sub); }
+        .stage-legend .item { display: flex; align-items: center; gap: 4px; }
+        .stage-legend .dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+        /* 单词复习进度面板详情行 */
+        .review-info-detail { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: #fafbfd; border: 1px solid #e3e6ea; border-radius: 8px; margin-top: 8px; }
+        .review-info-detail .row { display: flex; justify-content: space-between; font-size: 13px; }
+        .review-info-detail .row .k { color: var(--text-label); }
+        .review-info-detail .row .v { font-weight: 600; color: var(--text-main); }
+        .review-info-detail .row .v.due { color: var(--accent); }
+        .review-info-detail .row .v.ok { color: var(--success); }
+
+        html[data-theme="dark"] .review-stats-row { background: #232B38; border-color: #3A4354; }
+        html[data-theme="dark"] .stage-bar { background: #31363F; }
+        html[data-theme="dark"] .review-info-detail { background: #232B38; border-color: #3A4354; }
+
         /* ==================== 词库管理 ==================== */
         .dict-item {
             display: flex;
@@ -783,6 +828,7 @@
             </div>
 
             <div class="control-row control-row--flex-end">
+                <button id="btn-review-stats" class="btn-action btn-audio" style="width:auto; padding: 6px 14px; font-size: 12px;">📊 复习统计</button>
                 <button id="btn-export-wrong" class="btn-action btn-audio" style="width:auto; padding: 6px 14px; font-size: 12px;">📤 导出错词本 (JSON)</button>
             </div>
         </div>
@@ -813,6 +859,7 @@
             
             <button id="btn-toggle-wrong" class="btn-action btn-add-wrong" title="加入/移出错词本 (Alt+.)" disabled>✨ 加强 (标记为错词)</button>
             <button id="btn-example" class="btn-action btn-example" disabled>📖 例句 (DeepSeek)</button>
+            <button id="btn-review-info" class="btn-action btn-audio" title="查看当前词复习进度/重置 (Alt+R)" disabled>🧠 复习进度 (Alt+R)</button>
         </div>
 
         <div class="controls" id="controls" style="display: none;">
@@ -922,6 +969,39 @@
         </div>
     </div>
 
+    <!-- 复习统计面板 -->
+    <div id="review-stats-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h3>📊 遗忘曲线复习统计</h3>
+                <button id="btn-close-review-stats" class="modal-close" title="关闭">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="review-stats-content" class="review-stats-content">⏳ 统计中...</div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-review-stats-done" class="btn-nav">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 单词复习进度面板 -->
+    <div id="review-info-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h3>🧠 单词复习进度</h3>
+                <button id="btn-close-review-info" class="modal-close" title="关闭">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="review-info-content" class="review-stats-content">⏳ 读取中...</div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-reset-review" class="btn-nav btn-cancel" title="重置后该词视为未学，1 分钟后重新进入复习队列">🔄 重置该词进度</button>
+                <button id="btn-review-info-done" class="btn-nav">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <button id="btn-exit-minimal" class="btn-settings" title="退出极简模式">✕ 退出极简</button>
 
     <audio id="global-audio" autoplay></audio>
@@ -995,6 +1075,28 @@
             const DAY_MS = 24 * 60 * 60 * 1000;
             const MINUTE_MS = 60 * 1000;
             const REVIEW_INTERVALS_MS = [1 * MINUTE_MS, 1 * DAY_MS, 2 * DAY_MS, 4 * DAY_MS, 7 * DAY_MS, 15 * DAY_MS, 30 * DAY_MS];
+
+            // 间隔显示：如 "1 分钟" / "1 天" / "30 天"
+            function formatInterval(ms) {
+                if (ms < DAY_MS) return Math.round(ms / MINUTE_MS) + ' 分钟';
+                const days = ms / DAY_MS;
+                return (Number.isInteger(days) ? days : days.toFixed(1)) + ' 天';
+            }
+
+            // 时长显示：如 "3 分钟后" / "1 天 2 小时后"（负值表示已逾期多少）
+            function formatDuration(ms) {
+                const abs = Math.abs(ms);
+                const days = Math.floor(abs / DAY_MS);
+                const hours = Math.floor((abs % DAY_MS) / (60 * 60 * 1000));
+                const mins = Math.round((abs % (60 * 60 * 1000)) / MINUTE_MS);
+                let s = '';
+                if (days > 0) s += days + ' 天 ';
+                if (hours > 0 || days > 0) s += hours + ' 小时 ';
+                if (mins > 0 || (days === 0 && hours === 0)) s += mins + ' 分钟';
+                s = s.trim();
+                if (!s) s = '0 分钟';
+                return (ms < 0 ? '已逾期 ' : '') + s;
+            }
 
             // 更新某个单词行的复习进度（row 需为完整行：id/data/dx/rx/rl）
             function saveReviewRecord(rowKey, row) {
@@ -1350,9 +1452,11 @@
             // ---------- 遗忘曲线复习统计 ----------
             // 统计当前词库中：已学词数、待复习数（仅已学且到期的词；从未学过的词不进入复习队列）
             function getReviewStats() {
-                if (!db || !db.objectStoreNames.contains(STORE_ALL)) return Promise.resolve({ dueTotal: 0, learnedTotal: 0, unlearnedTotal: 0 });
+                if (!db || !db.objectStoreNames.contains(STORE_ALL)) return Promise.resolve({ dueTotal: 0, learnedTotal: 0, unlearnedTotal: 0, stageDist: [] });
                 const now = Date.now();
                 let dueTotal = 0, learnedTotal = 0, unlearnedTotal = 0;
+                // 阶段分布：stageDist[rx] = 该阶段的已学词数（未学词不入分布）
+                const stageDist = [];
                 const transaction = db.transaction([STORE_ALL], 'readonly');
                 const store = transaction.objectStore(STORE_ALL);
                 const range = IDBKeyRange.bound(dictKeyPrefix(activeDictId), dictKeyPrefix(activeDictId) + '\uffff');
@@ -1365,13 +1469,16 @@
                             if (typeof v.dx === 'number') {
                                 learnedTotal++;
                                 if (v.dx <= now) dueTotal++;
+                                const stage = (typeof v.rx === 'number' && v.rx >= 0) ? v.rx : 0;
+                                if (!stageDist[stage]) stageDist[stage] = 0;
+                                stageDist[stage]++;
                             } else {
                                 unlearnedTotal++; // 未学词不计入待复习
                             }
                             cursor.continue();
-                        } else { resolve({ dueTotal: dueTotal, learnedTotal: learnedTotal, unlearnedTotal: unlearnedTotal }); }
+                        } else { resolve({ dueTotal: dueTotal, learnedTotal: learnedTotal, unlearnedTotal: unlearnedTotal, stageDist: stageDist }); }
                     };
-                    req.onerror = () => resolve({ dueTotal: 0, learnedTotal: 0, unlearnedTotal: 0 });
+                    req.onerror = () => resolve({ dueTotal: 0, learnedTotal: 0, unlearnedTotal: 0, stageDist: [] });
                 });
             }
 
@@ -1597,10 +1704,52 @@
                     self.postMessage({ type: 'typingLogged', dueTs: dueTs, stage: nextStage, stats: stats });
                 }
 
-                // 复习统计：到期 + 未学 等
+                // 复习统计：到期 + 未学 + 阶段分布
                 else if (msg.type === 'getReviewStats') {
                     const stats = await getReviewStats();
                     self.postMessage({ type: 'reviewStats', stats: stats });
+                }
+
+                // 查询单个词的复习进度（未学过则返回 null）
+                else if (msg.type === 'getReviewInfo') {
+                    const key = getWordKey(msg.data);
+                    const rowKey = allRowsMap.get(key);
+                    let info = null;
+                    if (rowKey) {
+                        const rec = await getReviewRecord(rowKey);
+                        if (rec && typeof rec.dx === 'number') {
+                            const now = Date.now();
+                            const stage = (typeof rec.rx === 'number' && rec.rx >= 0) ? rec.rx : 0;
+                            const maxStage = REVIEW_INTERVALS_MS.length;
+                            info = {
+                                stage: stage,
+                                maxStage: maxStage,
+                                nextIntervalLabel: stage < maxStage ? formatInterval(REVIEW_INTERVALS_MS[stage]) : '已毕业（30 天后复查）',
+                                isDue: rec.dx <= now,
+                                dueTs: rec.dx,
+                                lastTypedTs: rec.rl || 0,
+                                nextReviewIn: formatDuration(rec.dx - now)
+                            };
+                        }
+                    }
+                    self.postMessage({ type: 'reviewInfo', seq: msg.seq, info: info });
+                }
+
+                // 重置单个词的复习进度（清除 dx/rx/rl，视为未学，1 分钟后重新进入队列）
+                else if (msg.type === 'resetReview') {
+                    const key = getWordKey(msg.data);
+                    const rowKey = allRowsMap.get(key);
+                    if (rowKey) {
+                        const rec = await getReviewRecord(rowKey);
+                        if (rec) {
+                            delete rec.dx;
+                            delete rec.rx;
+                            delete rec.rl;
+                            await saveReviewRecord(rowKey, rec);
+                        }
+                    }
+                    const stats = await getReviewStats();
+                    self.postMessage({ type: 'reviewReset', seq: msg.seq, stats: stats });
                 }
 
                 else if (msg.type === 'addToWrong') {
@@ -1785,6 +1934,8 @@
         const btnToggleWrong = document.getElementById('btn-toggle-wrong');
         const btnSpeak = document.getElementById('btn-speak');
         const btnExportWrong = document.getElementById('btn-export-wrong');
+        const btnReviewInfo = document.getElementById('btn-review-info');
+        const btnReviewStats = document.getElementById('btn-review-stats');
         const globalAudio = document.getElementById('global-audio');
         const audioCacheBadge = document.getElementById('audio-cache-badge');
         const dbStatsText = document.getElementById('db-stats-text');
@@ -1803,6 +1954,10 @@
         let skipExampleCacheNext = false;    // 点击 🔄 刷新时置 true，跳过本地缓存
         let exampleCacheSeq = 0;             // 例句缓存请求序号（用于匹配 worker 回包）
         const pendingExampleCacheRequests = new Map(); // seq -> resolve 回调
+        let reviewInfoSeq = 0;               // 单词复习进度查询序号
+        const pendingReviewInfoRequests = new Map();   // seq -> resolve 回调
+        let reviewResetSeq = 0;              // 重置序号
+        const pendingReviewResetRequests = new Map();  // seq -> resolve 回调
 
         // 多词库前端状态
         let dictList = [];            // [{id, name, count, ts, isDefault}]
@@ -1962,12 +2117,28 @@
                 // 例句写入缓存后刷新页脚统计
                 worker.postMessage({ type: 'getDbStats' });
             }
+            else if (msg.type === 'reviewInfo') {
+                const resolver = pendingReviewInfoRequests.get(msg.seq);
+                if (resolver) {
+                    pendingReviewInfoRequests.delete(msg.seq);
+                    resolver(msg.info); // 单词复习进度对象或 null
+                }
+            }
+            else if (msg.type === 'reviewReset') {
+                const resolver = pendingReviewResetRequests.get(msg.seq);
+                if (resolver) {
+                    pendingReviewResetRequests.delete(msg.seq);
+                    resolver(msg.stats); // 重置后的统计
+                }
+            }
             else if (msg.type === 'typingLogged') {
                 // 复习进度已更新：刷新底部统计标签与模式下拉计数
                 if (msg.stats) updateReviewStatsUI(msg.stats);
             }
             else if (msg.type === 'reviewStats') {
                 updateReviewStatsUI(msg.stats);
+                // 统计面板打开时同步刷新内容
+                if (reviewStatsModal && reviewStatsModal.style.display === 'flex') renderReviewStatsPanel(msg.stats);
                 // 复习模式且队列为空：有新到期的词时自动补齐队列（不打断正在学的词）
                 if (currentMode() === 'review' && totalWordsInGroup === 0 && msg.stats && msg.stats.dueTotal > 0) {
                     applyFilters(groupSelect.value);
@@ -2123,6 +2294,7 @@
                 btnToggleWrong.disabled = false;
                 btnSpeak.disabled = false;
                 btnExample.disabled = false;
+                btnReviewInfo.disabled = false;
 
                 // 重置打字状态：重建字母格子、清空输入与反馈
                 buildLetters(currentWordString);
@@ -2362,6 +2534,7 @@
             btnToggleWrong.disabled = true;
             btnSpeak.disabled = true;
             btnExample.disabled = true;
+            btnReviewInfo.disabled = true;
         }
 
         function updateWrongCountUI(count, isReviewStat) {
@@ -2545,6 +2718,170 @@
         btnNext.addEventListener('click', () => {
             if (!typeInput.disabled) typeInput.focus(); // 手势内同步聚焦（iOS 可唤起键盘）
             goNextWord();
+        });
+
+        // ---------------------------------------------------------------
+        // 复习统计面板 + 单词复习进度（查看/重置）
+        // ---------------------------------------------------------------
+        const reviewStatsModal = document.getElementById('review-stats-modal');
+        const reviewStatsContent = document.getElementById('review-stats-content');
+        const btnCloseReviewStats = document.getElementById('btn-close-review-stats');
+        const btnReviewStatsDone = document.getElementById('btn-review-stats-done');
+        const reviewInfoModal = document.getElementById('review-info-modal');
+        const reviewInfoContent = document.getElementById('review-info-content');
+        const btnCloseReviewInfo = document.getElementById('btn-close-review-info');
+        const btnReviewInfoDone = document.getElementById('btn-review-info-done');
+        const btnResetReview = document.getElementById('btn-reset-review');
+
+        // 阶段名称（与 REVIEW_INTERVALS_MS 对应）
+        const STAGE_LABELS = ['1 分钟', '1 天', '2 天', '4 天', '7 天', '15 天', '30 天'];
+
+        function escapeHtmlLocal(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function fmtTs(ts) {
+            if (!ts) return '—';
+            try {
+                const d = new Date(ts);
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+            } catch (e) { return '—'; }
+        }
+
+        // 打开复习统计面板：请求最新统计并在面板显示汇总 + 阶段分布
+        function openReviewStatsPanel() {
+            reviewStatsModal.style.display = 'flex';
+            reviewStatsContent.innerHTML = '⏳ 统计中...';
+            worker.postMessage({ type: 'getReviewStats' });
+        }
+
+        // 统计回包渲染（reviewStats 与 typingLogged 共用）
+        function renderReviewStatsPanel(stats) {
+            if (!stats) return;
+            const total = stats.learnedTotal + stats.unlearnedTotal;
+            const learnedRate = total ? Math.round(stats.learnedTotal / total * 100) : 0;
+            const dueRate = stats.learnedTotal ? Math.round(stats.dueTotal / stats.learnedTotal * 100) : 0;
+            // 阶段分布横条（最多 7 段）
+            const maxStage = STAGE_LABELS.length;
+            const segColors = ['#E24A4A', '#E2884A', '#E2B84A', '#9CD24A', '#4AC46F', '#3FA8E2', '#8A5AF9'];
+            let html = '<div class="review-stats-rows">';
+            html += `<div class="review-stats-row"><span class="label">📚 词库总词数</span><span class="value">${stats.learnedTotal + stats.unlearnedTotal}</span></div>`;
+            html += `<div class="review-stats-row"><span class="label">🎓 已学（有复习记录）</span><span class="value">${stats.learnedTotal} <span style="font-size:11px;color:var(--text-sub);">(${learnedRate}%)</span></span></div>`;
+            html += `<div class="review-stats-row"><span class="label">🆕 未学（打过才会进</span><span class="value">${stats.unlearnedTotal}</span></div>`;
+            html += `<div class="review-stats-row"><span class="label">⏰ 今日到期（待复习）</span><span class="value due">${stats.dueTotal} <span style="font-size:11px;color:var(--text-sub);">占已学 ${dueRate}%</span></span></div>`;
+            html += '</div>';
+            // 阶段分布
+            if (stats.learnedTotal > 0) {
+                html += '<div style="font-size:12px;color:var(--text-label);font-weight:600;margin-top:4px;">📈 各复习阶段分布</div>';
+                html += '<div class="stage-bar">';
+                for (let i = 0; i < maxStage; i++) {
+                    const cnt = (stats.stageDist && stats.stageDist[i]) || 0;
+                    if (cnt === 0) continue;
+                    const pct = Math.round(cnt / stats.learnedTotal * 100);
+                    html += `<div class="seg" style="width:${pct}%;background:${segColors[i]};" title="阶段${i}（${STAGE_LABELS[i]}）：${cnt} 词"></div>`;
+                }
+                html += '</div>';
+                html += '<div class="stage-legend">';
+                for (let i = 0; i < maxStage; i++) {
+                    const cnt = (stats.stageDist && stats.stageDist[i]) || 0;
+                    html += `<span class="item"><span class="dot" style="background:${segColors[i]}"></span>阶段${i}(${STAGE_LABELS[i]}) ${cnt}</span>`;
+                }
+                html += '</div>';
+                html += '<div style="font-size:11px;color:var(--text-sub);margin-top:10px;line-height:1.6;">💡 打对升级阶段（间隔翻倍），打错回到阶段 0（1 分钟后复查）。到期词会自动进入复习队列。</div>';
+            }
+            reviewStatsContent.innerHTML = html;
+        }
+
+        // 单词复习进度面板：查询当前词
+        function requestReviewInfo(wordData) {
+            return new Promise((resolve) => {
+                const seq = ++reviewInfoSeq;
+                pendingReviewInfoRequests.set(seq, resolve);
+                worker.postMessage({ type: 'getReviewInfo', data: wordData, seq });
+            });
+        }
+
+        async function openReviewInfoPanel() {
+            if (!currentWordData) return;
+            reviewInfoModal.style.display = 'flex';
+            btnResetReview.disabled = false;
+            btnResetReview.style.display = 'inline-block';
+            reviewInfoContent.innerHTML = '⏳ 读取中...';
+            const info = await requestReviewInfo(currentWordData);
+            if (!info) {
+                reviewInfoContent.innerHTML =
+                    `<div class="review-info-detail"><div class="row"><span class="k">📝 单词</span><span class="v">${escapeHtmlLocal(currentWordString)}</span></div>` +
+                    `<div class="row"><span class="k">状态</span><span class="v">🆕 尚未学过</span></div></div>` +
+                    '<div style="font-size:12px;color:var(--text-sub);margin-top:8px;">在「📖 当前词库」/「错词本」模式打过这个词（对或错）后，这里会显示复习进度。</div>';
+                return;
+            }
+            const stage = info.stage;
+            const stageLabel = stage < STAGE_LABELS.length ? STAGE_LABELS[stage] : '已毕业';
+            const nextLabel = info.nextIntervalLabel;
+            const dueClass = info.isDue ? 'due' : 'ok';
+            const dueText = info.isDue ? '🔴 已到期，可复习' : '⏳ 未到期';
+            const lastTyped = fmtTs(info.lastTypedTs);
+            // 阶段进度条（0 → 毕业）
+            const pct = Math.min(Math.round(stage / info.maxStage * 100), 100);
+            reviewInfoContent.innerHTML =
+                `<div class="review-info-detail">` +
+                `<div class="row"><span class="k">📝 单词</span><span class="v">${escapeHtmlLocal(currentWordString)}</span></div>` +
+                `<div class="row"><span class="k">复习阶段</span><span class="v">${stage} / ${info.maxStage}（${stageLabel}）</span></div>` +
+                `<div class="row"><span class="k">状态</span><span class="v ${dueClass}">${dueText} · ${info.nextReviewIn}</span></div>` +
+                `<div class="row"><span class="k">下一次复习</span><span class="v">${fmtTs(info.dueTs)}</span></div>` +
+                `<div class="row"><span class="k">间隔（打对后）</span><span class="v">${nextLabel}</span></div>` +
+                `<div class="row"><span class="k">最后打字</span><span class="v">${lastTyped}</span></div>` +
+                `</div>` +
+                `<div style="margin-top:10px;font-size:12px;color:var(--text-label);font-weight:600;">📈 复习进度</div>` +
+                `<div class="stage-bar"><div class="seg" style="width:${pct}%;background:var(--primary);"></div></div>` +
+                `<div style="font-size:11px;color:var(--text-sub);margin-top:4px;">阶段 ${stage}（${stageLabel}）：打对升级，打错回阶段 0。毕业(阶段 ${info.maxStage})后 30 天复查。</div>`;
+        }
+
+        // 重置当前词复习进度
+        function requestReviewReset(wordData) {
+            return new Promise((resolve) => {
+                const seq = ++reviewResetSeq;
+                pendingReviewResetRequests.set(seq, resolve);
+                worker.postMessage({ type: 'resetReview', data: wordData, seq });
+            });
+        }
+
+        btnReviewStats.addEventListener('click', openReviewStatsPanel);
+        btnCloseReviewStats.addEventListener('click', () => { reviewStatsModal.style.display = 'none'; });
+        btnReviewStatsDone.addEventListener('click', () => { reviewStatsModal.style.display = 'none'; });
+        reviewStatsModal.addEventListener('click', (e) => { if (e.target === reviewStatsModal) reviewStatsModal.style.display = 'none'; });
+
+        btnReviewInfo.addEventListener('click', openReviewInfoPanel);
+        btnCloseReviewInfo.addEventListener('click', () => { reviewInfoModal.style.display = 'none'; });
+        btnReviewInfoDone.addEventListener('click', () => { reviewInfoModal.style.display = 'none'; });
+        reviewInfoModal.addEventListener('click', (e) => { if (e.target === reviewInfoModal) reviewInfoModal.style.display = 'none'; });
+
+        // 重置确认 + 执行
+        btnResetReview.addEventListener('click', async () => {
+            if (!currentWordData) return;
+            if (!confirm('确定重置「' + currentWordString + '」的复习进度吗？\n重置后该词视为未学，1 分钟后重新进入复习队列。')) return;
+            btnResetReview.disabled = true;
+            btnResetReview.innerText = '⏳ 重置中...';
+            const stats = await requestReviewReset(currentWordData);
+            btnResetReview.disabled = false;
+            btnResetReview.innerText = '🔄 重置该词进度';
+            updateReviewStatsUI(stats);
+            // 当前在复习模式且该词被重置（回到"未学"）：重建队列让词消失
+            if (currentMode() === 'review') {
+                applyFilters(groupSelect.value);
+            }
+            // 刷新面板为"未学过"
+            openReviewInfoPanel();
+        });
+
+        // Alt+R：查看当前词复习进度（输入框聚焦时也生效）
+        document.addEventListener('keydown', (e) => {
+            if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'r') {
+                e.preventDefault();
+                if (!btnReviewInfo.disabled && currentWordData) openReviewInfoPanel();
+            }
         });
         btnPrev.addEventListener('click', () => {
             if (!typeInput.disabled) typeInput.focus();
