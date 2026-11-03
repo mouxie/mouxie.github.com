@@ -17,8 +17,8 @@
     'use strict';
 
     var DB_NAME = 'FlashcardDB';
-    // v12: 新增 family_cache 表（同族词缓存，typing.html 查看同族词用）
-    var DB_VERSION = 12;
+    // v13: 新增 quiz_cache 表（选择题缓存，test.html 生成题目用）
+    var DB_VERSION = 13;
 
     var STORE_ALL = 'words';           // 全词库（多词库同表，按 dictId 前缀分区）
     var STORE_WRONG = 'wrong_words';   // 错词本
@@ -30,9 +30,10 @@
     var STORE_ROOT = 'root_cache';     // 词根拆解缓存（typing.html，来源 DeepSeek）
     var STORE_SYN = 'syn_cache';       // 近义词辨析缓存（typing.html，来源 DeepSeek）
     var STORE_FAMILY = 'family_cache'; // 同族词缓存（typing.html，来源 DeepSeek）
+    var STORE_QUIZ = 'quiz_cache';     // 选择题缓存（test.html，来源 DeepSeek）
     var STORE_DICTS = 'dictionaries';  // 词库注册表
 
-    var ALL_STORES = [STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_FREQ, STORE_ETYM, STORE_COLLOC, STORE_ROOT, STORE_SYN, STORE_FAMILY, STORE_DICTS];
+    var ALL_STORES = [STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_FREQ, STORE_ETYM, STORE_COLLOC, STORE_ROOT, STORE_SYN, STORE_FAMILY, STORE_QUIZ, STORE_DICTS];
 
     // 建表逻辑：所有页面/Worker 的 onupgradeneeded 统一走这里，保证表结构一致
     function ensureStores(db) {
@@ -46,6 +47,7 @@
         if (!db.objectStoreNames.contains(STORE_ROOT)) db.createObjectStore(STORE_ROOT, { keyPath: 'word' });
         if (!db.objectStoreNames.contains(STORE_SYN)) db.createObjectStore(STORE_SYN, { keyPath: 'word' });
         if (!db.objectStoreNames.contains(STORE_FAMILY)) db.createObjectStore(STORE_FAMILY, { keyPath: 'word' });
+        if (!db.objectStoreNames.contains(STORE_QUIZ)) db.createObjectStore(STORE_QUIZ, { keyPath: 'word' });
         if (!db.objectStoreNames.contains(STORE_DICTS)) db.createObjectStore(STORE_DICTS, { keyPath: 'id' });
     }
 
@@ -114,6 +116,7 @@
         STORE_ROOT: STORE_ROOT,
         STORE_SYN: STORE_SYN,
         STORE_FAMILY: STORE_FAMILY,
+        STORE_QUIZ: STORE_QUIZ,
         STORE_DICTS: STORE_DICTS,
         ALL_STORES: ALL_STORES,
         ensureStores: ensureStores,
