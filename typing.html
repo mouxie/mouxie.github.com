@@ -2405,6 +2405,154 @@ function toggleRootReveal() {
     }
 }
 
+// ============================================================
+// 近义词辨析（DeepSeek API，与例句/频率/词源/搭配/词根共用设置与 key；结果缓存到 syn_cache）
+// 与其他表示「同一词义」的词比较，讲解细微差别
+// ============================================================
+let synRequestWord = ''; // 辨析请求对应的单词（防止切词后旧响应覆盖新题）
+
+// 获取单词近义词辨析：IndexedDB 缓存 → DeepSeek API → 写回缓存
+// 返回 { word, list:[{word, meaning, diff}], contrast, fromCache } 或 { error }
+async function fetchSynFromModel(word) {
+    if (!word) return { error: '（当前单词无效）' };
+    const settings = loadDSSettings();
+    if (!settings.apiKey) {
+        return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置后再使用近义词辨析功能。' };
+    }
+
+    // 1) 优先读缓存
+    const cached = await getCachedSyn(word);
+    if (cached && cached.data) {
+        const s = normalizeSyn(cached.data);
+        if (s) return Object.assign({ fromCache: true }, s);
+    }
+
+    // 2) 未命中：调用 DeepSeek API
+    try {
+        const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+        const sysPrompt = '你是英语近义词辨析专家。给定一个英文单词，找出 3-5 个与它词义相近的词（同义词），' +
+            '逐个说明每个词与目标单词的细微差别（语域、语气强弱、使用场景、搭配对象、正式/口语等）。' +
+            '最后用一段话总结这几个词如何区分、何时选哪个。用中文讲解，保留英文原词。' +
+            '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+            '{"word":"目标单词","compareTo":[' +
+            '{"word":"近义词","meaning":"中文释义","diff":"与目标单词的差别（中文）"}' +
+            '],"contrast":"总结：如何区分与选用（中文）"}';
+        const userPrompt = '请找出与单词 "' + word + '" 词义相近的词并做辨析。';
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + settings.apiKey
+            },
+            body: JSON.stringify({
+                model: settings.model,
+                messages: [
+                    { role: 'system', content: sysPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                reasoning_effort: settings.reasoningEffort,
+                stream: false,
+                response_format: { type: 'json_object' }
+            })
+        });
+
+        if (!response.ok) {
+            let errMsg = 'HTTP ' + response.status;
+            try { const err = await response.json(); if (err.error && err.error.message) errMsg = err.error.message; } catch (e) { /* 非 JSON 错误体 */ }
+            return { error: '❌ 请求失败: ' + errMsg };
+        }
+
+        const data = await response.json();
+        const content = data.choices && data.choices[0] && data.choices[0].message
+            ? (data.choices[0].message.content || '')
+            : '';
+        const parsed = extractJSON(content);
+        const s = normalizeSyn(parsed);
+        if (!s) return { error: '❌ 模型未返回有效的近义词数据' };
+
+        saveCachedSyn(word, parsed);
+        return s;
+    } catch (err) {
+        let msg = err && err.message ? err.message : String(err);
+        if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
+            msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+        }
+        return { error: '❌ 请求失败: ' + msg };
+    }
+}
+
+// 将模型返回的 JSON 归一化为展示用结构
+function normalizeSyn(parsed) {
+    if (!parsed || typeof parsed !== 'object') return null;
+    const arr = (Array.isArray(parsed.compareTo) && parsed.compareTo.length > 0) ? parsed.compareTo : [];
+    const list = [];
+    arr.forEach((item) => {
+        if (!item || typeof item !== 'object') return;
+        const w = item.word || item.synonym || '';
+        const meaning = item.meaning || item.释义 || '';
+        const diff = item.diff || item.difference || item.差别 || '';
+        if (!w && !meaning && !diff) return;
+        list.push({ word: w, meaning: meaning, diff: diff });
+    });
+    if (list.length === 0 && !parsed.contrast) return null;
+    return {
+        word: parsed.word || '',
+        list: list,
+        contrast: parsed.contrast || parsed.总结 || ''
+    };
+}
+
+// 渲染近义词辨析展示区（目标词置顶 + 各近义词行 + 辨析总结）
+function renderSyn(s) {
+    els.synReveal.classList.remove('hidden');
+    const cacheTip = s.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存辨析</span>' : '';
+    const rows = [];
+    // 目标词置顶行（红色高亮）
+    rows.push(
+        `<div class="syn-row main">` +
+        `<span class="syn-word main-word">${escapeHtml(s.word || '')}</span>` +
+        `<span class="syn-meaning">本词</span>` +
+        `</div>`
+    );
+    // 各近义词行
+    rows.push(s.list.map((it) =>
+        `<div class="syn-row">` +
+        `<span class="syn-word">${escapeHtml(it.word)}</span>` +
+        (it.meaning ? `<span class="syn-meaning">${escapeHtml(it.meaning)}</span>` : '') +
+        (it.diff ? `<span class="syn-diff">↳ ${escapeHtml(it.diff)}</span>` : '') +
+        `</div>`
+    ).join(''));
+
+    els.synReveal.innerHTML =
+        `<div class="syn-head">🔀 <span class="syn-title">近义词辨析（${escapeHtml(s.word || '')}）</span></div>` +
+        cacheTip +
+        `<div class="syn-table">${rows.join('')}</div>` +
+        (s.contrast ? `<div class="syn-contrast">💡 <b>辨析：</b>${escapeHtml(s.contrast)}</div>` : '');
+}
+
+// 切换近义词辨析显示/隐藏
+function toggleSynReveal() {
+    const isHidden = els.synReveal.classList.contains('hidden');
+    if (isHidden) {
+        synRequestWord = currentWord;
+        els.synReveal.textContent = '⏳ 正在请求 DeepSeek 做近义词辨析...';
+        els.synReveal.classList.remove('hidden');
+        fetchSynFromModel(currentWord).then((result) => {
+            // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
+            if (els.synReveal.classList.contains('hidden')) return;
+            if (synRequestWord !== currentWord) return;
+            if (result.error) {
+                els.synReveal.textContent = result.error;
+                return;
+            }
+            renderSyn(result);
+        });
+    } else {
+        els.synReveal.classList.add('hidden');
+    }
+}
+
 // 切换例句显示/隐藏
 function toggleExampleReveal() {
     const isHidden = els.exampleReveal.classList.contains('hidden');
