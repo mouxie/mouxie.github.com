@@ -228,6 +228,65 @@
             padding-bottom: 4px;
         }
 
+        .freq-reveal {
+            margin-top: 12px;
+            padding: 12px 14px;
+            background: #f4f0ff;
+            border: 1px solid #ddd0f5;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.8;
+            word-break: break-all;
+            text-align: left;
+        }
+        .freq-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .freq-emoji { font-size: 17px; }
+        .freq-badge {
+            display: inline-block;
+            background: var(--primary);
+            color: #fff;
+            border-radius: 4px;
+            padding: 1px 8px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .freq-badge.high { background: var(--success); }
+        .freq-badge.mid { background: #e8a13c; }
+        .freq-badge.low { background: var(--accent); }
+        .freq-desc { font-size: 13px; color: var(--text-sub); }
+        .freq-grid {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px 10px;
+            margin: 10px 0 2px;
+        }
+        .freq-stat { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+        .freq-bar-track {
+            width: 110px;
+            height: 8px;
+            background: #e4e1ec;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .freq-bar-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 4px;
+            background: var(--primary);
+            transition: width 0.4s ease;
+        }
+        .freq-detail { font-size: 13px; color: var(--text-sub); margin-top: 8px; }
+        .freq-detail b { color: var(--text-main); }
+
         .char-list {
             display: flex;
             flex-wrap: wrap;
@@ -354,6 +413,9 @@
         :root.dark .progress-track { background: #31363f; }
         :root.dark .trans-reveal { background: #322e1e; border-color: #4a4327; }
         :root.dark .example-reveal { background: #1d2635; border-color: #2d3b52; }
+        :root.dark .freq-reveal { background: #251f33; border-color: #3b2f52; }
+        :root.dark .freq-bar-track { background: #3a3348; }
+        :root.dark .freq-detail { color: #a6aeb9; }
         :root.dark .example-cn { color: #a6aeb9; }
         :root.dark .example-cache-tip { border-bottom-color: #354154; }
         :root.dark .char-item { background: #2a2e37; }
@@ -402,7 +464,7 @@
             padding: 0;
         }
         body.minimal .question { padding: 16px 0 24px; }
-        body.minimal .question .word { font-size: 32px; letter-spacing: 1px; }
+        body.minimal .question .word { font-size: 32px; letter-spacing: 1px; color:#bbbbbb}
         body.minimal .char-list { padding: 6px 0 20px; }
         body.minimal .char-item { font-size: 26px; min-width: 32px; min-height: 44px; }
         body.minimal .input-area input {
@@ -578,9 +640,11 @@
                     <button id="btn-replay" class="btn btn-primary btn-sm icon-btn hidden" title="重听发音" aria-label="重听发音">🔊</button>
                     <button id="btn-toggle-trans" class="btn btn-plain btn-sm icon-btn hidden" title="查看释义" aria-label="查看释义">👁</button>
                     <button id="btn-toggle-example" class="btn btn-plain btn-sm icon-btn hidden" title="查看例句" aria-label="查看例句">📖</button>
+                    <button id="btn-toggle-freq" class="btn btn-plain btn-sm icon-btn hidden" title="查看口语使用频率" aria-label="查看口语使用频率">📊</button>
                 </div>
                 <div class="trans-reveal hidden" id="trans-reveal"></div>
                 <div class="example-reveal hidden" id="example-reveal"></div>
+                <div class="freq-reveal hidden" id="freq-reveal"></div>
             </div>
             <div class="char-list" id="char-list"></div>
             <div class="input-area">
@@ -613,7 +677,7 @@
 // 数据来源：与 fc.html 共用的 IndexedDB (FlashcardDB / wrong_words)
 // 常量与打开逻辑全部来自 db-core.js，本页只做别名，不再各自维护副本
 // ============================================================
-const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_DICTS } = window.FlashcardDB;
+const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_FREQ, STORE_DICTS } = window.FlashcardDB;
 // reader 模式：不带版本号探测打开，避免 VersionError（建库/升级由 fc.html/q.html 负责）
 const openFlashcardDB = () => window.FlashcardDB.openFlashcardDB({ mode: 'reader' });
 
