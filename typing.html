@@ -5,13 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>错词-打字</title>
     <script>
-        // 尽早应用夜间模式（在 CSS 渲染前加 .dark 类），避免暗色用户加载时白屏闪烁
-        // 无保存值时跟随系统 prefers-color-scheme
+        // 尽早应用界面主题（dark / grey 加类，避免加载闪烁）；无保存值时跟随系统
         try {
             var savedTheme = localStorage.getItem('typingTheme');
-            var isDarkTheme = savedTheme ? savedTheme === 'dark'
-                : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-            if (isDarkTheme) document.documentElement.classList.add('dark');
+            var initialTheme = savedTheme || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+            if (initialTheme === 'dark' || initialTheme === 'grey') document.documentElement.classList.add(initialTheme);
         } catch (e) { /* localStorage 不可用时忽略 */ }
     </script>
     <style>
@@ -53,7 +51,7 @@
         }
         .header h1 {
             margin: 0;
-            font-size: 24px;
+            font-size: 12px;
             color: var(--text-main);
         }
         .header p {
@@ -597,7 +595,7 @@
         }
         .footer-note a { color: var(--primary); cursor: pointer; text-decoration: none; }
 
-        /* ---------- 夜间模式（html.dark，由 head 内联脚本或开关切换） ---------- */
+        /* ---------- 夜间模式（html.dark，由 head 内联脚本或主题下拉框切换） ---------- */
         :root.dark {
             --primary: #6aa9e8;
             --accent: #ff7b7b;
@@ -667,6 +665,74 @@
         }
         :root.dark .hint-row button:hover { background: #343945; }
         :root.dark .btn-plain { background: #31363f; color: #c3c9d2; }
+
+        /* ---------- 灰色模式（html.grey）：黑底、灰面板、浅灰字，仅黑白灰 ---------- */
+        :root.grey {
+            color-scheme: dark;
+            --primary: #d4d4d4;
+            --accent: #f0f0f0;
+            --success: #c8c8c8;
+            --bg: #000000;
+            --card-bg: #121212;
+            --text-main: #b0b0b0;
+            --text-sub: #b0b0b0;
+        }
+        /* emoji 不受颜色变量影响，用 grayscale 变灰；不挂在 body 上以免破坏 fixed 定位 */
+        :root.grey #app-container > * { filter: grayscale(100%); }
+        :root.grey select,
+        :root.grey input[type="number"],
+        :root.grey .input-area input {
+            background-color: #404040;
+            border-color: #5a5a5a;
+            color: var(--text-main);
+        }
+        :root.grey .input-area input:focus { border-color: var(--primary); }
+        :root.grey input[type="checkbox"],
+        :root.grey input[type="range"] { accent-color: var(--primary); }
+        :root.grey .settings-row { color: var(--text-main); }
+        :root.grey .progress-track { background: #4a4a4a; }
+        :root.grey .trans-reveal,
+        :root.grey .example-reveal,
+        :root.grey .freq-reveal,
+        :root.grey .etym-reveal,
+        :root.grey .colloc-reveal,
+        :root.grey .root-reveal,
+        :root.grey .syn-reveal,
+        :root.grey .family-reveal { background: #000; border-color: #555555; }
+        :root.grey .example-cache-tip { border-bottom-color: #5a5a5a; }
+        :root.grey .example-cn { color: var(--text-sub); }
+        :root.grey .freq-seg { background: #555555; }
+        :root.grey .freq-badge { color: var(--bg); }
+        :root.grey .freq-badge.high { background: #e0e0e0; }
+        :root.grey .freq-badge.mid { background: #bdbdbd; }
+        :root.grey .freq-badge.low { background: #9a9a9a; }
+        :root.grey .btn-primary,
+        :root.grey .example-pos { color: var(--bg); }
+        :root.grey .colloc-item,
+        :root.grey .root-part,
+        :root.grey .family-item,
+        :root.grey .syn-row { background: #333333; border-color: #4d4d4d; }
+        :root.grey .syn-row.main { background: #505050; }
+        :root.grey .root-formula,
+        :root.grey .root-type,
+        :root.grey .family-core,
+        :root.grey .family-group-head { background: #4f4f4f; border-color: #5e5e5e; color: var(--text-main); }
+        :root.grey .root-summary { border-top-color: #5e5e5e; }
+        :root.grey .syn-table,
+        :root.grey .family-group { border-color: #4d4d4d; }
+        :root.grey .syn-contrast,
+        :root.grey .family-note,
+        :root.grey .family-items { background: #3a3a3a; border-color: #4d4d4d; }
+        :root.grey .colloc-example.en { color: #c8c8c8; }
+        :root.grey .hint-row button { background: #444444; border-color: #5a5a5a; color: var(--text-main); }
+        :root.grey .hint-row button:hover { background: #4f4f4f; }
+        :root.grey .btn-plain { background: #444444; color: var(--text-main); }
+        :root.grey .char-item { background: #444444; }
+        :root.grey .char-item.pending { color: var(--text-sub); }
+        :root.grey .char-item.pending-hidden { color: #666666; }
+        :root.grey .char-item.correct { background: #505050; color: var(--text-main); border-color: #5e5e5e; }
+        :root.grey .char-item.wrong { background: #262626; color: var(--text-sub); border-color: #333333; text-decoration: line-through; }
+        :root.grey body.minimal .question .word { color: #8a8a8a; }
 
         /* ---------- 极简模式：隐藏一切干扰，只留题目 + 输入框（body.minimal） ---------- */
         body.minimal .header,
@@ -837,9 +903,13 @@
                     <input type="range" id="key-volume" min="0" max="200" value="140" style="width:90px; margin:0;">
                     <b id="key-volume-label">140%</b>
                 </label>
-                <label class="switch-label" title="切换夜间/白天模式（自动保存，默认跟随系统）">
-                    <input type="checkbox" id="theme-switch">
-                    🌙 夜间模式
+                <label class="switch-label" title="界面主题（自动保存，默认跟随系统）">
+                    🎨 主题
+                    <select id="theme-select">
+                        <option value="light">白天</option>
+                        <option value="dark">夜间</option>
+                        <option value="grey">灰色</option>
+                    </select>
                 </label>
                 <label class="switch-label" title="极简模式：隐藏界面干扰，只保留听写区（右上角 ✕ 或本开关退出）">
                     <input type="checkbox" id="minimal-switch">
@@ -1244,22 +1314,25 @@ function restoreKeyVolume() {
 }
 
 // ============================================================
-// 夜间模式（localStorage: typingTheme，head 内联脚本已防闪烁预应用）
+// 界面主题（localStorage: typingTheme）：白天 / 夜间(html.dark) / 灰色(html.grey)，三者互斥
 // ============================================================
 const THEME_STORAGE = 'typingTheme';
 
-// 应用主题：切换 html.dark 类 + 同步开关状态 + 持久化选择
-function applyTheme(dark) {
-    document.documentElement.classList.toggle('dark', dark);
-    els.themeSwitch.checked = dark;
+function applyTheme(theme) {
+    const root = document.documentElement;
+    root.classList.toggle('dark', theme === 'dark');
+    root.classList.toggle('grey', theme === 'grey');
+    els.themeSelect.value = theme;
     try {
-        localStorage.setItem(THEME_STORAGE, dark ? 'dark' : 'light');
+        localStorage.setItem(THEME_STORAGE, theme);
     } catch (e) { /* localStorage 不可用（如隐私模式）时忽略 */ }
 }
 
-// 初始化：head 内联脚本已根据保存值/系统偏好加了 .dark 类，这里只同步开关状态
+// 初始化：head 内联脚本已加好主题类，这里只同步下拉框
 function restoreTheme() {
-    els.themeSwitch.checked = document.documentElement.classList.contains('dark');
+    const root = document.documentElement;
+    els.themeSelect.value = root.classList.contains('dark') ? 'dark'
+        : (root.classList.contains('grey') ? 'grey' : 'light');
 }
 
 // ============================================================
@@ -1456,7 +1529,7 @@ const els = {
     totalCount: document.getElementById('total-count'),
     linkFc: document.getElementById('link-fc'),
     audioCacheBadge: document.getElementById('audio-cache-badge'),
-    themeSwitch: document.getElementById('theme-switch'),
+    themeSelect: document.getElementById('theme-select'),
     minimalSwitch: document.getElementById('minimal-switch'),
     btnExitMinimal: document.getElementById('btn-exit-minimal'),
     minimalProgress: document.getElementById('minimal-progress'),
@@ -3069,7 +3142,7 @@ document.addEventListener('keydown', (e) => {
 // 启动
 // ============================================================
 restoreTheme();
-els.themeSwitch.addEventListener('change', () => applyTheme(els.themeSwitch.checked));
+els.themeSelect.addEventListener('change', () => applyTheme(els.themeSelect.value));
 restoreMinimal();
 init();
 </script>
