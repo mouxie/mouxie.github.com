@@ -996,6 +996,7 @@
                 <div id="review-info-content" class="review-stats-content">⏳ 读取中...</div>
             </div>
             <div class="modal-footer">
+                <button id="btn-mastered-review" class="btn-nav" title="标记为已掌握后，该词不再出现在遗忘曲线复习中">🎓 标记为已掌握</button>
                 <button id="btn-reset-review" class="btn-nav btn-cancel" title="重置后该词视为未学，1 秒后重新进入复习队列">🔄 重置该词进度</button>
                 <button id="btn-review-info-done" class="btn-nav">关闭</button>
             </div>
@@ -1454,10 +1455,11 @@
 
             // ---------- 遗忘曲线复习统计 ----------
             // 统计当前词库中：已学词数、待复习数（仅已学且到期的词；从未学过的词不进入复习队列）
+            // 已掌握(mx=true)的词被过滤：不计入已学/未学/到期，单独统计 masteredTotal
             function getReviewStats() {
-                if (!db || !db.objectStoreNames.contains(STORE_ALL)) return Promise.resolve({ dueTotal: 0, learnedTotal: 0, unlearnedTotal: 0, stageDist: [] });
+                if (!db || !db.objectStoreNames.contains(STORE_ALL)) return Promise.resolve({ dueTotal: 0, learnedTotal: 0, unlearnedTotal: 0, masteredTotal: 0, stageDist: [] });
                 const now = Date.now();
-                let dueTotal = 0, learnedTotal = 0, unlearnedTotal = 0;
+                let dueTotal = 0, learnedTotal = 0, unlearnedTotal = 0, masteredTotal = 0;
                 // 阶段分布：stageDist[rx] = 该阶段的已学词数（未学词不入分布）
                 const stageDist = [];
                 const transaction = db.transaction([STORE_ALL], 'readonly');
@@ -1469,6 +1471,11 @@
                         const cursor = e.target.result;
                         if (cursor) {
                             const v = cursor.value || {};
+                            if (v.mx === true) {
+                                masteredTotal++; // 已掌握的词不参与复习统计
+                                cursor.continue();
+                                return;
+                            }
                             if (typeof v.dx === 'number') {
                                 learnedTotal++;
                                 if (v.dx <= now) dueTotal++;
@@ -1479,9 +1486,9 @@
                                 unlearnedTotal++; // 未学词不计入待复习
                             }
                             cursor.continue();
-                        } else { resolve({ dueTotal: dueTotal, learnedTotal: learnedTotal, unlearnedTotal: unlearnedTotal, stageDist: stageDist }); }
+                        } else { resolve({ dueTotal: dueTotal, learnedTotal: learnedTotal, unlearnedTotal: unlearnedTotal, masteredTotal: masteredTotal, stageDist: stageDist }); }
                     };
-                    req.onerror = () => resolve({ dueTotal: 0, learnedTotal: 0, unlearnedTotal: 0, stageDist: [] });
+                    req.onerror = () => resolve({ dueTotal: 0, learnedTotal: 0, unlearnedTotal: 0, masteredTotal: 0, stageDist: [] });
                 });
             }
 
@@ -1535,6 +1542,11 @@
                             const cursor = e.target.result;
                             if (cursor) {
                                 const v = cursor.value || {};
+                                // 已掌握(mx=true)的词不进入复习队列
+                                if (v.mx === true) {
+                                    cursor.continue();
+                                    return;
+                                }
                                 // 仅收集已学（有 dx 字段）且已到期的词；未学过的词不进入复习队列
                                 if (typeof v.dx === 'number' && v.dx <= now) {
                                     scheduled.push({ rowKey: cursor.key, due: v.dx });
@@ -1701,6 +1713,7 @@
                     const dueTs = now + REVIEW_INTERVALS_MS[intervalIdx];
                     const row = { id: rowKey, data: (rec && rec.data) || msg.data, dx: dueTs, rx: nextStage, rl: now };
                     if (rec && rec.dictId) row.dictId = rec.dictId;
+                    if (rec && rec.mx) row.mx = true; // 保留已掌握标记（已掌握词不重新进入复习）
                     await saveReviewRecord(rowKey, row);
                     // 写库完成后再统计，避免下拉计数差 1
                     const stats = await getReviewStats();
@@ -1713,32 +1726,33 @@
                     self.postMessage({ type: 'reviewStats', stats: stats });
                 }
 
-                // 查询单个词的复习进度（未学过则返回 null）
+                // 查询单个词的复习进度（从未写入过记录则返回 null）
                 else if (msg.type === 'getReviewInfo') {
                     const key = getWordKey(msg.data);
                     const rowKey = allRowsMap.get(key);
                     let info = null;
                     if (rowKey) {
                         const rec = await getReviewRecord(rowKey);
-                        if (rec && typeof rec.dx === 'number') {
+                        if (rec) {
                             const now = Date.now();
                             const stage = (typeof rec.rx === 'number' && rec.rx >= 0) ? rec.rx : 0;
                             const maxStage = REVIEW_INTERVALS_MS.length;
                             info = {
                                 stage: stage,
                                 maxStage: maxStage,
+                                mastered: rec.mx === true,
                                 nextIntervalLabel: stage < maxStage ? formatInterval(REVIEW_INTERVALS_MS[stage]) : '已毕业（30 天后复查）',
-                                isDue: rec.dx <= now,
-                                dueTs: rec.dx,
+                                isDue: typeof rec.dx === 'number' && rec.dx <= now,
+                                dueTs: typeof rec.dx === 'number' ? rec.dx : 0,
                                 lastTypedTs: rec.rl || 0,
-                                nextReviewIn: formatDuration(rec.dx - now)
+                                nextReviewIn: typeof rec.dx === 'number' ? formatDuration(rec.dx - now) : ''
                             };
                         }
                     }
                     self.postMessage({ type: 'reviewInfo', seq: msg.seq, info: info });
                 }
 
-                // 重置单个词的复习进度（清除 dx/rx/rl，视为未学，1 秒后重新进入队列）
+                // 重置单个词的复习进度（清除 dx/rx/rl/mx，视为未学，1 秒后重新进入队列）
                 else if (msg.type === 'resetReview') {
                     const key = getWordKey(msg.data);
                     const rowKey = allRowsMap.get(key);
@@ -1748,11 +1762,33 @@
                             delete rec.dx;
                             delete rec.rx;
                             delete rec.rl;
+                            delete rec.mx; // 重置同时取消已掌握标记，确保重新进入复习队列
                             await saveReviewRecord(rowKey, rec);
                         }
                     }
                     const stats = await getReviewStats();
                     self.postMessage({ type: 'reviewReset', seq: msg.seq, stats: stats });
+                }
+
+                // 标记/取消标记单词为「已掌握(mx)」：已掌握的词被复习队列与统计过滤
+                else if (msg.type === 'setMastered') {
+                    const key = getWordKey(msg.data);
+                    const rowKey = allRowsMap.get(key);
+                    let mastered = false;
+                    if (rowKey) {
+                        const rec = await getReviewRecord(rowKey);
+                        if (rec) {
+                            rec.mx = msg.mastered === true;
+                            await saveReviewRecord(rowKey, rec);
+                            mastered = rec.mx === true;
+                        } else if (msg.mastered === true) {
+                            // 从未打过也允许直接标记已掌握（跳过该词），写入一行 mx 记录
+                            await saveReviewRecord(rowKey, { id: rowKey, mx: true });
+                            mastered = true;
+                        }
+                    }
+                    const stats = await getReviewStats();
+                    self.postMessage({ type: 'masteredUpdated', seq: msg.seq, mastered: mastered, stats: stats });
                 }
 
                 else if (msg.type === 'addToWrong') {
@@ -1961,6 +1997,9 @@
         const pendingReviewInfoRequests = new Map();   // seq -> resolve 回调
         let reviewResetSeq = 0;              // 重置序号
         const pendingReviewResetRequests = new Map();  // seq -> resolve 回调
+        let masteredSeq = 0;                 // 已掌握标记序号
+        const pendingMasteredRequests = new Map();     // seq -> resolve 回调
+        let currentMasteredState = false;    // 当前词是否已掌握
 
         // 多词库前端状态
         let dictList = [];            // [{id, name, count, ts, isDefault}]
@@ -2132,6 +2171,13 @@
                 if (resolver) {
                     pendingReviewResetRequests.delete(msg.seq);
                     resolver(msg.stats); // 重置后的统计
+                }
+            }
+            else if (msg.type === 'masteredUpdated') {
+                const resolver = pendingMasteredRequests.get(msg.seq);
+                if (resolver) {
+                    pendingMasteredRequests.delete(msg.seq);
+                    resolver({ mastered: msg.mastered, stats: msg.stats });
                 }
             }
             else if (msg.type === 'typingLogged') {
@@ -2728,6 +2774,7 @@
         const btnCloseReviewInfo = document.getElementById('btn-close-review-info');
         const btnReviewInfoDone = document.getElementById('btn-review-info-done');
         const btnResetReview = document.getElementById('btn-reset-review');
+        const btnMasteredReview = document.getElementById('btn-mastered-review');
 
         // 阶段名称（与 REVIEW_INTERVALS_MS 对应）
         const STAGE_LABELS = ['1 秒', '1 天', '2 天', '4 天', '7 天', '15 天', '30 天'];
@@ -2756,7 +2803,7 @@
         // 统计回包渲染（reviewStats 与 typingLogged 共用）
         function renderReviewStatsPanel(stats) {
             if (!stats) return;
-            const total = stats.learnedTotal + stats.unlearnedTotal;
+            const total = stats.learnedTotal + stats.unlearnedTotal + (stats.masteredTotal || 0);
             const learnedRate = total ? Math.round(stats.learnedTotal / total * 100) : 0;
             const dueRate = stats.learnedTotal ? Math.round(stats.dueTotal / stats.learnedTotal * 100) : 0;
             // 阶段分布横条（最多 7 段）
@@ -2765,7 +2812,8 @@
             let html = '<div class="review-stats-rows">';
             html += `<div class="review-stats-row"><span class="label">📚 词库总词数</span><span class="value">${stats.learnedTotal + stats.unlearnedTotal}</span></div>`;
             html += `<div class="review-stats-row"><span class="label">🎓 已学（有复习记录）</span><span class="value">${stats.learnedTotal} <span style="font-size:11px;color:var(--text-sub);">(${learnedRate}%)</span></span></div>`;
-            html += `<div class="review-stats-row"><span class="label">🆕 未学（打过才会进</span><span class="value">${stats.unlearnedTotal}</span></div>`;
+            html += `<div class="review-stats-row"><span class="label">� 已掌握（不参与复习）</span><span class="value ok">${stats.masteredTotal || 0}</span></div>`;
+            html += `<div class="review-stats-row"><span class="label">�🆕 未学（打过才会进</span><span class="value">${stats.unlearnedTotal}</span></div>`;
             html += `<div class="review-stats-row"><span class="label">⏰ 今日到期（待复习）</span><span class="value due">${stats.dueTotal} <span style="font-size:11px;color:var(--text-sub);">占已学 ${dueRate}%</span></span></div>`;
             html += '</div>';
             // 阶段分布
@@ -2804,20 +2852,26 @@
             reviewInfoModal.style.display = 'flex';
             btnResetReview.disabled = false;
             btnResetReview.style.display = 'inline-block';
+            btnMasteredReview.disabled = false;
+            btnMasteredReview.style.display = 'inline-block';
             reviewInfoContent.innerHTML = '⏳ 读取中...';
             const info = await requestReviewInfo(currentWordData);
             if (!info) {
+                currentMasteredState = false;
+                updateMasteredButtonUI();
                 reviewInfoContent.innerHTML =
                     `<div class="review-info-detail"><div class="row"><span class="k">📝 单词</span><span class="v">${escapeHtmlLocal(currentWordString)}</span></div>` +
                     `<div class="row"><span class="k">状态</span><span class="v">🆕 尚未学过</span></div></div>` +
-                    '<div style="font-size:12px;color:var(--text-sub);margin-top:8px;">在「📖 当前词库」/「错词本」模式打过这个词（对或错）后，这里会显示复习进度。</div>';
+                    '<div style="font-size:12px;color:var(--text-sub);margin-top:8px;">在「📖 当前词库」/「错词本」模式打过这个词（对或错）后，这里会显示复习进度。<br>也可以直接点击下方「🎓 标记为已掌握」跳过复习。</div>';
                 return;
             }
+            currentMasteredState = !!info.mastered;
+            updateMasteredButtonUI();
             const stage = info.stage;
             const stageLabel = stage < STAGE_LABELS.length ? STAGE_LABELS[stage] : '已毕业';
             const nextLabel = info.nextIntervalLabel;
             const dueClass = info.isDue ? 'due' : 'ok';
-            const dueText = info.isDue ? '🔴 已到期，可复习' : '⏳ 未到期';
+            const dueText = info.isDue ? '🔴 已到期，可复习' : (info.mastered ? '🛡️ 已掌握，不参与复习' : '⏳ 未到期');
             const lastTyped = fmtTs(info.lastTypedTs);
             // 阶段进度条（0 → 毕业）
             const pct = Math.min(Math.round(stage / info.maxStage * 100), 100);
@@ -2825,14 +2879,16 @@
                 `<div class="review-info-detail">` +
                 `<div class="row"><span class="k">📝 单词</span><span class="v">${escapeHtmlLocal(currentWordString)}</span></div>` +
                 `<div class="row"><span class="k">复习阶段</span><span class="v">${stage} / ${info.maxStage}（${stageLabel}）</span></div>` +
-                `<div class="row"><span class="k">状态</span><span class="v ${dueClass}">${dueText} · ${info.nextReviewIn}</span></div>` +
+                `<div class="row"><span class="k">🎓 已掌握</span><span class="v ${info.mastered ? 'ok' : ''}">${info.mastered ? '✅ 是（不参与复习）' : '❌ 否'}</span></div>` +
+                `<div class="row"><span class="k">状态</span><span class="v ${dueClass}">${dueText}${info.nextReviewIn ? ' · ' + info.nextReviewIn : ''}</span></div>` +
                 `<div class="row"><span class="k">下一次复习</span><span class="v">${fmtTs(info.dueTs)}</span></div>` +
                 `<div class="row"><span class="k">间隔（打对后）</span><span class="v">${nextLabel}</span></div>` +
                 `<div class="row"><span class="k">最后打字</span><span class="v">${lastTyped}</span></div>` +
                 `</div>` +
                 `<div style="margin-top:10px;font-size:12px;color:var(--text-label);font-weight:600;">📈 复习进度</div>` +
                 `<div class="stage-bar"><div class="seg" style="width:${pct}%;background:var(--primary);"></div></div>` +
-                `<div style="font-size:11px;color:var(--text-sub);margin-top:4px;">阶段 ${stage}（${stageLabel}）：打对升级，打错回阶段 0。毕业(阶段 ${info.maxStage})后 30 天复查。</div>`;
+                `<div style="font-size:11px;color:var(--text-sub);margin-top:4px;">阶段 ${stage}（${stageLabel}）：打对升级，打错回阶段 0。毕业(阶段 ${info.maxStage})后 30 天复查。</div>` +
+                (info.mastered ? `<div style="font-size:11px;color:var(--success);margin-top:4px;">🎓 该词已标记为已掌握，不会出现在遗忘曲线复习中（保留原复习进度）。</div>` : '');
         }
 
         // 重置当前词复习进度
@@ -2842,6 +2898,27 @@
                 pendingReviewResetRequests.set(seq, resolve);
                 worker.postMessage({ type: 'resetReview', data: wordData, seq });
             });
+        }
+
+        // 标记/取消标记当前词为「已掌握」
+        function requestSetMastered(wordData, mastered) {
+            return new Promise((resolve) => {
+                const seq = ++masteredSeq;
+                pendingMasteredRequests.set(seq, resolve);
+                worker.postMessage({ type: 'setMastered', data: wordData, mastered: mastered, seq });
+            });
+        }
+
+        // 已掌握按钮外观：未掌握=蓝色「标记」，已掌握=绿色「已掌握」
+        function updateMasteredButtonUI() {
+            if (!btnMasteredReview) return;
+            if (currentMasteredState) {
+                btnMasteredReview.style.background = 'var(--success)';
+                btnMasteredReview.innerText = '✅ 已掌握 · 点击取消';
+            } else {
+                btnMasteredReview.style.background = '';
+                btnMasteredReview.innerText = '🎓 标记为已掌握';
+            }
         }
 
         btnReviewStats.addEventListener('click', openReviewStatsPanel);
@@ -2854,10 +2931,33 @@
         btnReviewInfoDone.addEventListener('click', () => { reviewInfoModal.style.display = 'none'; });
         reviewInfoModal.addEventListener('click', (e) => { if (e.target === reviewInfoModal) reviewInfoModal.style.display = 'none'; });
 
+        // 已掌握标记 + 执行（标记后复习队列/统计均过滤该词）
+        btnMasteredReview.addEventListener('click', async () => {
+            if (!currentWordData) return;
+            const willMaster = !currentMasteredState;
+            if (willMaster) {
+                if (!confirm('确定将「' + currentWordString + '」标记为已掌握吗？\n已掌握的词不再出现在遗忘曲线复习中（复习进度保留，可随时取消）。')) return;
+            } else {
+                if (!confirm('确定取消「' + currentWordString + '」的已掌握标记吗？\n若有复习进度，该词将重新参与遗忘曲线复习。')) return;
+            }
+            btnMasteredReview.disabled = true;
+            btnMasteredReview.innerText = '⏳ 处理中...';
+            const res = await requestSetMastered(currentWordData, willMaster);
+            btnMasteredReview.disabled = false;
+            currentMasteredState = res.mastered;
+            updateMasteredButtonUI();
+            updateReviewStatsUI(res.stats);
+            // 复习模式下已掌握词被过滤：重建队列刷新
+            if (currentMode() === 'review') {
+                applyFilters(groupSelect.value);
+            }
+            openReviewInfoPanel(); // 刷新面板中的已掌握状态
+        });
+
         // 重置确认 + 执行
         btnResetReview.addEventListener('click', async () => {
             if (!currentWordData) return;
-            if (!confirm('确定重置「' + currentWordString + '」的复习进度吗？\n重置后该词视为未学，1 秒后重新进入复习队列。')) return;
+            if (!confirm('确定重置「' + currentWordString + '」的复习进度吗？\n重置后该词视为未学（若已掌握将一并取消），1 秒后重新进入复习队列。')) return;
             btnResetReview.disabled = true;
             btnResetReview.innerText = '⏳ 重置中...';
             const stats = await requestReviewReset(currentWordData);
