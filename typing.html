@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>错词-打字</title>
+    <title>Wrong Words - Typing Practice</title>
     <script>
         // 尽早应用界面主题（dark / grey 加类，避免加载闪烁）；无保存值时跟随系统
         try {
@@ -149,8 +149,7 @@
             padding: 24px 16px 12px;
         }
         .question .word {
-            font-size: 15px;
-            font-weight: bold;
+            font-size: 14px;
             color: var(--primary);
             letter-spacing: 0.5px;
             word-break: break-all;
@@ -524,11 +523,15 @@
             background: #e6f4ea;
             color: var(--success);
             border-color: #ceead6;
+            font-weight: normal;
         }
         .char-item.wrong {
             background: #ffeaea;
             color: var(--accent);
             border-color: #ffcccc;
+            /* 删除线 */
+            font-weight: normal; 
+            text-decoration: line-through;
         }
 
         /* ---------- 作答区 ---------- */
@@ -859,7 +862,7 @@
 
 <div id="app-container">
     <!-- 极简模式退出按钮（默认隐藏，极简模式时显示） -->
-    <button id="btn-exit-minimal" class="hidden" title="退出极简模式">✕ 退出极简</button>
+    <button id="btn-exit-minimal" class="hidden" title="Exit minimal mode">✕ Exit minimal</button>
 
     <!-- 极简模式底部进度（默认隐藏，仅极简模式显示） -->
     <div id="minimal-progress" class="hidden"></div>
@@ -869,13 +872,13 @@
 
     <!-- 标题 -->
     <div class="header">
-        <h1>⌨️ 错词打字练习</h1>
-        <p>读取「闪卡游戏 fc.html」的错词本，按错词本顺序分组练习（每组数量/组别与 fc.html 一致），听读音、看音标，拼写巩固错词 (IndexedDB: FlashcardDB / wrong_words)</p>
+        <h1>⌨️ Wrong-Word Typing Practice</h1>
+        <p>Loads the wrong-word book from the flashcard game (fc.html) and practices in the same order and groups. Listen, read the phonetic, and spell each word (IndexedDB: FlashcardDB / wrong_words)</p>
     </div>
 
     <!-- 状态区：初始化中 / 无错词 / 错误 -->
     <div id="status-panel" class="panel">
-        <div id="status-text" class="status-text">⏳ 正在读取错词本...</div>
+        <div id="status-text" class="status-text">⏳ Loading wrong words...</div>
     </div>
 
     <!-- 主游戏区（初始化完成后显示） -->
@@ -884,53 +887,53 @@
         <div class="panel">
             <div class="settings">
                 <div class="settings-row">
-                    <span id="total-badge" title="fc.html 错词本中的全部单词数">📚 错词库共 <b id="total-count">--</b> 个单词</span>
+                    <span id="total-badge" title="Total words in the fc.html wrong-word book">📚 Wrong-word book: <b id="total-count">--</b> words</span>
                 </div>
                 <div class="settings-row">
-                    <label>模式
+                    <label>Mode
                         <select id="mode-select">
-                            <option value="dictation" selected>🎧 听写模式 (听读音拼词)</option>
-                            <option value="copy">📝 照词跟打</option>
+                            <option value="dictation" selected>🎧 Dictation (type from audio)</option>
+                            <option value="copy">📝 Copy (type what you see)</option>
                         </select>
                     </label>
-                    <label>每组
+                    <label>Per group
                         <select id="size-select">
-                            <option value="10">10 个</option>
-                            <option value="20" selected>20 个</option>
-                            <option value="50">50 个</option>
-                            <option value="100">100 个</option>
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
                         </select>
                     </label>
-                    <label>选择组别
+                    <label>Group
                         <select id="group-select">
-                            <option value="0">第 1 组</option>
+                            <option value="0">Group 1</option>
                         </select>
                     </label>
                 </div>
                 <label class="switch-label">
                     <input type="checkbox" id="audio-switch" checked>
-                    🔊 自动播放读音
+                    🔊 Auto-play audio
                 </label>
                 <label class="switch-label">
                     <input type="checkbox" id="key-sound-switch" checked>
-                    ⌨️ 键盘打字音效
+                    ⌨️ Keystroke sound
                 </label>
-                <label class="switch-label" style="gap:4px;" title="打字音效音量">
-                    <span>音量</span>
+                <label class="switch-label" style="gap:4px;" title="Keystroke sound volume">
+                    <span>Volume</span>
                     <input type="range" id="key-volume" min="0" max="200" value="140" style="width:90px; margin:0;">
                     <b id="key-volume-label">140%</b>
                 </label>
-                <label class="switch-label" title="界面主题（自动保存，默认跟随系统）">
-                    🎨 主题
+                <label class="switch-label" title="Interface theme (auto-saved, follows system by default)">
+                    🎨 Theme
                     <select id="theme-select">
-                        <option value="light">白天</option>
-                        <option value="dark">夜间</option>
-                        <option value="grey">灰色</option>
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                        <option value="grey">Grey</option>
                     </select>
                 </label>
-                <label class="switch-label" title="极简模式：隐藏界面干扰，只保留听写区（右上角 ✕ 或本开关退出）">
+                <label class="switch-label" title="Minimal mode: hide everything except the question and input (exit via ✕ or this switch)">
                     <input type="checkbox" id="minimal-switch">
-                    🤫 极简模式
+                    🤫 Minimal mode
                 </label>
             </div>
         </div>
@@ -938,8 +941,8 @@
         <!-- 关卡信息 -->
         <div class="panel">
             <div class="info-row">
-                <span class="rounds" id="round-text">第 0 / 0 题</span>
-                <span class="score" id="score-text">得分 0 (0%)</span>
+                <span class="rounds" id="round-text">Q 0 / 0</span>
+                <span class="score" id="score-text">Score 0 (0%)</span>
             </div>
             <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
         </div>
@@ -950,15 +953,15 @@
                 <div class="word" id="word-display">—</div>
                 <div class="prompt" id="prompt-text"></div>
                 <div class="question-actions">
-                    <button id="btn-replay" class="btn btn-primary btn-sm icon-btn hidden" title="重听发音" aria-label="重听发音">🔊</button>
-                    <button id="btn-toggle-trans" class="btn btn-plain btn-sm icon-btn hidden" title="查看释义" aria-label="查看释义">👁</button>
-                    <button id="btn-toggle-example" class="btn btn-plain btn-sm icon-btn hidden" title="查看例句" aria-label="查看例句">📖</button>
-                    <button id="btn-toggle-freq" class="btn btn-plain btn-sm icon-btn hidden" title="查看口语使用频率" aria-label="查看口语使用频率">📊</button>
-                    <button id="btn-toggle-etym" class="btn btn-plain btn-sm icon-btn hidden" title="查看词源故事" aria-label="查看词源故事">📜</button>
-                    <button id="btn-toggle-colloc" class="btn btn-plain btn-sm icon-btn hidden" title="查看固定搭配" aria-label="查看固定搭配">🔗</button>
-                    <button id="btn-toggle-root" class="btn btn-plain btn-sm icon-btn hidden" title="查看词根拆解" aria-label="查看词根拆解">🧩</button>
-                    <button id="btn-toggle-syn" class="btn btn-plain btn-sm icon-btn hidden" title="近义词辨析" aria-label="近义词辨析">🔀</button>
-                    <button id="btn-toggle-family" class="btn btn-plain btn-sm icon-btn hidden" title="查看同族词" aria-label="查看同族词">🏠</button>
+                    <button id="btn-replay" class="btn btn-primary btn-sm icon-btn hidden" title="Replay audio" aria-label="Replay audio">🔊</button>
+                    <button id="btn-toggle-trans" class="btn btn-plain btn-sm icon-btn hidden" title="Show meaning" aria-label="Show meaning">👁</button>
+                    <button id="btn-toggle-example" class="btn btn-plain btn-sm icon-btn hidden" title="Show examples" aria-label="Show examples">📖</button>
+                    <button id="btn-toggle-freq" class="btn btn-plain btn-sm icon-btn hidden" title="Show spoken frequency" aria-label="Show spoken frequency">📊</button>
+                    <button id="btn-toggle-etym" class="btn btn-plain btn-sm icon-btn hidden" title="Show etymology" aria-label="Show etymology">📜</button>
+                    <button id="btn-toggle-colloc" class="btn btn-plain btn-sm icon-btn hidden" title="Show collocations" aria-label="Show collocations">🔗</button>
+                    <button id="btn-toggle-root" class="btn btn-plain btn-sm icon-btn hidden" title="Show word parts" aria-label="Show word parts">🧩</button>
+                    <button id="btn-toggle-syn" class="btn btn-plain btn-sm icon-btn hidden" title="Synonym comparison" aria-label="Synonym comparison">🔀</button>
+                    <button id="btn-toggle-family" class="btn btn-plain btn-sm icon-btn hidden" title="Show word family" aria-label="Show word family">🏠</button>
                 </div>
                 <div class="trans-reveal hidden" id="trans-reveal"></div>
                 <div class="example-reveal hidden" id="example-reveal"></div>
@@ -971,14 +974,14 @@
             </div>
             <div class="char-list" id="char-list"></div>
             <div class="input-area">
-                <input type="text" id="answer-input" placeholder="在这里输入..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <input type="text" id="answer-input" placeholder="Type here..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                 <div class="hint-row">
-                    <span id="key-hints">Ctrl+Z 清除 | Shift/Tab 释义 | ←/→ 切换</span>
+                    <span id="key-hints">Ctrl+Z clear | Shift/Tab meaning | ←/→ switch</span>
                 </div>
                 <div class="button-row">
-                    <button id="btn-clear" type="button">清除</button>
-                    <button id="btn-prev-word" type="button">◀ 上一词</button>
-                    <button id="btn-next-word" type="button">下一词 ▶</button>
+                    <button id="btn-clear" type="button">Clear</button>
+                    <button id="btn-prev-word" type="button">◀ Prev</button>
+                    <button id="btn-next-word" type="button">Next ▶</button>
                 </div>
             </div>
         </div>
@@ -986,9 +989,9 @@
     </div>
 
     <div class="footer-note">
-        数据来源：<a id="link-fc" title="打开闪卡游戏">fc.html 的错词本</a> · 刷新页面可重新读取错词本
+        Source: <a id="link-fc" title="Open the flashcard game">fc.html wrong-word book</a> · refresh the page to reload
         <div style="margin-top:6px;">
-            <span id="audio-cache-badge" title="点击清空全部语音缓存" style="cursor:pointer; border-bottom:1px dashed #ccc;">📦 本地语音缓存: 0 个</span>
+            <span id="audio-cache-badge" title="Click to clear all cached audio" style="cursor:pointer; border-bottom:1px dashed #ccc;">📦 Local audio cache: 0</span>
         </div>
     </div>
 </div>
@@ -1054,7 +1057,7 @@ async function loadWrongWordsFromDB() {
                 mapped.sort((a, b) => (b.ts - a.ts) || String(a.key).localeCompare(String(b.key)));
                 resolve(mapped.map(item => item.data));
             };
-            req.onerror = () => { reject(new Error('读取错词本失败')); };
+            req.onerror = () => { reject(new Error('Failed to read the wrong-word book')); };
         });
     }
 
@@ -1275,7 +1278,7 @@ function getWordPhonetic(wordObj) {
     const usPhone = wordObj.usphone || '';
     const ukPhone = wordObj.ukphone || '';
     if (usPhone && ukPhone && usPhone !== ukPhone) {
-        return `英 [${ukPhone}]  美 [${usPhone}]`;
+        return `UK [${ukPhone}]  US [${usPhone}]`;
     }
     const single = usPhone || ukPhone || wordObj.phonetic || wordObj.phonetics || '';
     return single ? `[${single}]` : '';
@@ -1505,7 +1508,7 @@ function playWordAudio(word) {
 async function updateAudioCacheBadge() {
     try {
         const count = await getAudioCacheCount();
-        els.audioCacheBadge.textContent = `📦 本地语音缓存: ${count} 个`;
+        els.audioCacheBadge.textContent = `📦 Local audio cache: ${count}`;
     } catch (e) { /* 忽略 */ }
 }
 
@@ -1581,14 +1584,14 @@ async function init() {
     try {
         wrongWords = await loadWrongWordsFromDB();
         if (wrongWords.length === 0) {
-            els.statusText.textContent = '📭 错词本是空的，还没有可练习的单词。';
+            els.statusText.textContent = '📭 The wrong-word book is empty.';
             els.statusText.classList.add('success');
             return;
         }
         // 过滤掉无法确定单词的无效项
         wrongWords = wrongWords.filter(w => getWordKey(w).trim() !== '');
         if (wrongWords.length === 0) {
-            els.statusText.textContent = '📭 错词本中的单词无效（缺少 word/name/title 字段）。';
+            els.statusText.textContent = '📭 No valid words in the book (missing word/name/title).';
             els.statusText.classList.add('success');
             return;
         }
@@ -1667,7 +1670,7 @@ function bindEvents() {
     });
     // 点击页脚缓存角标：清空全部语音缓存
     els.audioCacheBadge.addEventListener('click', async () => {
-        if (confirm('确定清空全部本地语音缓存吗？之后首次播放需要重新下载。')) {
+        if (confirm('Clear the entire local audio cache? Audio will be re-downloaded on the next play.')) {
             await clearAudioCache();
             updateAudioCacheBadge();
         }
@@ -1699,7 +1702,7 @@ function rebuildGroupOptions(forceSelect) {
         const end = Math.min((i + 1) * size, wrongWords.length);
         const option = document.createElement('option');
         option.value = i;
-        option.text = `第 ${i + 1} 组 (${start}-${end})`;
+        option.text = `Group ${i + 1} (${start}-${end})`;
         els.groupSelect.appendChild(option);
     }
     // 恢复上次组别；越界时自动钳制到最后一组
@@ -1751,11 +1754,11 @@ function renderQuestion() {
 
     // 更新关卡信息（与 fc.html 一致：显示组内第几个 + 总第 N 词）
     const absoluteIndex = ((parseInt(els.groupSelect.value) || 0) * currentSize()) + sessionIndex + 1;
-    els.roundText.textContent = `组内: ${sessionIndex + 1}/${sessionWords.length} (总第${absoluteIndex}词)`;
-    els.scoreText.textContent = `得分 ${stats.correct} (${Math.round((stats.correct / Math.max(stats.total, 1)) * 100)}%)`;
+    els.roundText.textContent = `In group: ${sessionIndex + 1}/${sessionWords.length} (word #${absoluteIndex})`;
+    els.scoreText.textContent = `Score ${stats.correct} (${Math.round((stats.correct / Math.max(stats.total, 1)) * 100)}%)`;
     els.progressFill.style.width = `${(sessionIndex / sessionWords.length) * 100}%`;
     // 极简模式底部进度：总第 N 词 / 错词库总词数
-    els.minimalProgress.textContent = `第 ${absoluteIndex} / ${wrongWords.length} 词`;
+    els.minimalProgress.textContent = `Word ${absoluteIndex} / ${wrongWords.length}`;
 
     // 上一词/下一词边界
     // 上一词：组内第一个单词时，若还有上一组则允许跳转
@@ -1773,55 +1776,55 @@ function renderQuestion() {
     els.transReveal.classList.add('hidden');
     els.transReveal.textContent = '';
     els.btnToggleTrans.textContent = '👁';
-    els.btnToggleTrans.title = '查看释义';
+    els.btnToggleTrans.title = 'Show meaning';
     // 重置例句查看状态（例句按钮在听写/跟打两种模式下均可用）
     els.exampleReveal.classList.add('hidden');
     els.exampleReveal.textContent = '';
     els.btnToggleExample.classList.remove('hidden');
     els.btnToggleExample.textContent = '📖';
-    els.btnToggleExample.title = '查看例句';
+    els.btnToggleExample.title = 'Show examples';
 
     // 重置口语使用频率查看状态（按钮在听写/跟打两种模式下均可用）
     els.freqReveal.classList.add('hidden');
     els.freqReveal.textContent = '';
     els.btnToggleFreq.classList.remove('hidden');
     els.btnToggleFreq.textContent = '📊';
-    els.btnToggleFreq.title = '查看口语使用频率';
+    els.btnToggleFreq.title = 'Show spoken frequency';
 
     // 重置词源故事查看状态（按钮在听写/跟打两种模式下均可用）
     els.etymReveal.classList.add('hidden');
     els.etymReveal.textContent = '';
     els.btnToggleEtym.classList.remove('hidden');
     els.btnToggleEtym.textContent = '📜';
-    els.btnToggleEtym.title = '查看词源故事';
+    els.btnToggleEtym.title = 'Show etymology';
 
     // 重置固定搭配查看状态（按钮在听写/跟打两种模式下均可用）
     els.collocReveal.classList.add('hidden');
     els.collocReveal.textContent = '';
     els.btnToggleColloc.classList.remove('hidden');
     els.btnToggleColloc.textContent = '🔗';
-    els.btnToggleColloc.title = '查看固定搭配';
+    els.btnToggleColloc.title = 'Show collocations';
 
     // 重置词根拆解查看状态（按钮在听写/跟打两种模式下均可用）
     els.rootReveal.classList.add('hidden');
     els.rootReveal.textContent = '';
     els.btnToggleRoot.classList.remove('hidden');
     els.btnToggleRoot.textContent = '🧩';
-    els.btnToggleRoot.title = '查看词根拆解';
+    els.btnToggleRoot.title = 'Show word parts';
 
     // 重置近义词辨析查看状态（按钮在听写/跟打两种模式下均可用）
     els.synReveal.classList.add('hidden');
     els.synReveal.textContent = '';
     els.btnToggleSyn.classList.remove('hidden');
     els.btnToggleSyn.textContent = '🔀';
-    els.btnToggleSyn.title = '近义词辨析';
+    els.btnToggleSyn.title = 'Synonym comparison';
 
     // 重置同族词查看状态（按钮在听写/跟打两种模式下均可用）
     els.familyReveal.classList.add('hidden');
     els.familyReveal.textContent = '';
     els.btnToggleFamily.classList.remove('hidden');
     els.btnToggleFamily.textContent = '🏠';
-    els.btnToggleFamily.title = '查看同族词';
+    els.btnToggleFamily.title = 'Show word family';
 
     // 重置闪答时设置的红色标记
     els.wordDisplay.style.color = '';
@@ -1830,12 +1833,12 @@ function renderQuestion() {
         // 照词跟打：显示单词，提示区域显示释义，隐藏音标与释义按钮
         els.wordDisplay.textContent = currentWord;
         els.promptText.classList.remove('hidden');
-        els.promptText.textContent = currentTrans || '（暂无释义）';
+        els.promptText.textContent = currentTrans || '(no meaning)';
         els.btnReplay.classList.add('hidden');
         els.btnToggleTrans.classList.add('hidden');
     } else {
         // 听写模式：大字显示音标，中文释义默认隐藏，提示文字隐藏（听写应凭听力完成），可随时点击查看
-        els.wordDisplay.textContent = currentPhonetic || '（暂无音标）';
+        els.wordDisplay.textContent = currentPhonetic || '(no phonetic)';
         els.promptText.classList.add('hidden');
         els.promptText.textContent = '';
         els.btnReplay.classList.remove('hidden');
@@ -1937,14 +1940,14 @@ function clearInput() {
 function toggleTransReveal() {
     const isHidden = els.transReveal.classList.contains('hidden');
     if (isHidden) {
-        els.transReveal.textContent = currentTrans || '（暂无释义）';
+        els.transReveal.textContent = currentTrans || '(no meaning)';
         els.transReveal.classList.remove('hidden');
         els.btnToggleTrans.textContent = '🙈';
-        els.btnToggleTrans.title = '隐藏释义';
+        els.btnToggleTrans.title = 'Hide meaning';
     } else {
         els.transReveal.classList.add('hidden');
         els.btnToggleTrans.textContent = '👁';
-        els.btnToggleTrans.title = '查看释义';
+        els.btnToggleTrans.title = 'Show meaning';
     }
 }
 
@@ -2016,11 +2019,11 @@ function normalizeExamples(parsed) {
 // 获取单词例句：IndexedDB 缓存（与 fc.html 共用）→ DeepSeek API → 写回缓存
 // 返回 { list, fromCache } 或 { error }（错误不向上抛出，例句是增强信息不打断游戏）
 async function fetchExamplesFromModel(word) {
-    if (!word) return { error: '（当前单词无效）' };
+    if (!word) return { error: '(invalid word)' };
 
     const settings = loadDSSettings();
     if (!settings.apiKey) {
-        return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置后再使用例句功能。' };
+        return { error: "⚠️ No DeepSeek API key configured. Set it up in fc.html's ⚙️ settings to use examples." };
     }
 
     // 1) 优先读取 IndexedDB 缓存（fc.html 生成的例句可直接复用）
@@ -2063,7 +2066,7 @@ async function fetchExamplesFromModel(word) {
         if (!response.ok) {
             let errMsg = 'HTTP ' + response.status;
             try { const err = await response.json(); if (err.error && err.error.message) errMsg = err.error.message; } catch (e) { /* 非 JSON 错误体 */ }
-            return { error: '❌ 请求失败: ' + errMsg };
+            return { error: '❌ Request failed: ' + errMsg };
         }
 
         const data = await response.json();
@@ -2071,18 +2074,18 @@ async function fetchExamplesFromModel(word) {
             ? (data.choices[0].message.content || '')
             : '';
         const parsed = extractJSON(content);
-        if (!parsed) return { error: '❌ 模型未返回有效的 JSON 内容' };
+        if (!parsed) return { error: '❌ Model returned no valid JSON' };
 
         // 3) 写入 IndexedDB 缓存（下次 fc.html / typing.html 直接读取）
         saveCachedExample(word, parsed);
         const list = normalizeExamples(parsed);
-        return list.length > 0 ? { list: list } : { error: '（模型未返回有效例句）' };
+        return list.length > 0 ? { list: list } : { error: '(model returned no usable examples)' };
     } catch (err) {
         let msg = err && err.message ? err.message : String(err);
         if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
-            msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+            msg += ' (direct browser calls to the API may be blocked by CORS; try a local proxy)';
         }
-        return { error: '❌ 请求失败: ' + msg };
+        return { error: '❌ Request failed: ' + msg };
     }
 }
 
@@ -2096,10 +2099,10 @@ let freqRequestWord = ''; // 频率请求对应的单词（防止切词后旧响
 // 返回 { freq, badge, emoji, summary, desc, examples, level, detail, fromCache }
 // 或 { error }。错误向上返回由调用方展示，不抛异常
 async function fetchFreqFromModel(word) {
-    if (!word) return { error: '（当前单词无效）' };
+    if (!word) return { error: '(invalid word)' };
     const settings = loadDSSettings();
     if (!settings.apiKey) {
-        return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置后再使用频率功能。' };
+        return { error: "⚠️ No DeepSeek API key configured. Set it up in fc.html's ⚙️ settings to use frequency." };
     }
 
     // 1) 优先读缓存
@@ -2140,7 +2143,7 @@ async function fetchFreqFromModel(word) {
         if (!response.ok) {
             let errMsg = 'HTTP ' + response.status;
             try { const err = await response.json(); if (err.error && err.error.message) errMsg = err.error.message; } catch (e) { /* 非 JSON 错误体 */ }
-            return { error: '❌ 请求失败: ' + errMsg };
+            return { error: '❌ Request failed: ' + errMsg };
         }
 
         const data = await response.json();
@@ -2149,16 +2152,16 @@ async function fetchFreqFromModel(word) {
             : '';
         const parsed = extractJSON(content);
         const f = normalizeFreq(parsed);
-        if (!f) return { error: '❌ 模型未返回有效的频率数据' };
+        if (!f) return { error: '❌ Model returned no valid frequency data' };
 
         saveCachedFreq(word, parsed);
         return f;
     } catch (err) {
         let msg = err && err.message ? err.message : String(err);
         if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
-            msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+            msg += ' (direct browser calls to the API may be blocked by CORS; try a local proxy)';
         }
-        return { error: '❌ 请求失败: ' + msg };
+        return { error: '❌ Request failed: ' + msg };
     }
 }
 
@@ -2175,8 +2178,8 @@ function normalizeFreq(parsed) {
         example: parsed.example || parsed.口语例句 || '',
         detail: parsed.detail || parsed.说明 || '',
         emoji: level >= 5 ? '🔥' : level >= 4 ? '💬' : level >= 3 ? '🗣' : level >= 2 ? '🤏' : '📚',
-        badge: level >= 5 ? '日常核心' : level >= 4 ? '高频常用' : level >= 3 ? '中等常用' : level >= 2 ? '低频' : '极低频',
-        desc: level >= 5 ? '口语必用词' : level >= 4 ? '口语高频词' : level >= 3 ? '日常偶尔出现' : level >= 2 ? '口语很少出现' : '几乎不说',
+        badge: level >= 5 ? 'Core' : level >= 4 ? 'High' : level >= 3 ? 'Medium' : level >= 2 ? 'Low' : 'Rare',
+        desc: level >= 5 ? 'a must-know spoken word' : level >= 4 ? 'a frequent spoken word' : level >= 3 ? 'appears occasionally' : level >= 2 ? 'rarely spoken' : 'almost never spoken',
         segs: Math.max(1, Math.min(5, level))
     };
 }
@@ -2192,13 +2195,13 @@ function renderFreq(r) {
     els.freqReveal.innerHTML =
         `<div class="freq-head"><span class="freq-emoji">${r.emoji}</span>` +
         `<span class="freq-badge ${r.level >= 4 ? 'high' : r.level >= 3 ? 'mid' : 'low'}">${r.badge}</span>` +
-        (r.fromCache ? '<span class="example-cache-tip" style="margin:0;">📦 已加载本地缓存频率</span>' : '') +
+        (r.fromCache ? '<span class="example-cache-tip" style="margin:0;">📦 Loaded from local cache</span>' : '') +
         `</div>` +
         `<div class="freq-desc">${escapeHtml(r.summary || r.desc)}</div>` +
         `<div class="freq-segs">${'<div class="freq-seg on"></div>'.repeat(r.segs) + '<div class="freq-seg"></div>'.repeat(5 - r.segs)}</div>` +
-        `<div class="freq-detail">口语使用：约 <b>${r.spokenPercent || '?'}%</b> · 等级 <b>${r.level}/5</b>（${escapeHtml(r.desc)}）</div>` +
+        `<div class="freq-detail">Spoken usage: ~<b>${r.spokenPercent || '?'}%</b> · Level <b>${r.level}/5</b> (${escapeHtml(r.desc)})</div>` +
         (r.example
-            ? `<div class="freq-detail" style="margin-top:4px;">💬 <b>口语示例：</b>${escapeHtml(r.example)}</div>`
+            ? `<div class="freq-detail" style="margin-top:4px;">💬 <b>Example:</b> ${escapeHtml(r.example)}</div>`
             : '') +
         (r.detail ? `<div class="freq-detail" style="margin-top:4px;">💡 ${escapeHtml(r.detail)}</div>` : '');
 }
@@ -2208,7 +2211,7 @@ function toggleFreqReveal() {
     const isHidden = els.freqReveal.classList.contains('hidden');
     if (isHidden) {
         freqRequestWord = currentWord;
-        els.freqReveal.textContent = '⏳ 正在请求 DeepSeek 分析口语使用频率...';
+        els.freqReveal.textContent = '⏳ Asking DeepSeek for spoken frequency...';
         els.freqReveal.classList.remove('hidden');
         fetchFreqFromModel(currentWord).then((result) => {
             // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
@@ -2233,10 +2236,10 @@ let etymRequestWord = ''; // 词源请求对应的单词（防止切词后旧响
 // 获取单词词源故事：IndexedDB 缓存 → DeepSeek API → 写回缓存
 // 返回 { title, origin, story, storyHtml, fromCache } 或 { error }
 async function fetchEtymFromModel(word) {
-    if (!word) return { error: '（当前单词无效）' };
+    if (!word) return { error: '(invalid word)' };
     const settings = loadDSSettings();
     if (!settings.apiKey) {
-        return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置后再使用词源功能。' };
+        return { error: "⚠️ No DeepSeek API key configured. Set it up in fc.html's ⚙️ settings to use etymology." };
     }
 
     // 1) 优先读缓存
@@ -2277,7 +2280,7 @@ async function fetchEtymFromModel(word) {
         if (!response.ok) {
             let errMsg = 'HTTP ' + response.status;
             try { const err = await response.json(); if (err.error && err.error.message) errMsg = err.error.message; } catch (e) { /* 非 JSON 错误体 */ }
-            return { error: '❌ 请求失败: ' + errMsg };
+            return { error: '❌ Request failed: ' + errMsg };
         }
 
         const data = await response.json();
@@ -2286,16 +2289,16 @@ async function fetchEtymFromModel(word) {
             : '';
         const parsed = extractJSON(content);
         const e = normalizeEtym(parsed);
-        if (!e) return { error: '❌ 模型未返回有效的词源数据' };
+        if (!e) return { error: '❌ Model returned no valid etymology data' };
 
         saveCachedEtym(word, parsed);
         return e;
     } catch (err) {
         let msg = err && err.message ? err.message : String(err);
         if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
-            msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+            msg += ' (direct browser calls to the API may be blocked by CORS; try a local proxy)';
         }
-        return { error: '❌ 请求失败: ' + msg };
+        return { error: '❌ Request failed: ' + msg };
     }
 }
 
@@ -2321,11 +2324,11 @@ function renderEtym(e) {
     els.etymReveal.innerHTML =
         `<div class="etym-head">` +
         `<span>📜</span>` +
-        `<span class="etym-title">词源故事${e.title ? '：' + escapeHtml(e.title) : ''}</span>` +
-        (e.fromCache ? '<span class="example-cache-tip" style="margin:0;">📦 已加载本地缓存词源</span>' : '') +
+        `<span class="etym-title">Etymology${e.title ? ': ' + escapeHtml(e.title) : ''}</span>` +
+        (e.fromCache ? '<span class="example-cache-tip" style="margin:0;">📦 Loaded from local cache</span>' : '') +
         `</div>` +
         (e.origin ? `<div class="etym-origin">🌍 ${escapeHtml(e.origin)}</div>` : '') +
-        (e.storyHtml ? `<div class="etym-story">${e.storyHtml}</div>` : '<div class="etym-story">（模型未返回词源故事）</div>');
+        (e.storyHtml ? `<div class="etym-story">${e.storyHtml}</div>` : '<div class="etym-story">(no etymology story returned)</div>');
 }
 
 // 切换词源故事显示/隐藏
@@ -2333,7 +2336,7 @@ function toggleEtymReveal() {
     const isHidden = els.etymReveal.classList.contains('hidden');
     if (isHidden) {
         etymRequestWord = currentWord;
-        els.etymReveal.textContent = '⏳ 正在请求 DeepSeek 讲词源故事...';
+        els.etymReveal.textContent = '⏳ Asking DeepSeek for the etymology story...';
         els.etymReveal.classList.remove('hidden');
         fetchEtymFromModel(currentWord).then((result) => {
             // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
@@ -2358,10 +2361,10 @@ let collocRequestWord = ''; // 搭配请求对应的单词（防止切词后旧�
 // 获取单词固定搭配：IndexedDB 缓存 → DeepSeek API → 写回缓存
 // 返回 { word, list:[{phrase, meaning, exampleEn, exampleCn}], fromCache } 或 { error }
 async function fetchCollocFromModel(word) {
-    if (!word) return { error: '（当前单词无效）' };
+    if (!word) return { error: '(invalid word)' };
     const settings = loadDSSettings();
     if (!settings.apiKey) {
-        return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置后再使用搭配功能。' };
+        return { error: "⚠️ No DeepSeek API key configured. Set it up in fc.html's ⚙️ settings to use collocations." };
     }
 
     // 1) 优先读缓存
@@ -2402,7 +2405,7 @@ async function fetchCollocFromModel(word) {
         if (!response.ok) {
             let errMsg = 'HTTP ' + response.status;
             try { const err = await response.json(); if (err.error && err.error.message) errMsg = err.error.message; } catch (e) { /* 非 JSON 错误体 */ }
-            return { error: '❌ 请求失败: ' + errMsg };
+            return { error: '❌ Request failed: ' + errMsg };
         }
 
         const data = await response.json();
@@ -2411,16 +2414,16 @@ async function fetchCollocFromModel(word) {
             : '';
         const parsed = extractJSON(content);
         const list = normalizeColloc(parsed);
-        if (list.length === 0) return { error: '❌ 模型未返回有效的搭配数据' };
+        if (list.length === 0) return { error: '❌ Model returned no valid collocation data' };
 
         saveCachedColloc(word, parsed);
         return { word: word, list: list };
     } catch (err) {
         let msg = err && err.message ? err.message : String(err);
         if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
-            msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+            msg += ' (direct browser calls to the API may be blocked by CORS; try a local proxy)';
         }
-        return { error: '❌ 请求失败: ' + msg };
+        return { error: '❌ Request failed: ' + msg };
     }
 }
 
@@ -2446,9 +2449,9 @@ function normalizeColloc(parsed) {
 // 渲染固定搭配展示区（每条：搭配短语 + 释义 + 英文例句 + 中文翻译）
 function renderColloc(r) {
     els.collocReveal.classList.remove('hidden');
-    const cacheTip = r.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存搭配</span>' : '';
+    const cacheTip = r.fromCache ? '<span class="example-cache-tip">📦 Loaded from local cache</span>' : '';
     els.collocReveal.innerHTML =
-        `<div class="colloc-head">🔗 <span class="colloc-title">固定搭配（${escapeHtml(r.word)}）</span></div>` +
+        `<div class="colloc-head">🔗 <span class="colloc-title">Collocations (${escapeHtml(r.word)})</span></div>` +
         cacheTip +
         `<div class="colloc-list">` +
         r.list.map((it) =>
@@ -2467,7 +2470,7 @@ function toggleCollocReveal() {
     const isHidden = els.collocReveal.classList.contains('hidden');
     if (isHidden) {
         collocRequestWord = currentWord;
-        els.collocReveal.textContent = '⏳ 正在请求 DeepSeek 生成固定搭配...';
+        els.collocReveal.textContent = '⏳ Asking DeepSeek for collocations...';
         els.collocReveal.classList.remove('hidden');
         fetchCollocFromModel(currentWord).then((result) => {
             // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
@@ -2492,10 +2495,10 @@ let rootRequestWord = ''; // 词根请求对应的单词（防止切词后旧响
 // 获取单词词根拆解：IndexedDB 缓存 → DeepSeek API → 写回缓存
 // 返回 { word, formula, parts:[{morpheme,type,meaning}], summary, fromCache } 或 { error }
 async function fetchRootFromModel(word) {
-    if (!word) return { error: '（当前单词无效）' };
+    if (!word) return { error: '(invalid word)' };
     const settings = loadDSSettings();
     if (!settings.apiKey) {
-        return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置后再使用词根拆解功能。' };
+        return { error: "⚠️ No DeepSeek API key configured. Set it up in fc.html's ⚙️ settings to use word parts." };
     }
 
     // 1) 优先读缓存
@@ -2538,7 +2541,7 @@ async function fetchRootFromModel(word) {
         if (!response.ok) {
             let errMsg = 'HTTP ' + response.status;
             try { const err = await response.json(); if (err.error && err.error.message) errMsg = err.error.message; } catch (e) { /* 非 JSON 错误体 */ }
-            return { error: '❌ 请求失败: ' + errMsg };
+            return { error: '❌ Request failed: ' + errMsg };
         }
 
         const data = await response.json();
@@ -2547,16 +2550,16 @@ async function fetchRootFromModel(word) {
             : '';
         const parsed = extractJSON(content);
         const r = normalizeRoot(parsed);
-        if (!r) return { error: '❌ 模型未返回有效的词根拆解数据' };
+        if (!r) return { error: '❌ Model returned no valid word-part data' };
 
         saveCachedRoot(word, parsed);
         return r;
     } catch (err) {
         let msg = err && err.message ? err.message : String(err);
         if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
-            msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+            msg += ' (direct browser calls to the API may be blocked by CORS; try a local proxy)';
         }
-        return { error: '❌ 请求失败: ' + msg };
+        return { error: '❌ Request failed: ' + msg };
     }
 }
 
@@ -2582,9 +2585,9 @@ function normalizeRoot(parsed) {
 // 渲染词根拆解展示区（构词公式 + 每个成分拆解行 + 组合含义总结）
 function renderRoot(r) {
     els.rootReveal.classList.remove('hidden');
-    const cacheTip = r.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存词根</span>' : '';
+    const cacheTip = r.fromCache ? '<span class="example-cache-tip">📦 Loaded from local cache</span>' : '';
     els.rootReveal.innerHTML =
-        `<div class="root-head">🧩 <span class="root-title">词根拆解（${escapeHtml(r.word || '')}）</span></div>` +
+        `<div class="root-head">🧩 <span class="root-title">Word parts (${escapeHtml(r.word || '')})</span></div>` +
         cacheTip +
         (r.formula ? `<div class="root-formula">${escapeHtml(r.formula)}</div>` : '') +
         (r.parts.length > 0
@@ -2604,7 +2607,7 @@ function toggleRootReveal() {
     const isHidden = els.rootReveal.classList.contains('hidden');
     if (isHidden) {
         rootRequestWord = currentWord;
-        els.rootReveal.textContent = '⏳ 正在请求 DeepSeek 拆解词根...';
+        els.rootReveal.textContent = '⏳ Asking DeepSeek to break down the word...';
         els.rootReveal.classList.remove('hidden');
         fetchRootFromModel(currentWord).then((result) => {
             // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
@@ -2630,10 +2633,10 @@ let synRequestWord = ''; // 辨析请求对应的单词（防止切词后旧响�
 // 获取单词近义词辨析：IndexedDB 缓存 → DeepSeek API → 写回缓存
 // 返回 { word, list:[{word, meaning, diff}], contrast, fromCache } 或 { error }
 async function fetchSynFromModel(word) {
-    if (!word) return { error: '（当前单词无效）' };
+    if (!word) return { error: '(invalid word)' };
     const settings = loadDSSettings();
     if (!settings.apiKey) {
-        return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置后再使用近义词辨析功能。' };
+        return { error: "⚠️ No DeepSeek API key configured. Set it up in fc.html's ⚙️ settings to use synonyms." };
     }
 
     // 1) 优先读缓存
@@ -2676,7 +2679,7 @@ async function fetchSynFromModel(word) {
         if (!response.ok) {
             let errMsg = 'HTTP ' + response.status;
             try { const err = await response.json(); if (err.error && err.error.message) errMsg = err.error.message; } catch (e) { /* 非 JSON 错误体 */ }
-            return { error: '❌ 请求失败: ' + errMsg };
+            return { error: '❌ Request failed: ' + errMsg };
         }
 
         const data = await response.json();
@@ -2685,16 +2688,16 @@ async function fetchSynFromModel(word) {
             : '';
         const parsed = extractJSON(content);
         const s = normalizeSyn(parsed);
-        if (!s) return { error: '❌ 模型未返回有效的近义词数据' };
+        if (!s) return { error: '❌ Model returned no valid synonym data' };
 
         saveCachedSyn(word, parsed);
         return s;
     } catch (err) {
         let msg = err && err.message ? err.message : String(err);
         if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
-            msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+            msg += ' (direct browser calls to the API may be blocked by CORS; try a local proxy)';
         }
-        return { error: '❌ 请求失败: ' + msg };
+        return { error: '❌ Request failed: ' + msg };
     }
 }
 
@@ -2722,13 +2725,13 @@ function normalizeSyn(parsed) {
 // 渲染近义词辨析展示区（目标词置顶 + 各近义词行 + 辨析总结）
 function renderSyn(s) {
     els.synReveal.classList.remove('hidden');
-    const cacheTip = s.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存辨析</span>' : '';
+    const cacheTip = s.fromCache ? '<span class="example-cache-tip">📦 Loaded from local cache</span>' : '';
     const rows = [];
     // 目标词置顶行（红色高亮）
     rows.push(
         `<div class="syn-row main">` +
         `<span class="syn-word main-word">${escapeHtml(s.word || '')}</span>` +
-        `<span class="syn-meaning">本词</span>` +
+        `<span class="syn-meaning">this word</span>` +
         `</div>`
     );
     // 各近义词行
@@ -2741,10 +2744,10 @@ function renderSyn(s) {
     ).join(''));
 
     els.synReveal.innerHTML =
-        `<div class="syn-head">🔀 <span class="syn-title">近义词辨析（${escapeHtml(s.word || '')}）</span></div>` +
+        `<div class="syn-head">🔀 <span class="syn-title">Synonyms (${escapeHtml(s.word || '')})</span></div>` +
         cacheTip +
         `<div class="syn-table">${rows.join('')}</div>` +
-        (s.contrast ? `<div class="syn-contrast">💡 <b>辨析：</b>${escapeHtml(s.contrast)}</div>` : '');
+        (s.contrast ? `<div class="syn-contrast">💡 <b>How to choose:</b> ${escapeHtml(s.contrast)}</div>` : '');
 }
 
 // 切换近义词辨析显示/隐藏
@@ -2752,7 +2755,7 @@ function toggleSynReveal() {
     const isHidden = els.synReveal.classList.contains('hidden');
     if (isHidden) {
         synRequestWord = currentWord;
-        els.synReveal.textContent = '⏳ 正在请求 DeepSeek 做近义词辨析...';
+        els.synReveal.textContent = '⏳ Asking DeepSeek for synonyms...';
         els.synReveal.classList.remove('hidden');
         fetchSynFromModel(currentWord).then((result) => {
             // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
@@ -2778,10 +2781,10 @@ let familyRequestWord = ''; // 同族词请求对应的单词（防止切词后�
 // 获取单词同族词：IndexedDB 缓存 → DeepSeek API → 写回缓存
 // 返回 { word, core, note, groups:[{pos, words:[{word, meaning}]}], fromCache } 或 { error }
 async function fetchFamilyFromModel(word) {
-    if (!word) return { error: '（当前单词无效）' };
+    if (!word) return { error: '(invalid word)' };
     const settings = loadDSSettings();
     if (!settings.apiKey) {
-        return { error: '⚠️ 未配置 DeepSeek API Key，请先在 fc.html 的 ⚙️ 设置 中配置后再使用同族词功能。' };
+        return { error: "⚠️ No DeepSeek API key configured. Set it up in fc.html's ⚙️ settings to use word family." };
     }
 
     // 1) 优先读缓存
@@ -2825,7 +2828,7 @@ async function fetchFamilyFromModel(word) {
         if (!response.ok) {
             let errMsg = 'HTTP ' + response.status;
             try { const err = await response.json(); if (err.error && err.error.message) errMsg = err.error.message; } catch (e) { /* 非 JSON 错误体 */ }
-            return { error: '❌ 请求失败: ' + errMsg };
+            return { error: '❌ Request failed: ' + errMsg };
         }
 
         const data = await response.json();
@@ -2834,16 +2837,16 @@ async function fetchFamilyFromModel(word) {
             : '';
         const parsed = extractJSON(content);
         const f = normalizeFamily(parsed);
-        if (!f) return { error: '❌ 模型未返回有效的同族词数据' };
+        if (!f) return { error: '❌ Model returned no valid word-family data' };
 
         saveCachedFamily(word, parsed);
         return f;
     } catch (err) {
         let msg = err && err.message ? err.message : String(err);
         if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
-            msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+            msg += ' (direct browser calls to the API may be blocked by CORS; try a local proxy)';
         }
-        return { error: '❌ 请求失败: ' + msg };
+        return { error: '❌ Request failed: ' + msg };
     }
 }
 
@@ -2875,9 +2878,9 @@ function normalizeFamily(parsed) {
 // 渲染同族词展示区（核心词根 + 按词性分组 + 记忆要点）
 function renderFamily(f) {
     els.familyReveal.classList.remove('hidden');
-    const cacheTip = f.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存同族词</span>' : '';
+    const cacheTip = f.fromCache ? '<span class="example-cache-tip">📦 Loaded from local cache</span>' : '';
     els.familyReveal.innerHTML =
-        `<div class="family-head">🏠 <span class="family-title">同族词（${escapeHtml(f.word || '')}）</span></div>` +
+        `<div class="family-head">🏠 <span class="family-title">Word family (${escapeHtml(f.word || '')})</span></div>` +
         cacheTip +
         (f.core ? `<div class="family-core">${escapeHtml(f.core)}</div>` : '') +
         (f.groups.length > 0
@@ -2900,7 +2903,7 @@ function toggleFamilyReveal() {
     const isHidden = els.familyReveal.classList.contains('hidden');
     if (isHidden) {
         familyRequestWord = currentWord;
-        els.familyReveal.textContent = '⏳ 正在请求 DeepSeek 查询同族词...';
+        els.familyReveal.textContent = '⏳ Asking DeepSeek for the word family...';
         els.familyReveal.classList.remove('hidden');
         fetchFamilyFromModel(currentWord).then((result) => {
             // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
@@ -2921,10 +2924,10 @@ function toggleFamilyReveal() {
 function toggleExampleReveal() {
     const isHidden = els.exampleReveal.classList.contains('hidden');
     if (isHidden) {
-        els.exampleReveal.textContent = '⏳ 正在请求 DeepSeek 生成例句...';
+        els.exampleReveal.textContent = '⏳ Asking DeepSeek for examples...';
         els.exampleReveal.classList.remove('hidden');
         els.btnToggleExample.textContent = '🙈';
-        els.btnToggleExample.title = '隐藏例句';
+        els.btnToggleExample.title = 'Hide examples';
         exampleRequestWord = currentWord;
         fetchExamplesFromModel(currentWord).then((result) => {
             // 加载期间用户已手动隐藏或已切换到其他单词：放弃渲染
@@ -2939,19 +2942,19 @@ function toggleExampleReveal() {
     } else {
         els.exampleReveal.classList.add('hidden');
         els.btnToggleExample.textContent = '📖';
-        els.btnToggleExample.title = '查看例句';
+        els.btnToggleExample.title = 'Show examples';
     }
 }
 
 // 渲染多词性例句（词性徽章 + 释义 + 英文例句 + 中文翻译）
 function renderExamples(list, fromCache) {
     if (!list || list.length === 0) {
-        els.exampleReveal.textContent = '（未找到该单词的例句）';
+        els.exampleReveal.textContent = '(no examples found for this word)';
         return;
     }
     // 听写模式下例句会把答案单词原样显示出来（泄露拼写），必须遮成下划线
     const hideWord = (currentMode === 'dictation');
-    const cacheTip = fromCache ? '<div class="example-cache-tip">📦 已加载本地缓存例句</div>' : '';
+    const cacheTip = fromCache ? '<div class="example-cache-tip">📦 Loaded from local cache</div>' : '';
     els.exampleReveal.innerHTML = cacheTip + list.map((it) => {
         const en = hideWord ? maskAnswerWord(it.exampleEnglish, currentWord) : it.exampleEnglish;
         const head = (it.partOfSpeech || it.meaning)
@@ -3197,7 +3200,7 @@ function finishSession() {
     const nextIdx = (groupIdx + 1 < totalGroups) ? groupIdx + 1 : 0;
     els.groupSelect.value = String(nextIdx);
     // 极简模式下提醒用户已自动跳组（含回绕到第 1 组）
-    showGroupToast(nextIdx === 0 ? '🔄 已回到第 1 组' : `⏩ 已自动进入第 ${nextIdx + 1} 组`);
+    showGroupToast(nextIdx === 0 ? '🔄 Back to group 1' : `⏩ Auto-advanced to group ${nextIdx + 1}`);
     startSession(); // 重置本组统计并渲染新组首词
 }
 
