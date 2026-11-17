@@ -3,15 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>释义</title>
+    <title>t2</title>
     <script>
-        // 尽早应用夜间模式（在 CSS 渲染前加 .dark 类），避免暗色用户加载时白屏闪烁
-        // 无保存值时跟随系统 prefers-color-scheme（与 typing.html 共用 typingTheme）
+        // 尽早应用界面主题（dark / grey 加类，避免加载闪烁）；无保存值时跟随系统
         try {
             var savedTheme = localStorage.getItem('typingTheme');
-            var isDarkTheme = savedTheme ? savedTheme === 'dark'
-                : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-            if (isDarkTheme) document.documentElement.classList.add('dark');
+            var initialTheme = savedTheme || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+            if (initialTheme === 'dark' || initialTheme === 'grey') document.documentElement.classList.add(initialTheme);
         } catch (e) { /* localStorage 不可用时忽略 */ }
     </script>
     <style>
@@ -48,8 +46,8 @@
 
         /* ---------- 顶部标题 ---------- */
         .header { text-align: center; padding: 10px 0; }
-        .header h1 { margin: 0; font-size: 24px; color: var(--text-main); }
-        .header p { margin: 6px 0 0; font-size: 13px; color: var(--text-sub); }
+        .header h1 { margin: 0; font-size: 12px; color: var(--text-main); }
+        .header p { margin: 6px 0 0; font-size: 12px; color: var(--text-sub); }
 
         /* ---------- 状态卡片 ---------- */
         .panel {
@@ -335,6 +333,59 @@
         :root.dark .result-word .word-tag { background: var(--primary); }
         :root.dark #audio-cache-badge { border-bottom-color: #354154; }
 
+        /* ---------- 灰色模式（html.grey）：黑底、灰面板、浅灰字，仅黑白灰（与 typing.html 共用 typingTheme） ---------- */
+        :root.grey {
+            color-scheme: dark;
+            --primary: #999999;
+            --accent: #f0f0f0;
+            --success: #c8c8c8;
+            --bg: #1d1c1c;
+            --card-bg: #121212;
+            --text-main: #b0b0b0;
+            --text-sub: #b0b0b0;
+        }
+        /* emoji 不受颜色变量影响，用 grayscale 变灰；不挂在 body 上以免破坏 fixed 定位 */
+        :root.grey #app-container > * { filter: grayscale(100%); }
+        :root.grey .panel { box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+        :root.grey select,
+        :root.grey input[type="number"],
+        :root.grey .input-area input {
+            background: none;
+            border: none;
+            border-bottom: 1px solid #111;
+            color: var(--text-main);
+        }
+        :root.grey .input-area input:focus { border-color: var(--primary); border-bottom: 1px solid #333; }
+        :root.grey input[type="checkbox"],
+        :root.grey input[type="range"] { accent-color: var(--primary); }
+        :root.grey .footer-note { color: #555; }
+        :root.grey .settings-row { color: var(--text-main); }
+        :root.grey .progress-track { background: #4a4a4a; }
+        :root.grey .question .word:hover { background: rgba(255,255,255,0.06); }
+        :root.grey .word-trans {
+            background: #1d1c1c;
+            border-color: #555555;
+            color: var(--text-main);
+            box-shadow: none;
+        }
+        :root.grey .word-trans .tag { background: #6f6f6f; color: var(--bg); }
+        :root.grey .hint-row button { background: #444444; border-color: #5a5a5a; color: var(--text-main); }
+        :root.grey .hint-row button:hover { background: #4f4f4f; }
+        :root.grey .btn-primary,
+        :root.grey .btn-success,
+        :root.grey .btn-danger,
+        :root.grey .result-word .word-tag { color: var(--bg); }
+        :root.grey .btn-plain { background: #444444; color: var(--text-main); }
+        :root.grey #audio-cache-badge { border-bottom-color: #5a5a5a; }
+        :root.grey .minimal-exit,
+        :root.grey .minimal-progress {
+            background: #2a2a2a;
+            border-color: #3a3a3a;
+            color: var(--text-main);
+        }
+        :root.grey body.minimal .word-trans { background: rgba(255,255,255,0.04); }
+        :root.grey body.minimal .question .word { color: #8a8a8a; }
+
         /* ---------- 极简模式（body.minimal）：隐藏干扰，只留题目/输入框/重听 ---------- */
         .minimal-exit {
             position: fixed;
@@ -453,16 +504,16 @@
 <div id="app-container">
     <!-- 标题 -->
     <div class="header">
-        <h1>🗒️ 释义听写</h1>
-        <p>读取「闪卡游戏 fc.html」的错词本，看单词（或听读音），输入对应的中文释义 </p>
+        <h1>🗒️ Meaning Dictation</h1>
+        <p>Practice your wrong-word meanings</p>
     </div>
 
     <!-- 状态区：初始化中 / 无错词 / 错误 -->
     <div id="status-panel" class="panel">
-        <div id="status-text" class="status-text">⏳ 正在读取错词本...</div>
+        <div id="status-text" class="status-text">⏳ Loading wrong words...</div>
         <!-- 错词本为空 / 打开失败时显示的导入入口 -->
         <div id="status-actions" class="hidden" style="text-align:center; padding: 0 0 14px;">
-            <button id="btn-import-wrong-empty" class="btn btn-primary">📥 导入错词</button>
+            <button id="btn-import-wrong-empty" class="btn btn-primary">📥 Import</button>
         </div>
     </div>
 
@@ -472,48 +523,52 @@
         <div class="panel" id="settings-panel">
             <div class="settings">
                 <div class="settings-row">
-                    <span title="fc.html 错词本中的全部单词数">📚 错词库共 <b id="total-count">--</b> 个单词</span>
+                    <span title="Total words in the fc.html wrong-word list">📚 Wrong words: <b id="total-count">--</b></span>
                 </div>
                 <div class="settings-row">
-                    <label>模式
+                    <label>Mode
                         <select id="mode-select">
-                            <option value="look" selected>📖 看单词 (看词输释义)</option>
-                            <option value="listen">🎧 听读音 (听词输释义)</option>
+                            <option value="look" selected>📖 Look (word → meaning)</option>
+                            <option value="listen">🎧 Listen (audio → meaning)</option>
                         </select>
                     </label>
-                    <label>每组
+                    <label>Size
                         <select id="size-select">
-                            <option value="10">10 个</option>
-                            <option value="20" selected>20 个</option>
-                            <option value="50">50 个</option>
-                            <option value="100">100 个</option>
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
                         </select>
                     </label>
-                    <label>选择组别
+                    <label>Group
                         <select id="group-select">
-                            <option value="0">第 1 组</option>
+                            <option value="0">Group 1</option>
                         </select>
                     </label>
-                    <button id="btn-import-wrong" class="btn btn-plain" style="padding:6px 12px; font-size:12px;" title="导入错词文件：支持 fc.html 导出的错词 JSON、单词数组 JSON、或每行一个单词的 TXT">📥 导入错词</button>
+                    <button id="btn-import-wrong" class="btn btn-plain" style="padding:6px 12px; font-size:12px;" title="Import wrong words: fc.html export JSON, word JSON array, or TXT (one word per line)">📥 Import</button>
                     <input type="file" id="wrong-file-input" class="hidden" accept=".json,.txt,application/json,text/plain">
                 </div>
                 <div class="settings-row">
-                    <button id="btn-minimal" class="btn btn-plain" style="padding:6px 12px; font-size:12px;" title="极简模式：只保留题目与输入框，隐藏所有设置与干扰（右上角 ⚙️ 可退出，偏好自动保存）">🪶 极简模式</button>
+                    <button id="btn-minimal" class="btn btn-plain" style="padding:6px 12px; font-size:12px;" title="Minimal mode: word + input only (⚙️ to exit, preference saved)">🪶 Minimal</button>
                 </div>
                 <label class="switch-label">
                     <input type="checkbox" id="audio-switch" checked>
-                    🔊 自动播放读音
+                    🔊 Auto play audio
                 </label>
                 <label class="switch-label">
                     <input type="checkbox" id="key-sound-switch" checked>
-                    ⌨️ 键盘打字音效
+                    ⌨️ Key sounds
                 </label>
-                <label class="switch-label" title="切换夜间/白天模式（自动保存，默认跟随系统，与 typing.html 共用）">
-                    <input type="checkbox" id="theme-switch">
-                    🌙 夜间模式
+                <label class="switch-label" title="Theme (auto-saved, follows system)">
+                    🎨 Theme
+                    <select id="theme-select">
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                        <option value="grey">Grey</option>
+                    </select>
                 </label>
-                <label class="switch-label" style="gap:4px;" title="打字音效音量">
-                    <span>音量</span>
+                <label class="switch-label" style="gap:4px;" title="Key sound volume">
+                    <span>Volume</span>
                     <input type="range" id="key-volume" min="0" max="200" value="140" style="width:90px; margin:0;">
                     <b id="key-volume-label">140%</b>
                 </label>
@@ -523,8 +578,8 @@
         <!-- 关卡信息 -->
         <div class="panel" id="info-panel">
             <div class="info-row">
-                <span class="rounds" id="round-text">第 0 / 0 题</span>
-                <span class="score" id="score-text">得分 0 (0%)</span>
+                <span class="rounds" id="round-text">Word 0 / 0</span>
+                <span class="score" id="score-text">Score 0 (0%)</span>
             </div>
             <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
         </div>
@@ -532,21 +587,21 @@
         <!-- 题目区 -->
         <div class="panel">
             <div class="question" id="question-area">
-                <div class="word" id="word-display" title="点击查看释义，再次点击隐藏">—</div>
+                <div class="word" id="word-display" title="Click to show/hide meaning">—</div>
                 <div class="phonetic" id="phonetic-text"></div>
                 <div class="prompt" id="prompt-text"></div>
-                <div class="word-trans hidden" id="word-trans-display" title="点击上方单词可隐藏释义"></div>
+                <div class="word-trans hidden" id="word-trans-display" title="Click the word to hide"></div>
                 <div class="question-actions">
-                    <button id="btn-replay" class="btn btn-primary btn-sm icon-btn hidden" title="重听发音" aria-label="重听发音">🔊</button>
+                    <button id="btn-replay" class="btn btn-primary btn-sm icon-btn hidden" title="Replay audio" aria-label="Replay audio">🔊</button>
                 </div>
             </div>
             <div class="input-area">
-                <input type="text" id="answer-input" placeholder="输入对应的中文释义..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <input type="text" id="answer-input" placeholder="Type the meaning..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                 <div class="hint-row">
-                    <span id="key-hints">输入释义后按 Enter 判定 | 输对可自动跳转 | Tab 看/藏释义 | Ctrl+Z 清除 | ←/→ 切换 | Alt+. 移除当前词</span>
-                    <button id="btn-clear" type="button">清除 (Ctrl+Z)</button>
-                    <button id="btn-prev-word" type="button">◀ 上一词</button>
-                    <button id="btn-next-word" type="button">下一词 ▶</button>
+                    <span id="key-hints">Enter: submit | auto-advance on match | Tab: show/hide meaning | Ctrl+Z: clear | ←/→: navigate | Alt+.: remove word</span>
+                    <button id="btn-clear" type="button">Clear (Ctrl+Z)</button>
+                    <button id="btn-prev-word" type="button">◀ Prev</button>
+                    <button id="btn-next-word" type="button">Next ▶</button>
                 </div>
             </div>
         </div>
@@ -560,16 +615,16 @@
     </div>
 
     <div class="footer-note">
-        数据来源：<a id="link-fc" title="打开闪卡游戏">fc.html 的错词本</a> · 刷新页面可重新读取错词本
+        Source: <a id="link-fc" title="Open flashcard game">fc.html wrong words</a> · Reload to refresh
         <div style="margin-top:6px;">
-            <span id="audio-cache-badge" title="点击清空全部语音缓存" style="cursor:pointer; border-bottom:1px dashed #ccc;">📦 本地语音缓存: 0 个</span>
+            <span id="audio-cache-badge" title="Click to clear all cached audio" style="cursor:pointer; border-bottom:1px dashed #ccc;">📦 Audio cache: 0</span>
         </div>
     </div>
 </div>
 
 <!-- 极简模式悬浮控件：退出按钮 + 顶部当前词进度 + 角落得分 -->
-<button id="btn-minimal-exit" class="minimal-exit hidden" title="退出极简模式" aria-label="退出极简模式">⚙️</button>
-<div id="minimal-progress" class="minimal-progress hidden">0 / 0 词</div>
+<button id="btn-minimal-exit" class="minimal-exit hidden" title="Exit minimal mode" aria-label="Exit minimal mode">⚙️</button>
+<div id="minimal-progress" class="minimal-progress hidden">0 / 0</div>
 <div id="minimal-score" class="minimal-score hidden"></div>
 
 <!-- 数据库核心（库名/版本/建表/版本探测）：5 个页面共用，升级版本只改 db-core.js 一处 -->
@@ -622,7 +677,7 @@ async function loadWrongWordsFromDB() {
                 mapped.sort((a, b) => (b.ts - a.ts) || String(a.key).localeCompare(String(b.key)));
                 resolve(mapped.map(item => item.data));
             };
-            req.onerror = () => { reject(new Error('读取错词本失败')); };
+            req.onerror = () => { reject(new Error('Failed to read wrong words')); };
         });
     }
 
@@ -688,7 +743,7 @@ function getWordPhonetic(wordObj) {
     const usPhone = wordObj.usphone || '';
     const ukPhone = wordObj.ukphone || '';
     if (usPhone && ukPhone && usPhone !== ukPhone) {
-        return `英 [${ukPhone}]  美 [${usPhone}]`;
+        return `UK [${ukPhone}]   US [${usPhone}]`;
     }
     const single = usPhone || ukPhone || wordObj.phonetic || wordObj.phonetics || '';
     return single ? `[${single}]` : '';
@@ -756,7 +811,7 @@ function readFileAsText(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(new Error('文件读取失败'));
+        reader.onerror = () => reject(new Error('Failed to read file'));
         reader.readAsText(file, 'utf-8');
     });
 }
@@ -766,7 +821,7 @@ async function importWrongWordsFromFile(file) {
     const text = await readFileAsText(file);
     const { words, skipped } = parseWrongFile(text);
     if (words.length === 0) {
-        alert('⚠️ 未能从文件中解析出任何单词，请检查文件格式。\n\n支持格式：\n1. fc.html「导出错词本 (JSON)」导出的文件\n2. 单词对象 JSON 数组，如 [{"name":"apple","trans":["苹果"]}]\n3. 每行一个单词的 TXT 文本');
+        alert('⚠️ No words found in the file.\n\nSupported formats:\n1. fc.html wrong-words export (JSON)\n2. An array of word objects, e.g. [{"name":"apple","trans":["apple"]}]\n3. TXT: one word per line');
         return;
     }
 
@@ -800,15 +855,15 @@ async function importWrongWordsFromFile(file) {
                 }
             });
             tx.oncomplete = () => resolve();
-            tx.onerror = () => reject(new Error('写入错词本失败'));
+            tx.onerror = () => reject(new Error('Failed to save wrong words'));
         });
     }
     db.close();
 
     const dup = words.length - added;
-    alert(`✅ 导入完成：新增 ${added} 个错词` +
-        (dup > 0 ? `，跳过 ${dup} 个重复` : '') +
-        (skipped > 0 ? `，忽略 ${skipped} 条无效数据` : ''));
+    alert(`✅ Imported: ${added} new words` +
+        (dup > 0 ? `, ${dup} duplicates skipped` : '') +
+        (skipped > 0 ? `, ${skipped} invalid ignored` : ''));
     await reloadWrongWords();
 }
 
@@ -819,7 +874,7 @@ async function reloadWrongWords() {
         wrongWords = wrongWords.filter(w => getWordKey(w).trim() !== '');
         if (wrongWords.length === 0) {
             els.totalCount.textContent = '0';
-            els.statusText.textContent = '📭 错词本是空的，还没有可练习的单词。';
+            els.statusText.textContent = '📭 No wrong words yet.';
             els.statusText.classList.add('success');
             els.statusPanel.classList.remove('hidden');
             els.statusActions.classList.remove('hidden');
@@ -903,22 +958,26 @@ function restoreKeyVolume() {
 }
 
 // ============================================================
-// 夜间模式（localStorage: typingTheme，与 typing.html 共用；head 内联脚本已防闪烁预应用）
+// 界面主题（localStorage: typingTheme，与 typing.html 共用）：白天 / 夜间(html.dark) / 灰色(html.grey)，三者互斥
 // ============================================================
 const THEME_STORAGE = 'typingTheme';
 
-// 应用主题：切换 html.dark 类 + 同步开关状态 + 持久化选择
-function applyTheme(dark) {
-    document.documentElement.classList.toggle('dark', dark);
-    els.themeSwitch.checked = dark;
+// 应用主题：切换 html.dark / html.grey 类 + 同步下拉框 + 持久化选择
+function applyTheme(theme) {
+    const root = document.documentElement;
+    root.classList.toggle('dark', theme === 'dark');
+    root.classList.toggle('grey', theme === 'grey');
+    els.themeSelect.value = theme;
     try {
-        localStorage.setItem(THEME_STORAGE, dark ? 'dark' : 'light');
+        localStorage.setItem(THEME_STORAGE, theme);
     } catch (e) { /* localStorage 不可用（如隐私模式）时忽略 */ }
 }
 
-// 初始化：head 内联脚本已根据保存值/系统偏好加了 .dark 类，这里只同步开关状态
+// 初始化：head 内联脚本已根据保存值/系统偏好加了主题类，这里只同步下拉框
 function restoreTheme() {
-    els.themeSwitch.checked = document.documentElement.classList.contains('dark');
+    const root = document.documentElement;
+    els.themeSelect.value = root.classList.contains('dark') ? 'dark'
+        : (root.classList.contains('grey') ? 'grey' : 'light');
 }
 
 // ============================================================
@@ -960,7 +1019,7 @@ function updateMinimalScore() {
         const grandTotal = wrongWords.length || 0;
         // 与 renderQuestion 的 absoluteIndex 同口径：组起始偏移 + 组内题号（1 基）
         const idx = ((parseInt(els.groupSelect.value) || 0) * currentSize()) + sessionIndex + 1;
-        els.minimalProgress.textContent = `${Math.min(idx, grandTotal)} / ${grandTotal} 词`;
+        els.minimalProgress.textContent = `${Math.min(idx, grandTotal)} / ${grandTotal}`;
     }
 }
 
@@ -1068,7 +1127,7 @@ function playWordAudio(word) {
 async function updateAudioCacheBadge() {
     try {
         const count = await getAudioCacheCount();
-        els.audioCacheBadge.textContent = `📦 本地语音缓存: ${count} 个`;
+        els.audioCacheBadge.textContent = `📦 Audio cache: ${count}`;
     } catch (e) {}
 }
 
@@ -1084,7 +1143,7 @@ const els = {
     groupSelect: document.getElementById('group-select'),
     audioSwitch: document.getElementById('audio-switch'),
     keySoundSwitch: document.getElementById('key-sound-switch'),
-    themeSwitch: document.getElementById('theme-switch'),
+    themeSelect: document.getElementById('theme-select'),
     keyVolume: document.getElementById('key-volume'),
     keyVolumeLabel: document.getElementById('key-volume-label'),
     roundText: document.getElementById('round-text'),
@@ -1138,14 +1197,14 @@ async function init() {
     try {
         wrongWords = await loadWrongWordsFromDB();
         if (wrongWords.length === 0) {
-            els.statusText.textContent = '📭 错词本是空的，还没有可练习的单词。';
+            els.statusText.textContent = '📭 No wrong words yet.';
             els.statusText.classList.add('success');
             els.statusActions.classList.remove('hidden'); // 显示导入按钮
             return;
         }
         wrongWords = wrongWords.filter(w => getWordKey(w).trim() !== '');
         if (wrongWords.length === 0) {
-            els.statusText.textContent = '📭 错词本中的单词无效（缺少 word/name/title 字段）。';
+            els.statusText.textContent = '📭 Invalid entries (missing word/name/title).';
             els.statusText.classList.add('success');
             els.statusActions.classList.remove('hidden'); // 显示导入按钮
             return;
@@ -1214,7 +1273,7 @@ function bindEvents() {
         window.location.href = 'fc.html';
     });
     els.audioCacheBadge.addEventListener('click', async () => {
-        if (confirm('确定清空全部本地语音缓存吗？之后首次播放需要重新下载。')) {
+        if (confirm('Clear all cached audio? It will be re-downloaded on next play.')) {
             await clearAudioCache();
             updateAudioCacheBadge();
         }
@@ -1230,7 +1289,7 @@ function bindEvents() {
         try {
             await importWrongWordsFromFile(file);
         } catch (err) {
-            alert('❌ 导入失败：' + (err && err.message ? err.message : String(err)));
+            alert('❌ Import failed: ' + (err && err.message ? err.message : String(err)));
         }
         els.wrongFileInput.value = '';
     });
@@ -1239,7 +1298,7 @@ function bindEvents() {
     });
     els.keyVolume.addEventListener('change', saveKeyVolume);
     restoreTheme();
-    els.themeSwitch.addEventListener('change', () => applyTheme(els.themeSwitch.checked));
+    els.themeSelect.addEventListener('change', () => applyTheme(els.themeSelect.value));
 
     // 极简模式切换
     els.btnMinimal.addEventListener('click', enterMinimal);
@@ -1270,7 +1329,7 @@ function rebuildGroupOptions(forceSelect) {
         const end = Math.min((i + 1) * size, wrongWords.length);
         const option = document.createElement('option');
         option.value = i;
-        option.text = `第 ${i + 1} 组 (${start}-${end})`;
+        option.text = `Group ${i + 1} (${start}-${end})`;
         els.groupSelect.appendChild(option);
     }
     if (pendingGroupIdx !== null) {
@@ -1314,7 +1373,7 @@ function startSession(resetStats = true) {
 
     // 续练提示（4 秒后自动消失）
     if (restoredIdx > 0) {
-        els.promptText.textContent = `⏮ 已续上次进度：组内第 ${restoredIdx + 1} / ${sessionWords.length} 词`;
+        els.promptText.textContent = `⏮ Resumed: word ${restoredIdx + 1} / ${sessionWords.length}`;
         setTimeout(() => { els.promptText.textContent = ''; }, 4000);
     }
 }
@@ -1333,8 +1392,8 @@ function renderQuestion() {
     currentMode = els.modeSelect.value;
 
     const absoluteIndex = ((parseInt(els.groupSelect.value) || 0) * currentSize()) + sessionIndex + 1;
-    els.roundText.textContent = `组内: ${sessionIndex + 1}/${sessionWords.length} (总第${absoluteIndex}词)`;
-    els.scoreText.textContent = `得分 ${stats.correct} (${Math.round((stats.correct / Math.max(stats.total, 1)) * 100)}%)`;
+    els.roundText.textContent = `Word ${sessionIndex + 1}/${sessionWords.length} (#${absoluteIndex})`;
+    els.scoreText.textContent = `Score ${stats.correct} (${Math.round((stats.correct / Math.max(stats.total, 1)) * 100)}%)`;
     els.progressFill.style.width = `${(sessionIndex / sessionWords.length) * 100}%`;
 
     // 上一词/下一词边界（支持跨组跳转）
@@ -1348,7 +1407,7 @@ function renderQuestion() {
 
     if (currentMode === 'listen') {
         // 听读音模式：隐藏单词（防止看到拼写），大字显示音标作为联想提示，必须能重听
-        els.wordDisplay.textContent = currentPhonetic || '（暂无音标）';
+        els.wordDisplay.textContent = currentPhonetic || '(no phonetic)';
         els.phoneticText.textContent = '';
         els.btnReplay.classList.remove('hidden');
     } else {
@@ -1394,7 +1453,7 @@ function toggleWordTrans() {
     if (isFinished) return;
     if (!currentTrans) return;
     if (els.wordTransDisplay.classList.contains('hidden')) {
-        els.wordTransDisplay.innerHTML = '<span class="tag">📖 释义</span>' + escapeHtml(currentTrans);
+        els.wordTransDisplay.innerHTML = '<span class="tag">📖 Meaning</span>' + escapeHtml(currentTrans);
         els.wordTransDisplay.classList.remove('hidden');
     } else {
         els.wordTransDisplay.classList.add('hidden');
@@ -1445,7 +1504,7 @@ function showFlashAnswer() {
     const ph = getWordPhonetic(obj);
     els.resultPanel.classList.remove('hidden');
     els.wordTransDisplay.classList.add('hidden'); // 已展示正确答案，先收起释义浮层
-    els.resultWord.innerHTML = '<span class="word-tag">❌ 正确答案</span>' + escapeHtml(getWordKey(obj));
+    els.resultWord.innerHTML = '<span class="word-tag">❌ Correct</span>' + escapeHtml(getWordKey(obj));
     els.resultWord.style.color = 'var(--text-main)';
     els.resultTrans.textContent = (ph ? ph + '　' : '') + getWordTrans(obj);
 
@@ -1537,7 +1596,7 @@ async function removeCurrentWord() {
     if (!key) return;
 
     // 破坏性操作：先确认（提示中也说明词会从 fc.html 的错词本中消失）
-    if (!confirm(`确定将「${key}」从错词本中移除吗？\n\n移除后本页与 fc.html 的闪卡游戏都不会再显示该错词。`)) return;
+    if (!confirm(`Remove "${key}" from the wrong-word list?\n\nIt will disappear from this page and from fc.html.`)) return;
 
     // 1) 删除 IndexedDB 错词记录
     const db = await openFlashcardDB();
@@ -1562,7 +1621,7 @@ async function removeCurrentWord() {
 
     // 4) 错词全删光：回到空状态界面（显示导入入口）
     if (wrongWords.length === 0) {
-        els.statusText.textContent = '📭 错词本是空的，还没有可练习的单词。';
+        els.statusText.textContent = '📭 No wrong words yet.';
         els.statusText.classList.add('success');
         els.statusActions.classList.remove('hidden');
         els.statusPanel.classList.remove('hidden');
@@ -1599,8 +1658,8 @@ function finishSession() {
     startSession(); // 内部会重建选项、重置统计、渲染第 1 题并保存进度
 
     els.promptText.textContent = (nextGroupIdx === 0)
-        ? `✅ 已练完全部 ${totalGroups} 组，自动回到第 1 组继续`
-        : `✅ ${finishedGroupText} 已练完，自动进入下一组`;
+        ? `✅ All ${totalGroups} groups done. Back to group 1`
+        : `✅ ${finishedGroupText} done. Next group`;
     setTimeout(() => { els.promptText.textContent = ''; }, 3200);
 }
 
