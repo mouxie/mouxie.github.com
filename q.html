@@ -139,8 +139,8 @@
         }
 
         .card__meaning {
-            font-size: 18px;
-            font-weight: 600;
+            font-size: 14px;
+            font-weight: 500;
             color: var(--text-main);
             text-align: center;
             line-height: 1.7;
@@ -193,7 +193,7 @@
             height: 44px;
             line-height: 44px;
             text-align: center;
-            font-size: 24px;
+            font-size: 16px;
             font-weight: bold;
             border-radius: 6px;
             background: #eef1f5;
@@ -212,7 +212,7 @@
         .letter--masked .letter__char { visibility: hidden; }
 
         .letter.correct {
-            background: #d9f2e2;
+            background: none;
             color: #1e7e34;
             border-bottom-color: #9fd8b4;
         }
@@ -239,7 +239,7 @@
         .type-input {
             width: 100%;
             padding: 12px 16px;
-            font-size: 22px;
+            font-size: 16px;
             letter-spacing: 2px;
             border: 2px solid #d5dae2;
             border-radius: 10px;
@@ -266,20 +266,15 @@
         .type-status.success { color: var(--success); font-weight: 600; }
         .type-status.error { color: var(--accent); font-weight: 600; }
 
-        /* 功能控制区域 */
-        .action-bar {
-            margin-bottom: 15px;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+        /* 功能控制按钮（位于信息按钮行内） */
+        #info-actions .btn-action {
+            width: auto;
         }
 
         .btn-action {
             width: 100%;
             padding: 10px;
             font-size: 14px;
-            font-weight: bold;
             border-radius: 8px;
             border: none;
             cursor: pointer;
@@ -334,9 +329,9 @@
             background-color: var(--primary);
             color: white;
             border: none;
-            padding: 12px 28px;
+            padding: 4px 8px;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 12px;
             cursor: pointer;
             box-shadow: 0 4px 6px rgba(74, 144, 226, 0.2);
             transition: all 0.2s;
@@ -386,10 +381,11 @@
 
         /* 隐藏一切非核心元素：控制栏 / 操作按钮 / 导航 / 提示 / 例句 / 统计 */
         body.is-minimal #top-bar,
-        body.is-minimal .action-bar,
         body.is-minimal .controls,
         body.is-minimal .hint,
-        body.is-minimal #example-area {
+        body.is-minimal #example-area,
+        body.is-minimal #info-actions,
+        body.is-minimal #word-info-area {
             display: none !important;
         }
 
@@ -397,7 +393,7 @@
         body.is-minimal #ui-container { padding-top: 10px; }
         body.is-minimal .meaning-card {
             box-shadow: none;
-            border: 2px solid #eef1f5;
+            border: 2px solid #222222;
             min-height: 150px;
             margin-bottom: 12px;
         }
@@ -533,6 +529,392 @@
         .modal-footer .btn-nav { padding: 8px 20px; font-size: 14px; }
         .btn-cancel { background-color: #9e9e9e; box-shadow: none; }
         .btn-cancel:hover { background-color: #8a8a8a; }
+
+        /* ==================== 单词深度信息（口语频率 / 词源 / 搭配 / 词根 / 辨析 / 同族词） ==================== */
+        .info-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            width: 100%;
+        }
+        .info-btn {
+            padding: 6px 12px;
+            font-size: 13px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            background: #fff;
+            color: #555;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .info-btn:hover { background: #f0f3f7; }
+        .info-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #fff;
+        }
+        .info-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .info-btn:disabled:hover { background: #fff; }
+
+        .word-info-area { width: 100%; margin-bottom: 12px; }
+        .word-info-area[hidden],
+        .word-info-area [hidden] { display: none !important; }
+        .info-loading {
+            color: var(--text-sub);
+            text-align: center;
+            padding: 10px 0;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+        .info-error {
+            color: #d9534f;
+            text-align: center;
+            padding: 10px 0;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+        .word-info-area .example-cache-tip {
+            display: inline-block;
+            font-size: 11px;
+            color: var(--text-sub);
+            margin-bottom: 6px;
+            border-bottom: 1px dashed #d5dfea;
+            padding-bottom: 4px;
+        }
+
+        .freq-reveal {
+            margin-top: 0;
+            padding: 12px 14px;
+            background: #f4f0ff;
+            border: 1px solid #ddd0f5;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.8;
+            word-break: break-all;
+            text-align: left;
+        }
+        .freq-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .freq-emoji { font-size: 17px; }
+        .freq-badge {
+            display: inline-block;
+            background: var(--primary);
+            color: #fff;
+            border-radius: 4px;
+            padding: 1px 8px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .freq-badge.high { background: var(--success); }
+        .freq-badge.mid { background: #e8a13c; }
+        .freq-badge.low { background: var(--accent); }
+        .freq-desc { font-size: 13px; color: var(--text-sub); }
+        .freq-segs {
+            display: flex;
+            gap: 5px;
+            margin: 10px 0 2px;
+        }
+        .freq-seg {
+            flex: 1;
+            height: 10px;
+            border-radius: 3px;
+            background: #e4e1ec;
+        }
+        .freq-seg.on { background: var(--primary); }
+        .freq-detail { font-size: 13px; color: var(--text-sub); margin-top: 8px; }
+        .freq-detail b { color: var(--text-main); }
+
+        .etym-reveal {
+            margin-top: 0;
+            padding: 12px 14px;
+            background: #fdf8ee;
+            border: 1px solid #eadfc2;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.8;
+            word-break: break-all;
+            text-align: left;
+        }
+        .etym-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .etym-title { font-weight: 700; color: var(--text-main); }
+        .etym-origin { font-size: 12px; color: var(--text-sub); }
+        .etym-story { margin: 8px 0 0; white-space: pre-line; }
+        .etym-story .etym-para { margin: 6px 0; }
+        .etym-story .etym-strong { color: var(--primary); font-weight: 600; }
+
+        .colloc-reveal {
+            margin-top: 0;
+            padding: 12px 14px;
+            background: #eefaf1;
+            border: 1px solid #c9e8d2;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.8;
+            word-break: break-all;
+            text-align: left;
+        }
+        .colloc-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .colloc-title { font-weight: 700; font-size: 15px; }
+        .colloc-list { display: flex; flex-direction: column; gap: 8px; }
+        .colloc-item {
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: #f3faf5;
+            border: 1px solid #d9eedd;
+        }
+        .colloc-phrase { font-weight: 600; color: var(--primary); font-size: 14px; }
+        .colloc-meaning { font-size: 13px; color: var(--text-main); margin-top: 2px; }
+        .colloc-example { font-size: 13px; color: var(--text-sub); margin-top: 4px; line-height: 1.7; }
+        .colloc-example.en { color: #555; }
+        .colloc-example.cn { color: var(--text-sub); }
+
+        .root-reveal {
+            margin-top: 0;
+            padding: 12px 14px;
+            background: #eef7fb;
+            border: 1px solid #c9e4ee;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.8;
+            word-break: break-all;
+            text-align: left;
+        }
+        .root-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .root-title { font-weight: 700; font-size: 15px; }
+        .root-formula {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            background: #e2f1f8;
+            border: 1px solid #bcdceb;
+            border-radius: 6px;
+            padding: 6px 10px;
+            margin-bottom: 8px;
+            display: inline-block;
+            color: #1f6fa8;
+        }
+        .root-parts { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+        .root-part {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 6px 10px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            background: #f2f9fc;
+            border: 1px solid #d6e9f2;
+        }
+        .root-morpheme { font-weight: 700; color: var(--primary); min-width: 90px; }
+        .root-type {
+            font-size: 11px;
+            background: #d4e8f2;
+            color: #1f6fa8;
+            border-radius: 4px;
+            padding: 1px 6px;
+        }
+        .root-meaning { font-size: 13px; color: var(--text-main); flex: 1; min-width: 140px; }
+        .root-summary { font-size: 13px; color: var(--text-main); border-top: 1px dashed #d5e4ec; padding-top: 6px; }
+
+        .syn-reveal {
+            margin-top: 0;
+            padding: 12px 14px;
+            background: #fdf1f6;
+            border: 1px solid #f0d3de;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.8;
+            word-break: break-all;
+            text-align: left;
+        }
+        .syn-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .syn-title { font-weight: 700; font-size: 15px; }
+        .syn-table {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ecd2dc;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .syn-row {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 10px;
+            padding: 7px 10px;
+            background: #fdf7fa;
+            border-bottom: 1px solid #f2e2e8;
+        }
+        .syn-row:last-child { border-bottom: none; }
+        .syn-row.main { background: #fbeef4; }
+        .syn-word { font-weight: 700; color: var(--primary); }
+        .syn-word.main-word { color: var(--accent); }
+        .syn-meaning { font-size: 13px; color: var(--text-main); }
+        .syn-diff { font-size: 12px; color: var(--text-sub); grid-column: 1 / -1; }
+        .syn-contrast {
+            font-size: 13px;
+            color: var(--text-main);
+            background: #fdf1f6;
+            border: 1px solid #f0d3de;
+            border-radius: 6px;
+            padding: 8px 10px;
+        }
+        .syn-contrast b { color: var(--accent); }
+
+        .family-reveal {
+            margin-top: 0;
+            padding: 12px 14px;
+            background: #f4f7ee;
+            border: 1px solid #dce5c9;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.8;
+            word-break: break-all;
+            text-align: left;
+        }
+        .family-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .family-title { font-weight: 700; font-size: 15px; }
+        .family-core {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            background: #eaf0dd;
+            border: 1px solid #d0dbb8;
+            border-radius: 6px;
+            padding: 6px 10px;
+            margin-bottom: 8px;
+            display: inline-block;
+            color: #5c7a2e;
+            font-weight: 600;
+        }
+        .family-groups { display: flex; flex-direction: column; gap: 8px; }
+        .family-group { border-radius: 8px; overflow: hidden; border: 1px solid #dce5c9; }
+        .family-group-head {
+            background: #eaf0dd;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #5c7a2e;
+        }
+        .family-items { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px; background: #fafcf4; }
+        .family-item {
+            padding: 3px 10px;
+            border-radius: 12px;
+            background: #eef3e3;
+            border: 1px solid #d8e2c4;
+            font-size: 13px;
+            color: var(--text-main);
+        }
+        .family-item strong { color: var(--primary); }
+        .family-note { font-size: 12px; color: var(--text-sub); padding: 0 10px 8px; background: #fafcf4; }
+
+        /* -------- 单词深度信息：夜间模式 -------- */
+        html[data-theme="dark"] .info-btn { background: #232B38; border-color: #3A4354; color: var(--text-label); }
+        html[data-theme="dark"] .info-btn:hover { background: #2C3544; color: var(--text-main); }
+        html[data-theme="dark"] .info-btn.active { background: var(--primary); border-color: var(--primary); color: #12161F; }
+        html[data-theme="dark"] .info-btn:disabled { opacity: 0.5; }
+        html[data-theme="dark"] .info-btn:disabled:hover { background: #232B38; }
+        html[data-theme="dark"] .freq-reveal { background: #251f33; border-color: #3b2f52; }
+        html[data-theme="dark"] .freq-seg { background: #3a3348; }
+        html[data-theme="dark"] .freq-detail { color: #a6aeb9; }
+        html[data-theme="dark"] .etym-reveal { background: #2b2418; border-color: #4a3f24; }
+        html[data-theme="dark"] .etym-origin { color: #a6aeb9; }
+        html[data-theme="dark"] .colloc-reveal { background: #1a2b20; border-color: #2e4a37; }
+        html[data-theme="dark"] .colloc-item { background: #1f3326; border-color: #33523d; }
+        html[data-theme="dark"] .colloc-example.en { color: #c3c9d2; }
+        html[data-theme="dark"] .root-reveal { background: #16262e; border-color: #29424f; }
+        html[data-theme="dark"] .root-formula { background: #1d3440; border-color: #2f4a58; color: #7fc1e5; }
+        html[data-theme="dark"] .root-part { background: #1b2f3a; border-color: #2c4654; }
+        html[data-theme="dark"] .root-type { background: #27404c; color: #7fc1e5; }
+        html[data-theme="dark"] .root-summary { border-top-color: #2c4654; }
+        html[data-theme="dark"] .syn-reveal { background: #2b1c24; border-color: #452e3a; }
+        html[data-theme="dark"] .syn-table { border-color: #452e3a; }
+        html[data-theme="dark"] .syn-row { background: #2a2026; border-bottom-color: #3a2b33; }
+        html[data-theme="dark"] .syn-row.main { background: #33222b; }
+        html[data-theme="dark"] .syn-contrast { background: #2b1c24; border-color: #452e3a; }
+        html[data-theme="dark"] .family-reveal { background: #1d2416; border-color: #37432a; }
+        html[data-theme="dark"] .family-core { background: #26301c; border-color: #3a4a2a; color: #a8cc6a; }
+        html[data-theme="dark"] .family-group { border-color: #37432a; }
+        html[data-theme="dark"] .family-group-head { background: #26301c; color: #a8cc6a; }
+        html[data-theme="dark"] .family-items { background: #222b19; }
+        html[data-theme="dark"] .family-item { background: #2c3820; border-color: #43522e; }
+        html[data-theme="dark"] .word-info-area .example-cache-tip { border-bottom-color: #354154; }
+
+        /* -------- 单词深度信息：灰色模式（grayscale 已由 #ui-container > * 统一去色） -------- */
+        html[data-theme="grey"] .info-btn { background: #404040; border-color: #5A5A5A; color: var(--text-label); }
+        html[data-theme="grey"] .info-btn:hover { background: #4A4A4A; color: var(--text-main); }
+        html[data-theme="grey"] .info-btn.active { background: var(--primary); color: var(--bg); }
+        html[data-theme="grey"] .info-btn:disabled { opacity: 0.5; }
+        html[data-theme="grey"] .info-btn:disabled:hover { background: #404040; }
+        html[data-theme="grey"] .freq-reveal,
+        html[data-theme="grey"] .etym-reveal,
+        html[data-theme="grey"] .colloc-reveal,
+        html[data-theme="grey"] .root-reveal,
+        html[data-theme="grey"] .syn-reveal,
+        html[data-theme="grey"] .family-reveal { background: #1d1c1c; border-color: #555; }
+        html[data-theme="grey"] .freq-seg { background: #555; }
+        html[data-theme="grey"] .freq-badge { color: var(--bg); }
+        html[data-theme="grey"] .freq-badge.high,
+        html[data-theme="grey"] .freq-badge.mid,
+        html[data-theme="grey"] .freq-badge.low { background: #bdbdbd; }
+        html[data-theme="grey"] .colloc-item,
+        html[data-theme="grey"] .root-part,
+        html[data-theme="grey"] .family-item,
+        html[data-theme="grey"] .syn-row { background: #333; border-color: #4d4d4d; }
+        html[data-theme="grey"] .syn-row.main { background: #505050; }
+        html[data-theme="grey"] .root-formula,
+        html[data-theme="grey"] .root-type,
+        html[data-theme="grey"] .family-core,
+        html[data-theme="grey"] .family-group-head { background: #4f4f4f; border-color: #5e5e5e; color: var(--text-main); }
+        html[data-theme="grey"] .root-summary { border-top-color: #5e5e5e; }
+        html[data-theme="grey"] .syn-table,
+        html[data-theme="grey"] .family-group { border-color: #4d4d4d; }
+        html[data-theme="grey"] .syn-contrast,
+        html[data-theme="grey"] .family-note,
+        html[data-theme="grey"] .family-items { background: #3a3a3a; border-color: #4d4d4d; }
+        html[data-theme="grey"] .colloc-example.en { color: #c8c8c8; }
+        html[data-theme="grey"] .info-error { color: #E0E0E0; }
 
         /* 例句按钮 */
         .btn-example {
@@ -764,13 +1146,114 @@
         html[data-theme="dark"] .btn-mini { background: #232B38; border-color: #3A4354; color: var(--text-main); }
         html[data-theme="dark"] .btn-mini--primary { background: var(--primary); color: #12161F; }
         html[data-theme="dark"] .btn-mini--danger { background: #3A2226; border-color: #553036; color: var(--accent); }
+
+        /* ==================== 灰色模式（data-theme="grey"）：黑底、灰面板、浅灰字，仅黑白灰 ==================== */
+        html[data-theme="grey"] {
+            color-scheme: dark; /* 原生控件/滚动条同步深色 */
+            --primary: #D4D4D4;
+            --accent: #F0F0F0;
+            --success: #C8C8C8;
+            --bg: #1D1C1C;
+            --card-bg: #121212;
+            --text-main: #B0B0B0;
+            --text-sub: #B0B0B0;
+            --text-label: #A5A5A5;
+        }
+
+        html[data-theme="grey"] body { color: var(--text-main); }
+
+        html[data-theme="grey"] .top-bar,
+        html[data-theme="grey"] .meaning-card,
+        html[data-theme="grey"] .example-area { box-shadow: 0 6px 18px rgba(0,0,0,0.45); }
+
+        html[data-theme="grey"] select {
+            background-color: #404040;
+            border-color: #5A5A5A;
+            color: var(--text-main);
+        }
+
+        html[data-theme="grey"] .letter { background: none; color: #888888; border-bottom-color: #5A5A5A; }
+        html[data-theme="grey"] .letter.current { background: #333; color: var(--primary); border-bottom-color: var(--primary); }
+        html[data-theme="grey"] .letter.correct { background: none; color: #777; border-bottom-color: #6A6A6A; }
+        html[data-theme="grey"] .letter.wrong { background: #262626; color: #999999; border-bottom-color: #3A3A3A; }
+        html[data-theme="grey"] .letter--space { background: transparent; color: #666666; }
+
+        html[data-theme="grey"] .type-input { border-top: none; border-left: none; border-right: none; background: none; border-color: #5A5A5A; color: #999; }
+        html[data-theme="grey"] .type-input:focus { border-color: #444; }
+        html[data-theme="grey"] .type-input:disabled { background: #333333; color: #777777; }
+        html[data-theme="grey"] .type-input[readonly] { background: #3A3A3A; }
+
+        html[data-theme="grey"] .btn-audio { background-color: #404040; border-color: #5A5A5A; color: var(--text-main); }
+        html[data-theme="grey"] .btn-audio:hover { background-color: #4A4A4A; }
+        html[data-theme="grey"] .btn-add-wrong { background-color: #3A3A3A; border-color: #4D4D4D; color: #C0C0C0; }
+        html[data-theme="grey"] .btn-add-wrong:hover { background-color: #434343; }
+        html[data-theme="grey"] .btn-remove-wrong { background-color: #333333; border-color: #4D4D4D; color: #B8B8B8; }
+        html[data-theme="grey"] .btn-remove-wrong:hover { background-color: #3D3D3D; }
+        html[data-theme="grey"] .btn-settings { background-color: #404040; border-color: #5A5A5A; color: var(--text-label); }
+        html[data-theme="grey"] .btn-settings:hover { background-color: #4A4A4A; color: var(--text-main); }
+        html[data-theme="grey"] .btn-example { background: #4F4F4F; color: #E0E0E0; }
+        html[data-theme="grey"] .btn-example:hover { background: #5A5A5A; }
+        html[data-theme="grey"] .btn-example:disabled,
+        html[data-theme="grey"] .btn-nav:disabled { background: #3A3A3A; color: #777777; }
+        /* 主按钮底色是浅灰(--primary)，文字必须用深色(#1d1c1c)否则看不清 */
+        html[data-theme="grey"] .btn-nav { background: #333333; color: #666666; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        html[data-theme="grey"] .btn-cancel { background-color: #5A5A5A; color: #1D1C1C; }
+        html[data-theme="grey"] .btn-cancel:hover { background-color: #4B4B4B; }
+
+        html[data-theme="grey"] .modal-panel { box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
+        html[data-theme="grey"] .modal-header,
+        html[data-theme="grey"] .modal-footer { background: #404040; border-color: #555555; }
+        html[data-theme="grey"] .modal-close { color: var(--text-sub); }
+        html[data-theme="grey"] .modal-close:hover { background: #4D4D4D; color: var(--text-main); }
+        html[data-theme="grey"] .form-field input,
+        html[data-theme="grey"] .form-field select { background: #404040; border-color: #5A5A5A; color: var(--text-main); }
+        html[data-theme="grey"] .form-field label { color: var(--text-label); }
+
+        html[data-theme="grey"] .example-close { color: var(--text-sub); }
+        html[data-theme="grey"] .example-close:hover { color: var(--text-main); }
+        html[data-theme="grey"] .example-item { background: #1D1C1C; }
+        html[data-theme="grey"] .example-note { background: #2A2A2A; color: var(--text-sub); }
+        html[data-theme="grey"] .example-error { color: #F0F0F0; }
+        html[data-theme="grey"] .example-refresh:hover { color: #E0E0E0; }
+
+        html[data-theme="grey"] .meaning-card.is-success {
+            box-shadow: 0 0 0 4px rgba(200,200,200,0.2), 0 6px 18px rgba(0,0,0,0.45);
+        }
+
+        html[data-theme="grey"] .review-stats-row { background: #1D1C1C; border-color: #4D4D4D; }
+        html[data-theme="grey"] .stage-bar { background: #333333; }
+        html[data-theme="grey"] .stage-legend { color: var(--text-sub); }
+        html[data-theme="grey"] .review-info-detail { background: #1D1C1C; border-color: #4D4D4D; }
+
+        html[data-theme="grey"] .dict-item { border-color: #4D4D4D; }
+        html[data-theme="grey"] .dict-item.is-active { background: #3A3A3A; }
+        html[data-theme="grey"] .btn-mini { background: #404040; border-color: #5A5A5A; color: var(--text-main); }
+        html[data-theme="grey"] .btn-mini--primary { background: var(--primary); color: var(--bg); }
+        html[data-theme="grey"] .btn-mini--danger { background: #3A3A3A; border-color: #4D4D4D; color: #C0C0C0; }
+
+        /* 极简模式的悬浮提示/进度条：默认带蓝/绿/红底，灰色模式下改为灰底保持黑白灰 */
+        html[data-theme="grey"] #minimal-progress { background: #333333; }
+        html[data-theme="grey"] #wrong-toast.is-ok { background: rgba(90,90,90,0.92); }
+        html[data-theme="grey"] #wrong-toast.is-bad { background: rgba(70,70,70,0.92); }
+        html[data-theme="grey"] #group-toast { background: rgba(80,80,80,0.92); }
+        html[data-theme="grey"] #group-toast.is-done { background: rgba(90,90,90,0.92); }
+
+        /* emoji 不受颜色变量影响，用 grayscale 变灰；不挂在 body 上以免破坏 fixed 定位，
+           也不挂在 #ui-container 上（内含 #minimal-progress 等 fixed 元素会被 filter 改变定位基准）
+           —— 常规模式仅对容器内非 fixed 元素去色；极简模式对悬浮元素单独去色 */
+        html[data-theme="grey"] body:not(.is-minimal) #ui-container > * { filter: grayscale(100%); }
+        html[data-theme="grey"] body.is-minimal #ui-container > :not(#minimal-progress):not(#wrong-toast):not(#group-toast) { filter: grayscale(100%); }
+        html[data-theme="grey"] body.is-minimal #minimal-progress,
+        html[data-theme="grey"] body.is-minimal #wrong-toast,
+        html[data-theme="grey"] body.is-minimal #group-toast,
+        html[data-theme="grey"] .modal-overlay { filter: grayscale(100%); }
     </style>
     <script>
-        // 尽早应用主题，避免夜间模式下页面加载时白屏闪烁；首次访问跟随系统偏好
+        // 尽早应用主题，避免夜间/灰色模式下页面加载时白屏闪烁；首次访问跟随系统偏好
         (function () {
             var saved = null;
             try { saved = localStorage.getItem('typing_theme_v1'); } catch (e) {}
-            if (saved !== 'dark' && saved !== 'light') {
+            if (saved !== 'dark' && saved !== 'grey' && saved !== 'light') {
                 saved = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
             }
             document.documentElement.setAttribute('data-theme', saved);
@@ -820,9 +1303,9 @@
                 </label>
                 <label class="switch-label">
                     <input type="checkbox" id="auto-speak-switch">
-                    🔊 切换单词时自动发音
+                    🔊 自动发音
                 </label>
-                <button id="btn-theme" class="btn-settings" title="切换日间/夜间模式">🌙 夜间模式</button>
+                <button id="btn-theme" class="btn-settings" title="切换日间/灰色/夜间模式">🌙 夜间模式</button>
                 <button id="btn-settings" class="btn-settings">⚙️ 设置</button>
                 <button id="btn-minimal" class="btn-settings" title="极简模式：仅保留释义卡片与输入框 (M)">🎯 极简模式</button>
             </div>
@@ -834,37 +1317,24 @@
         </div>
 
         <div id="init-status-text">⏳ 正在初始化本地数据库...</div>
-        
-        <!-- 释义卡片：默认只显示音标，点击卡片才显示中文释义 -->
-        <div class="meaning-card" id="meaning-card" style="display: none;" title="点击显示/隐藏释义">
-            <div class="card__tap-hint" id="word-cn-hint">点击显示释义</div>
-            <div class="card__meaning is-hidden" id="word-cn">加载中...</div>
-            <div class="card__phonetic" id="word-phonetic"></div>
-        </div>
 
-        <!-- 打字区域 -->
-        <div class="typing-area" id="typing-area" style="display: none;">
-            <div class="letters" id="letters"></div>
-            <input type="text" id="type-input" class="type-input" placeholder="根据释义输入英文单词..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" disabled>
-            <div class="type-status" id="type-status"></div>
-        </div>
-
-        <div class="action-bar" id="action-bar" style="display: none;">
+        <!-- 单词操作与深度信息按钮行（DeepSeek 生成，与 typing.html 复用同一套 IndexedDB 缓存） -->
+        <div class="info-actions" id="info-actions" style="display: none;">
             <button id="btn-speak" class="btn-action btn-audio" disabled>
                 <svg viewBox="0 0 24 24">
                     <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
                 </svg>
-                听音发音 (快捷键: V)
+                听音
             </button>
-            
-            <button id="btn-toggle-wrong" class="btn-action btn-add-wrong" title="加入/移出错词本 (Alt+.)" disabled>✨ 加强 (标记为错词)</button>
-            <button id="btn-example" class="btn-action btn-example" disabled>📖 例句 (DeepSeek)</button>
-            <button id="btn-review-info" class="btn-action btn-audio" title="查看当前词复习进度/重置 (Alt+R)" disabled>🧠 复习进度 (Alt+R)</button>
-        </div>
-
-        <div class="controls" id="controls" style="display: none;">
-            <button id="btn-prev" class="btn-nav" disabled>上一词</button>
-            <button id="btn-next" class="btn-nav">下一词</button>
+            <button id="btn-toggle-wrong" class="info-btn btn-add-wrong" title="加入/移出错词本 (Alt+.)" disabled>✨ 加强</button>
+            <button id="btn-example" class="info-btn btn-example" disabled>📖 例句</button>
+            <button id="btn-review-info" class="info-btn btn-audio" title="查看当前词复习进度/重置 (Alt+R)" disabled>🧠 复习</button>
+            <button id="btn-info-freq" class="info-btn" title="查看口语使用频率 (DeepSeek)" disabled>📊 频率</button>
+            <button id="btn-info-etym" class="info-btn" title="查看词源故事 (DeepSeek)" disabled>📜 词源</button>
+            <button id="btn-info-colloc" class="info-btn" title="查看固定搭配 (DeepSeek)" disabled>🔗 搭配</button>
+            <button id="btn-info-root" class="info-btn" title="查看词根拆解 (DeepSeek)" disabled>🧩 词根</button>
+            <button id="btn-info-syn" class="info-btn" title="近义词辨析 (DeepSeek)" disabled>🔀 辨析</button>
+            <button id="btn-info-family" class="info-btn" title="查看同族词 (DeepSeek)" disabled>🏠 同族</button>
         </div>
 
         <div id="example-area" class="example-area" style="display: none;">
@@ -877,8 +1347,37 @@
             </div>
             <div id="example-content" class="example-area__content"></div>
         </div>
+
+        <!-- 单词深度信息展示区（频率/词源/搭配/词根/辨析/同族词，一次只显示一个） -->
+        <div class="word-info-area" id="word-info-area" hidden>
+            <div class="freq-reveal" id="reveal-freq" hidden></div>
+            <div class="etym-reveal" id="reveal-etym" hidden></div>
+            <div class="colloc-reveal" id="reveal-colloc" hidden></div>
+            <div class="root-reveal" id="reveal-root" hidden></div>
+            <div class="syn-reveal" id="reveal-syn" hidden></div>
+            <div class="family-reveal" id="reveal-family" hidden></div>
+        </div>
         
-        <div class="hint" id="hint-text" style="display: none;">💡 提示：根据释义打出英文，字母逐一变色 | 回车跳下一词 | ←→ 切词(输入为空时) · ↑↓ 随时切词 | Tab 显示字母与释义 · 点击字母区显示字母 | V / Alt+V 发音 | Alt+/ 例句 | Alt+. 加强/移出错词本 | 空格聚焦输入框</div>
+        <!-- 释义卡片：默认只显示音标，点击卡片才显示中文释义 -->
+        <div class="meaning-card" id="meaning-card" style="display: none;" title="点击显示/隐藏释义">
+            <div class="card__tap-hint" id="word-cn-hint">点击显示释义</div>
+            <div class="card__meaning is-hidden" id="word-cn">加载中...</div>
+            <div class="card__phonetic" id="word-phonetic"></div>
+        </div>
+
+        <!-- 打字区域 -->
+        <div class="typing-area" id="typing-area" style="display: none;">
+            <div class="letters" id="letters"></div>
+            <input type="text" id="type-input" class="type-input" placeholder="..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" disabled>
+            <div class="type-status" id="type-status"></div>
+        </div>
+
+        <div class="controls" id="controls" style="display: none;">
+            <button id="btn-prev" class="btn-nav" disabled>上一词</button>
+            <button id="btn-next" class="btn-nav">下一词</button>
+        </div>
+
+        <div class="hint" id="hint-text" style="display: none;">💡回车跳下一词 | ←→ 切词(输入为空时) · ↑↓ 切词 | Tab 显示字母与释义 · 点击字母区显示字母 | V / Alt+V 发音 | Alt+/ 例句 | Alt+. 加强/移出错词本 | 空格聚焦输入框</div>
 
         <div class="hint" id="db-stats-bar" style="display: none;">
             <span id="db-stats-text" title="点击刷新统计" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub);">🗄️ IndexedDB: 词库 0 | 错词本 0 | 语音缓存 0 | 例句缓存 0 | 总占用 0 B</span>
@@ -1047,7 +1546,7 @@
         const DB_CORE_URL = new URL('db-core.js', document.baseURI).href;
         const workerScript = `
             importScripts('${DB_CORE_URL}');
-            const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_DICTS } = self.FlashcardDB;
+            const { DB_NAME, DB_VERSION, STORE_ALL, STORE_WRONG, STORE_AUDIO, STORE_EXAMPLE, STORE_FREQ, STORE_ETYM, STORE_COLLOC, STORE_ROOT, STORE_SYN, STORE_FAMILY, STORE_DICTS } = self.FlashcardDB;
             let db = null;
 
             // 多词库状态：dicts = [{id, name, count, ts, isDefault}]，activeDictId = 当前选中词库
@@ -1381,6 +1880,29 @@
                     if (!db || !db.objectStoreNames.contains(STORE_EXAMPLE)) { resolve(); return; }
                     const tx = db.transaction([STORE_EXAMPLE], 'readwrite');
                     tx.objectStore(STORE_EXAMPLE).put({ word: word, data: data, ts: Date.now() });
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                    tx.onabort = () => resolve();
+                });
+            }
+
+            // ---------- 单词深度信息缓存（freq/etym/colloc/root/syn/family，与 typing.html 共表，key = 单词原文） ----------
+            // 读取某深度信息缓存：storeName 为表名常量，返回 { word, data, ts } 或 null
+            function getCachedInfo(storeName, word) {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(storeName) || !word) { resolve(null); return; }
+                    const req = db.transaction([storeName], 'readonly').objectStore(storeName).get(word);
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => resolve(null);
+                });
+            }
+
+            // 写入某深度信息缓存：data 为 DeepSeek 返回的原始 JSON 对象
+            function saveCachedInfo(storeName, word, data) {
+                return new Promise((resolve) => {
+                    if (!db || !db.objectStoreNames.contains(storeName) || !word) { resolve(); return; }
+                    const tx = db.transaction([storeName], 'readwrite');
+                    tx.objectStore(storeName).put({ word: word, data: data, ts: Date.now() });
                     tx.oncomplete = () => resolve();
                     tx.onerror = () => resolve();
                     tx.onabort = () => resolve();
@@ -1891,6 +2413,16 @@
                     self.postMessage({ type: 'audioCacheInfo', count: await getAudioCacheCount() });
                 }
 
+                // 单词深度信息缓存：getInfoCache 读取（回包 infoCacheData），saveInfoCache 写入（主线程请求后写回）
+                else if (msg.type === 'getInfoCache') {
+                    self.postMessage({ type: 'infoCacheData', seq: msg.seq, data: await getCachedInfo(msg.store, msg.word) });
+                }
+
+                else if (msg.type === 'saveInfoCache') {
+                    await saveCachedInfo(msg.store, msg.word, msg.data);
+                    self.postMessage({ type: 'infoCacheSaved', store: msg.store, word: msg.word });
+                }
+
                 // 统计各表记录数与估算大小（用于页脚显示）
                 async function getDbStats() {
                     const stats = {};
@@ -1961,7 +2493,6 @@
         const lettersBox = document.getElementById('letters');
         const typeInput = document.getElementById('type-input');
         const typeStatus = document.getElementById('type-status');
-        const actionBar = document.getElementById('action-bar');
         const controls = document.getElementById('controls');
         const hintText = document.getElementById('hint-text');
         
@@ -2001,6 +2532,39 @@
         const pendingMasteredRequests = new Map();     // seq -> resolve 回调
         let currentMasteredState = false;    // 当前词是否已掌握
 
+        // -------- 单词深度信息（频率/词源/搭配/词根/辨析/同族词）状态 --------
+        const infoActions = document.getElementById('info-actions');
+        const wordInfoArea = document.getElementById('word-info-area');
+        const infoReveals = {
+            freq: document.getElementById('reveal-freq'),
+            etym: document.getElementById('reveal-etym'),
+            colloc: document.getElementById('reveal-colloc'),
+            root: document.getElementById('reveal-root'),
+            syn: document.getElementById('reveal-syn'),
+            family: document.getElementById('reveal-family')
+        };
+        const infoButtons = {
+            freq: document.getElementById('btn-info-freq'),
+            etym: document.getElementById('btn-info-etym'),
+            colloc: document.getElementById('btn-info-colloc'),
+            root: document.getElementById('btn-info-root'),
+            syn: document.getElementById('btn-info-syn'),
+            family: document.getElementById('btn-info-family')
+        };
+        const INFO_CACHE_STORES = {
+            freq: 'freq_cache',
+            etym: 'etym_cache',
+            colloc: 'colloc_cache',
+            root: 'root_cache',
+            syn: 'syn_cache',
+            family: 'family_cache'
+        };
+        let activeInfoKey = null;       // 当前展开的深度信息类型（'freq' 等；null 表示全部收起）
+        let infoLoadingKey = null;      // 正在请求中的类型（防止重复点击）
+        let infoRequestWord = '';       // 当前深度信息对应单词（切词后弃用旧响应）
+        let infoCacheSeq = 0;           // 深度信息缓存请求序号
+        const pendingInfoCacheRequests = new Map(); // seq -> resolve 回调
+
         // 多词库前端状态
         let dictList = [];            // [{id, name, count, ts, isDefault}]
         let activeDictId = null;      // 当前选中词库 ID
@@ -2018,9 +2582,9 @@
                 topBar.style.display = 'flex';
                 meaningCard.style.display = 'flex';
                 typingArea.style.display = 'block';
-                actionBar.style.display = 'block';
                 controls.style.display = 'flex';
                 hintText.style.display = 'block';
+                infoActions.style.display = 'flex';
 
                 // 多词库状态初始化
                 dictList = msg.dicts || [];
@@ -2072,6 +2636,17 @@
             }
             else if (msg.type === 'cardData') {
                 renderCard(msg.data, msg.index, msg.absoluteIndex, msg.isWrong);
+            }
+            else if (msg.type === 'infoCacheData') {
+                const resolver = pendingInfoCacheRequests.get(msg.seq);
+                if (resolver) {
+                    pendingInfoCacheRequests.delete(msg.seq);
+                    resolver(msg.data);  // { word, data, ts } 或 null
+                }
+            }
+            else if (msg.type === 'infoCacheSaved') {
+                // 深度信息写入缓存后刷新页脚统计
+                worker.postMessage({ type: 'getDbStats' });
             }
             else if (msg.type === 'wrongUpdated') {
                 updateWrongCountUI(msg.totalWrong);
@@ -2345,6 +2920,10 @@
                 btnExample.disabled = false;
                 btnReviewInfo.disabled = false;
 
+                // 深度信息：切词后收起旧词的展示并重置按钮状态，等用户重新点击
+                Object.keys(infoButtons).forEach((k) => { infoButtons[k].disabled = false; });
+                closeWordInfo();
+
                 // 重置打字状态：重建字母格子、清空输入与反馈
                 buildLetters(currentWordString);
                 resetTyping();
@@ -2480,7 +3059,7 @@
                 } else {
                     goNextWord();
                 }
-            }, 650);
+            }, 0);
         }
 
         // 输入过程中任一字符打错：立即错误反馈
@@ -2571,6 +3150,8 @@
             btnSpeak.disabled = true;
             btnExample.disabled = true;
             btnReviewInfo.disabled = true;
+            Object.keys(infoButtons).forEach((k) => { infoButtons[k].disabled = true; });
+            closeWordInfo(); // 空状态：收起并停用全部深度信息控件
         }
 
         function updateWrongCountUI(count, isReviewStat) {
@@ -2588,10 +3169,10 @@
             currentCardIsWrong = isWrong;
             if (isWrong) {
                 btnToggleWrong.className = "btn-action btn-remove-wrong";
-                btnToggleWrong.innerText = "✅ 已掌握 (从错词本移出)";
+                btnToggleWrong.innerText = "✅ 已掌握";
             } else {
                 btnToggleWrong.className = "btn-action btn-add-wrong";
-                btnToggleWrong.innerText = "✨ 加强 (加入错词本)";
+                btnToggleWrong.innerText = "✨ 加强";
             }
         }
 
@@ -3112,22 +3693,24 @@
 
         function closeSettingsPanel() { settingsModal.style.display = 'none'; }
 
-        // ---------- 夜间模式切换（主题已在 <head> 中提前应用，这里只负责按钮交互与持久化） ----------
+        // ---------- 主题切换（日间/灰色/夜间三态循环，主题已在 <head> 中提前应用，这里只负责按钮交互与持久化） ----------
         const THEME_KEY = 'typing_theme_v1';
         const btnTheme = document.getElementById('btn-theme');
 
         function applyTheme(theme) {
             document.documentElement.setAttribute('data-theme', theme);
-            btnTheme.innerText = theme === 'dark' ? '☀️ 日间模式' : '🌙 夜间模式';
+            // 按钮文字指向下一个主题（方便循环：白天 → 灰色 → 夜间 → 白天）
+            btnTheme.innerText = theme === 'dark' ? '☀️ 日间模式' : (theme === 'grey' ? '🌙 夜间模式' : '⚪ 灰色模式');
             try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* 隐私模式写入失败可忽略 */ }
         }
 
         btnTheme.addEventListener('click', () => {
-            applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+            const cur = document.documentElement.getAttribute('data-theme');
+            applyTheme(cur === 'dark' ? 'light' : (cur === 'light' ? 'grey' : 'dark'));
         });
 
         // 同步按钮初始文字（与 <head> 中已应用的主题保持一致）
-        applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+        applyTheme(document.documentElement.getAttribute('data-theme') || 'light');
 
         // ---------- 极简模式（隐藏顶栏/按钮/提示等一切干扰，只保留卡片与输入框；右上角 ✕ 或 M 键退出） ----------
         const MINIMAL_KEY = 'typing_minimal_v1';
@@ -3380,6 +3963,463 @@
         });
 
         btnCloseExample.addEventListener('click', () => { exampleArea.style.display = 'none'; });
+
+        // ------------------------------------------------------------------
+        // 单词深度信息：口语频率 / 词源故事 / 固定搭配 / 词根拆解 / 近义词辨析 / 同族词
+        // 数据源：DeepSeek API（与例句共用 localStorage 设置），IndexedDB 缓存（与 typing.html 共表，可互相复用）
+        // ------------------------------------------------------------------
+
+        // 查询某深度信息的 IndexedDB 缓存（store: 表名常量字符串；word: 单词原文）
+        function requestInfoCache(store, word) {
+            return new Promise((resolve) => {
+                const seq = ++infoCacheSeq;
+                pendingInfoCacheRequests.set(seq, resolve);
+                worker.postMessage({ type: 'getInfoCache', store, word, seq });
+            });
+        }
+
+        // 通用工具：数值钳制到 [min, max]
+        function clampIntLocal(n, min, max) {
+            n = parseInt(n, 10);
+            if (isNaN(n)) return 0;
+            return Math.max(min, Math.min(max, n));
+        }
+
+        // 收起全部深度信息（切词/空状态时调用；切换类型前也调用）
+        function closeWordInfo(clearButtons) {
+            activeInfoKey = null;
+            infoLoadingKey = null;
+            infoRequestWord = '';
+            wordInfoArea.hidden = true;
+            Object.keys(infoReveals).forEach((k) => { infoReveals[k].hidden = true; });
+            if (clearButtons !== false) {
+                Object.keys(infoButtons).forEach((k) => { infoButtons[k].classList.remove('active'); });
+            }
+        }
+
+        // 展示区写入内容并切换可见状态（kind: loading/error/ok；loading 时按钮保持高亮）
+        function setInfoContent(key, kind, content) {
+            const el = infoReveals[key];
+            if (!el) return;
+            el.hidden = (content == null);
+            if (content != null) {
+                el.innerHTML = content;
+                wordInfoArea.hidden = false;
+            }
+            if (kind === 'error') {
+                infoButtons[key].classList.remove('active');
+            }
+        }
+
+        // 发起 DeepSeek 请求（与 typing.html 相同的请求格式：JSON 输出 + 缓存写回）
+        // config: { cacheStore, systemPrompt, userPrompt }
+        async function fetchWordInfoFromModel(key, config) {
+            if (!currentWordString) return { error: '（当前单词无效）' };
+            const settings = loadDSSettings();
+            if (!settings.apiKey) {
+                return { error: '⚠️ 未配置 DeepSeek API Key，请先在 ⚙️ 设置 中配置后再使用。' };
+            }
+            // 1) 优先读缓存（与 typing.html / fc.html 共用同一套 IndexedDB 缓存）
+            const cached = await requestInfoCache(config.cacheStore, currentWordString);
+            if (cached && cached.data) {
+                return { data: cached.data, fromCache: true };
+            }
+            // 2) 未命中：调用 DeepSeek API
+            try {
+                const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + settings.apiKey
+                    },
+                    body: JSON.stringify({
+                        model: settings.model,
+                        messages: [
+                            { role: 'system', content: config.systemPrompt },
+                            { role: 'user', content: config.userPrompt }
+                        ],
+                        reasoning_effort: settings.reasoningEffort,
+                        stream: false,
+                        response_format: { type: 'json_object' }
+                    })
+                });
+                if (!response.ok) {
+                    let errMsg = 'HTTP ' + response.status;
+                    try {
+                        const err = await response.json();
+                        if (err.error && err.error.message) errMsg = err.error.message;
+                    } catch (e) { /* 非 JSON 错误体 */ }
+                    return { error: '❌ 请求失败: ' + errMsg };
+                }
+                const data = await response.json();
+                const content = data.choices && data.choices[0] && data.choices[0].message
+                    ? (data.choices[0].message.content || '')
+                    : '';
+                const parsed = extractJSON(content);
+                if (!parsed) return { error: '❌ 模型未返回有效的 JSON 内容' };
+                // 3) 写入 IndexedDB 缓存（下次 typing.html / q.html 直接读取）
+                worker.postMessage({ type: 'saveInfoCache', store: config.cacheStore, word: currentWordString, data: parsed });
+                return { data: parsed, fromCache: false };
+            } catch (err) {
+                let msg = err && err.message ? err.message : String(err);
+                if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
+                    msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+                }
+                return { error: '❌ 请求失败: ' + msg };
+            }
+        }
+
+        // ---------- 频率 ----------
+        function normalizeFreqLocal(parsed) {
+            if (!parsed || typeof parsed !== 'object') return null;
+            const level = clampIntLocal(parsed.level ?? parsed.frequencyLevel ?? parsed.口语等级 ?? 0, 1, 5);
+            const spokenPercent = clampIntLocal(parsed.spokenPercent ?? parsed.spoken_frequency ?? parsed.口语使用频率 ?? 0, 0, 100);
+            if (!level && !spokenPercent && !parsed.summary) return null;
+            return {
+                level: level,
+                spokenPercent: spokenPercent,
+                summary: parsed.summary || parsed.口语总结 || '',
+                example: parsed.example || parsed.口语例句 || '',
+                detail: parsed.detail || parsed.说明 || '',
+                emoji: level >= 5 ? '🔥' : level >= 4 ? '💬' : level >= 3 ? '🗣' : level >= 2 ? '🤏' : '📚',
+                badge: level >= 5 ? '日常核心' : level >= 4 ? '高频常用' : level >= 3 ? '中等常用' : level >= 2 ? '低频' : '极低频',
+                desc: level >= 5 ? '口语必用词' : level >= 4 ? '口语高频词' : level >= 3 ? '日常偶尔出现' : level >= 2 ? '口语很少出现' : '几乎不说',
+                segs: Math.max(1, Math.min(5, level))
+            };
+        }
+        function renderFreqLocal(r) {
+            return `<div class="freq-head"><span class="freq-emoji">${r.emoji}</span>` +
+                `<span class="freq-badge ${r.level >= 4 ? 'high' : r.level >= 3 ? 'mid' : 'low'}">${r.badge}</span>` +
+                (r.fromCache ? '<span class="example-cache-tip" style="margin:0;">📦 已加载本地缓存频率</span>' : '') +
+                `</div>` +
+                `<div class="freq-desc">${escapeHtml(r.summary || r.desc)}</div>` +
+                `<div class="freq-segs">${'<div class="freq-seg on"></div>'.repeat(r.segs) + '<div class="freq-seg"></div>'.repeat(5 - r.segs)}</div>` +
+                `<div class="freq-detail">口语使用：约 <b>${r.spokenPercent || '?'}%</b> · 等级 <b>${r.level}/5</b>（${escapeHtml(r.desc)}）</div>` +
+                (r.example
+                    ? `<div class="freq-detail" style="margin-top:4px;">💬 <b>口语示例：</b>${escapeHtml(r.example)}</div>`
+                    : '') +
+                (r.detail ? `<div class="freq-detail" style="margin-top:4px;">💡 ${escapeHtml(r.detail)}</div>` : '');
+        }
+
+        // ---------- 词源 ----------
+        function normalizeEtymLocal(parsed) {
+            if (!parsed || typeof parsed !== 'object') return null;
+            const story = parsed.story || parsed.词源故事 || '';
+            if (!story && !parsed.origin) return null;
+            return {
+                title: parsed.word || '',
+                origin: parsed.origin || parsed.词源概括 || '',
+                storyHtml: story.split(/\n+/).filter(Boolean).map((para) =>
+                    `<div class="etym-para">${escapeHtml(para).replace(/\b([A-Z][a-zA-Z]{1,20}(?:[ -][A-Za-z]{2,20})*)\b/g, '<span class="etym-strong">$1</span>')}</div>`
+                ).join('')
+            };
+        }
+        function renderEtymLocal(e) {
+            return `<div class="etym-head">` +
+                `<span>📜</span>` +
+                `<span class="etym-title">词源故事${e.title ? '：' + escapeHtml(e.title) : ''}</span>` +
+                (e.fromCache ? '<span class="example-cache-tip" style="margin:0;">📦 已加载本地缓存词源</span>' : '') +
+                `</div>` +
+                (e.origin ? `<div class="etym-origin">🌍 ${escapeHtml(e.origin)}</div>` : '') +
+                (e.storyHtml ? `<div class="etym-story">${e.storyHtml}</div>` : '<div class="etym-story">（模型未返回词源故事）</div>');
+        }
+
+        // ---------- 搭配 ----------
+        function normalizeCollocLocal(parsed) {
+            if (!parsed || typeof parsed !== 'object') return [];
+            const arr = (Array.isArray(parsed.collocations) && parsed.collocations.length > 0)
+                ? parsed.collocations
+                : (Array.isArray(parsed.list) ? parsed.list : []);
+            const out = [];
+            arr.forEach((item) => {
+                if (!item || typeof item !== 'object') return;
+                const phrase = item.phrase || item.collocation || item.pattern || '';
+                const meaning = item.meaning || item.释义 || '';
+                const en = item.exampleEn || item.example_en || item.example || '';
+                const cn = item.exampleCn || item.example_cn || item.cn || '';
+                if (!phrase && !en && !meaning) return;
+                out.push({ phrase: phrase, meaning: meaning, exampleEn: en, exampleCn: cn });
+            });
+            return out;
+        }
+        function renderCollocLocal(r) {
+            const cacheTip = r.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存搭配</span>' : '';
+            return `<div class="colloc-head">🔗 <span class="colloc-title">固定搭配（${escapeHtml(r.word)}）</span></div>` +
+                cacheTip +
+                `<div class="colloc-list">` +
+                r.list.map((it) =>
+                    `<div class="colloc-item">` +
+                    `<div class="colloc-phrase">${escapeHtml(it.phrase)}</div>` +
+                    (it.meaning ? `<div class="colloc-meaning">${escapeHtml(it.meaning)}</div>` : '') +
+                    (it.exampleEn ? `<div class="colloc-example en">📝 ${escapeHtml(it.exampleEn)}</div>` : '') +
+                    (it.exampleCn ? `<div class="colloc-example cn">🇨🇳 ${escapeHtml(it.exampleCn)}</div>` : '') +
+                    `</div>`
+                ).join('') +
+                `</div>`;
+        }
+
+        // ---------- 词根 ----------
+        function normalizeRootLocal(parsed) {
+            if (!parsed || typeof parsed !== 'object') return null;
+            const formula = parsed.formula || parsed.构词公式 || '';
+            const summary = parsed.summary || parsed.总结 || '';
+            let parts = [];
+            const arr = (Array.isArray(parsed.parts) && parsed.parts.length > 0) ? parsed.parts : [];
+            arr.forEach((item) => {
+                if (!item || typeof item !== 'object') return;
+                const morpheme = item.morpheme || item.root || item.part || '';
+                const type = item.type || item.词缀类型 || '';
+                const meaning = item.meaning || item.含义 || '';
+                if (!morpheme && !meaning) return;
+                parts.push({ morpheme: morpheme, type: type, meaning: meaning });
+            });
+            if (!formula && parts.length === 0 && !summary) return null;
+            return { word: parsed.word || '', formula: formula, parts: parts, summary: summary };
+        }
+        function renderRootLocal(r) {
+            const cacheTip = r.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存词根</span>' : '';
+            return `<div class="root-head">🧩 <span class="root-title">词根拆解（${escapeHtml(r.word || '')}）</span></div>` +
+                cacheTip +
+                (r.formula ? `<div class="root-formula">${escapeHtml(r.formula)}</div>` : '') +
+                (r.parts.length > 0
+                    ? `<div class="root-parts">` + r.parts.map((p) =>
+                        `<div class="root-part">` +
+                        `<span class="root-morpheme">${escapeHtml(p.morpheme)}</span>` +
+                        (p.type ? `<span class="root-type">${escapeHtml(p.type)}</span>` : '') +
+                        (p.meaning ? `<span class="root-meaning">${escapeHtml(p.meaning)}</span>` : '') +
+                        `</div>`
+                    ).join('') + `</div>`
+                    : '') +
+                (r.summary ? `<div class="root-summary">💡 ${escapeHtml(r.summary)}</div>` : '');
+        }
+
+        // ---------- 辨析 ----------
+        function normalizeSynLocal(parsed) {
+            if (!parsed || typeof parsed !== 'object') return null;
+            const arr = (Array.isArray(parsed.compareTo) && parsed.compareTo.length > 0) ? parsed.compareTo : [];
+            const list = [];
+            arr.forEach((item) => {
+                if (!item || typeof item !== 'object') return;
+                const w = item.word || item.synonym || '';
+                const meaning = item.meaning || item.释义 || '';
+                const diff = item.diff || item.difference || item.差别 || '';
+                if (!w && !meaning && !diff) return;
+                list.push({ word: w, meaning: meaning, diff: diff });
+            });
+            if (list.length === 0 && !parsed.contrast) return null;
+            return {
+                word: parsed.word || '',
+                list: list,
+                contrast: parsed.contrast || parsed.总结 || ''
+            };
+        }
+        function renderSynLocal(s) {
+            const cacheTip = s.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存辨析</span>' : '';
+            const rows = [];
+            rows.push(
+                `<div class="syn-row main">` +
+                `<span class="syn-word main-word">${escapeHtml(s.word || '')}</span>` +
+                `<span class="syn-meaning">本词</span>` +
+                `</div>`
+            );
+            rows.push(s.list.map((it) =>
+                `<div class="syn-row">` +
+                `<span class="syn-word">${escapeHtml(it.word)}</span>` +
+                (it.meaning ? `<span class="syn-meaning">${escapeHtml(it.meaning)}</span>` : '') +
+                (it.diff ? `<span class="syn-diff">↳ ${escapeHtml(it.diff)}</span>` : '') +
+                `</div>`
+            ).join(''));
+            return `<div class="syn-head">🔀 <span class="syn-title">近义词辨析（${escapeHtml(s.word || '')}）</span></div>` +
+                cacheTip +
+                `<div class="syn-table">${rows.join('')}</div>` +
+                (s.contrast ? `<div class="syn-contrast">💡 <b>辨析：</b>${escapeHtml(s.contrast)}</div>` : '');
+        }
+
+        // ---------- 同族词 ----------
+        function normalizeFamilyLocal(parsed) {
+            if (!parsed || typeof parsed !== 'object') return null;
+            const arr = (Array.isArray(parsed.groups) && parsed.groups.length > 0) ? parsed.groups : [];
+            const groups = [];
+            arr.forEach((g) => {
+                if (!g || typeof g !== 'object') return;
+                const pos = g.pos || g.partOfSpeech || g.词性 || '';
+                const words = [];
+                const wArr = (Array.isArray(g.words) && g.words.length > 0) ? g.words : [];
+                wArr.forEach((w) => {
+                    if (!w || typeof w !== 'object') return;
+                    const ww = w.word || w.词形 || '';
+                    const meaning = w.meaning || w.释义 || '';
+                    if (!ww && !meaning) return;
+                    words.push({ word: ww, meaning: meaning });
+                });
+                if (pos || words.length > 0) groups.push({ pos: pos, words: words });
+            });
+            const core = parsed.core || parsed.词根 || '';
+            const note = parsed.note || parsed.记忆要点 || '';
+            if (groups.length === 0 && !core) return null;
+            return { word: parsed.word || '', core: core, note: note, groups: groups };
+        }
+        function renderFamilyLocal(f) {
+            const cacheTip = f.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存同族词</span>' : '';
+            return `<div class="family-head">🏠 <span class="family-title">同族词（${escapeHtml(f.word || '')}）</span></div>` +
+                cacheTip +
+                (f.core ? `<div class="family-core">${escapeHtml(f.core)}</div>` : '') +
+                (f.groups.length > 0
+                    ? `<div class="family-groups">` + f.groups.map((g) =>
+                        `<div class="family-group">` +
+                        `<div class="family-group-head">${escapeHtml(g.pos || '')}</div>` +
+                        `<div class="family-items">` +
+                        g.words.map((w) =>
+                            `<span class="family-item"><strong>${escapeHtml(w.word)}</strong>${w.meaning ? ' ' + escapeHtml(w.meaning) : ''}</span>`
+                        ).join('') +
+                        `</div>` +
+                        `</div>`
+                    ).join('') + `</div>`
+                    : '') +
+                (f.note ? `<div class="family-note">💡 ${escapeHtml(f.note)}</div>` : '');
+        }
+
+        // 各深度信息类型的请求配置（systemPrompt 与 typing.html 保持一致，保证返回值格式可互相复用缓存）
+        const WORD_INFO_DEFS = {
+            freq: {
+                cacheStore: INFO_CACHE_STORES.freq,
+                loadingText: '⏳ 正在请求 DeepSeek 分析口语使用频率...',
+                label: '口语使用频率',
+                systemPrompt: '你是英语口语教学助手。判断给定单词在英语日常口语（conversational English）中的使用频率。' +
+                    '输出顺序：先给一个 1-5 的等级(1=极低频仅书面/专业语域, 5=日常必用核心词)，再给使用频率百分数(0-100)。' +
+                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+                    '{"level":4,"spokenPercent":85,"summary":"一句话概括其在口语中的出现情况（中文）",' +
+                    '"example":"一个地道口语例句（含中文翻译）","detail":"一个要点（举例或辨析，中文，说明为何这个等级、如何在口语中高频使用）"}',
+                userPrompt: word => '请判断单词 "' + word + '" 在英语日常口语中的使用频率。',
+                normalize: normalizeFreqLocal,
+                render: renderFreqLocal
+            },
+            etym: {
+                cacheStore: INFO_CACHE_STORES.etym,
+                loadingText: '⏳ 正在请求 DeepSeek 讲词源故事...',
+                label: '词源故事',
+                systemPrompt: '你是资深英语词源学家。为给定单词讲一个有意思且史实准确的词源故事（etymology）。' +
+                    '覆盖：源自何种语言（如古英语/拉丁语/希腊语/古法语）、原始含义与拼写、语义演变（含关键时间点）、' +
+                    '有趣的关联词或文化典故。中文讲解，保留必要的英文原词。' +
+                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+                    '{"word":"英文单词","origin":"一句话概括词源（中文）","story":"完整词源故事（中文，300字左右，分2-3段，用\\n分隔段落）"}',
+                userPrompt: word => '请为单词 "' + word + '" 讲一个词源故事。',
+                normalize: normalizeEtymLocal,
+                render: renderEtymLocal
+            },
+            colloc: {
+                cacheStore: INFO_CACHE_STORES.colloc,
+                loadingText: '⏳ 正在请求 DeepSeek 生成固定搭配...',
+                label: '固定搭配',
+                systemPrompt: '你是英语搭配（collocation）专家。为给定单词列出最常用最常见的固定搭配与常见搭配（含短语动词、介词搭配、形容词+名词、动词+宾语等），' +
+                    '每条搭配附中文释义和一个真实地道的英文例句（附中文翻译）。优先口语/写作高频用例。' +
+                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+                    '{"word":"英文单词","collocations":[{"phrase":"搭配短语","meaning":"中文释义",' +
+                    '"exampleEn":"英文例句","exampleCn":"例句中文翻译"}]}',
+                userPrompt: word => '请为单词 "' + word + '" 列出 5-8 个最常用的固定搭配。',
+                normalize: normalizeCollocLocal,
+                render: renderCollocLocal
+            },
+            root: {
+                cacheStore: INFO_CACHE_STORES.root,
+                loadingText: '⏳ 正在请求 DeepSeek 拆解词根...',
+                label: '词根拆解',
+                systemPrompt: '你是英语构词法专家。对给定单词做词根词缀拆解（前缀 prefix + 词根 root + 后缀 suffix），' +
+                    '解释每个构词成分的含义、词源语言与作用，最后用一句话说明各成分如何组合出单词整体含义。' +
+                    '若单词无明显构词成分（如单一词根词），如实说明"无词缀，单一词根"。' +
+                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+                    '{"word":"英文单词","formula":"构词公式（如 un- + break + -able）","parts":[' +
+                    '{"morpheme":"构词成分","type":"前缀/词根/后缀/连接元音","meaning":"含义与词源说明（中文）"}' +
+                    '],"summary":"组合含义一句话总结（中文）"}',
+                userPrompt: word => '请对单词 "' + word + '" 做词根词缀拆解。',
+                normalize: normalizeRootLocal,
+                render: renderRootLocal
+            },
+            syn: {
+                cacheStore: INFO_CACHE_STORES.syn,
+                loadingText: '⏳ 正在请求 DeepSeek 做近义词辨析...',
+                label: '近义词辨析',
+                systemPrompt: '你是英语近义词辨析专家。给定一个英文单词，找出 3-5 个与它词义相近的词（同义词），' +
+                    '逐个说明每个词与目标单词的细微差别（语域、语气强弱、使用场景、搭配对象、正式/口语等）。' +
+                    '最后用一段话总结这几个词如何区分、何时选哪个。用中文讲解，保留英文原词。' +
+                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+                    '{"word":"目标单词","compareTo":[' +
+                    '{"word":"近义词","meaning":"中文释义","diff":"与目标单词的差别（中文）"}' +
+                    '],"contrast":"总结：如何区分与选用（中文）"}',
+                userPrompt: word => '请找出与单词 "' + word + '" 词义相近的词并做辨析。',
+                normalize: normalizeSynLocal,
+                render: renderSynLocal
+            },
+            family: {
+                cacheStore: INFO_CACHE_STORES.family,
+                loadingText: '⏳ 正在请求 DeepSeek 查询同族词...',
+                label: '同族词',
+                systemPrompt: '你是英语构词法专家。给定一个英文单词，找出它的同族词（word family，即由同一词根衍生的词形变化），' +
+                    '按词性分组：名词（含单复数/动名词）、动词（含过去式/分词）、形容词（含比较级/最高级）、副词等。' +
+                    '每个词附中文释义。若某词性无衍生词则省略该组。用中文讲解，保留英文原词。' +
+                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+                    '{"word":"目标单词","core":"核心词根及含义（如 act = 行动）","groups":[' +
+                    '{"pos":"n.","words":[{"word":"名词词形","meaning":"中文释义"}]},' +
+                    '{"pos":"v.","words":[{"word":"动词词形","meaning":"中文释义"}]}' +
+                    '],"note":"记忆要点（中文，如词根提示、易混词提醒，可省略）"}',
+                userPrompt: word => '请列出单词 "' + word + '" 的同族词。',
+                normalize: normalizeFamilyLocal,
+                render: renderFamilyLocal
+            }
+        };
+
+        // 切换某深度信息的显示/隐藏（点击按按钮触发）
+        async function toggleWordInfo(key) {
+            if (!currentWordData) return;
+            const def = WORD_INFO_DEFS[key];
+            if (!def) return;
+
+            // 点击同一个已展开的类型：收起
+            if (activeInfoKey === key) {
+                closeWordInfo();
+                return;
+            }
+
+            // 点击其他类型 / 当前为收起状态：先清空旧内容再展开新类型
+            if (infoLoadingKey) {
+                // 上一个请求还在加载中，先终止展示
+                infoLoadingKey = null;
+            }
+            infoRequestWord = currentWordString;
+            activeInfoKey = key;
+            infoLoadingKey = key;
+            Object.keys(infoButtons).forEach((k) => infoButtons[k].classList.remove('active'));
+            infoButtons[key].classList.add('active');
+            setInfoContent(key, 'loading', '<div class="info-loading">' + escapeHtml(def.loadingText) + '</div>');
+
+            const result = await fetchWordInfoFromModel(key, {
+                cacheStore: def.cacheStore,
+                systemPrompt: def.systemPrompt,
+                userPrompt: def.userPrompt(currentWordString)
+            });
+            // 面板已收起 / 已切换到其他单词 / 请求已作废：放弃渲染
+            if (activeInfoKey !== key || infoLoadingKey !== key) return;
+            if (infoRequestWord !== currentWordString) return;
+            if (result.error) {
+                infoLoadingKey = null;
+                setInfoContent(key, 'error', '<div class="info-error">' + escapeHtml(result.error) + '</div>');
+                return;
+            }
+            const norm = def.normalize(result.data);
+            if (!norm || (Array.isArray(norm) && norm.length === 0)) {
+                infoLoadingKey = null;
+                setInfoContent(key, 'error', '<div class="info-error">❌ 模型未返回有效数据</div>');
+                return;
+            }
+            infoLoadingKey = null;
+            setInfoContent(key, 'ok', def.render(Object.assign({}, norm, { fromCache: !!result.fromCache })));
+        }
+
+        // 绑定六个深度信息按钮
+        Object.keys(infoButtons).forEach((key) => {
+            infoButtons[key].addEventListener('click', () => toggleWordInfo(key));
+        });
 
         // ------------------------------------------------------------------
         // 多词库管理（顶部词库下拉 + 管理弹窗：预设/URL/文件导入、切换、删除）
