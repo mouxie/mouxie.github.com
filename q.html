@@ -3911,14 +3911,14 @@
                 //   -H "Authorization: Bearer <API Key>"
                 //   -d '{"model":...,"messages":[...],"stream":false, "response_format":{"type":"json_object"}}'
                 const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
-                const systemPrompt = 'You are a professional English learning assistant. Generate natural example sentences for the given English word. ' +
-                    'Consider the word\'s different parts of speech and meanings, and generate 1 example per major part of speech. ' +
-                    'Output ONLY a valid JSON object (no markdown code blocks, no extra text). JSON format:' +
-                    '{"word":"the word","phonetic":"(optional)","examples":[' +
-                    '{"partOfSpeech":"n.","meaning":"Chinese meaning for this POS","exampleEnglish":"English sentence","exampleChinese":"Chinese translation"},' +
-                    '{"partOfSpeech":"v.","meaning":"verb meaning","exampleEnglish":"English sentence","exampleChinese":"Chinese translation"}' +
+                const systemPrompt = '你是一个专业的英语学习助手。请为给定的英文单词生成地道例句。' +
+                    '必须考虑该单词不同的词性和含义，为每个主要词性各生成 1 个例句。' +
+                    '你必须只输出一个合法的 JSON 对象（不要输出 markdown 代码块、不要输出任何解释文字）。JSON 格式如下：' +
+                    '{"word":"英文单词","phonetic":"音标(可省略该字段)","examples":[' +
+                    '{"partOfSpeech":"n.","meaning":"该词性下的中文释义","exampleEnglish":"英文例句","exampleChinese":"例句中文翻译"},' +
+                    '{"partOfSpeech":"v.","meaning":"动词释义","exampleEnglish":"英文例句","exampleChinese":"例句中文翻译"}' +
                     ']}';
-                const userPrompt = 'For the word "' + currentWordString + '", generate 1 natural, practical example for each major part of speech (n./v./adj./adv. etc.), each with a Chinese translation and meaning.';
+                const userPrompt = '请为单词 "' + currentWordString + '" 生成每个主要词性（如 n./v./adj./adv. 等）各 1 个地道实用例句，每个例句附中文翻译与释义。';
 
                 const response = await fetch(url, {
                     method: 'POST',
@@ -4293,12 +4293,12 @@
                 cacheStore: INFO_CACHE_STORES.freq,
                 loadingText: '⏳ Asking DeepSeek to analyze spoken frequency...',
                 label: 'Spoken frequency',
-                systemPrompt: 'You are an English conversation teaching assistant. Judge how often the given word is used in everyday conversational English. ' +
-                    'First give a level from 1-5 (1 = very rare, written/professional register only; 5 = essential core daily word), then a usage percentage (0-100). ' +
-                    'Output ONLY a valid JSON object (no markdown code blocks, no extra text), format:' +
-                    '{"level":4,"spokenPercent":85,"summary":"one sentence summary (English)",' +
-                    '"example":"a natural conversational example sentence (with English translation)","detail":"one key point (examples or comparison, English, why this level and how to use it frequently in speech)"}',
-                userPrompt: word => 'Judge how often the word "' + word + '" is used in everyday conversational English.',
+                systemPrompt: '你是英语口语教学助手。判断给定单词在英语日常口语（conversational English）中的使用频率。' +
+                    '输出顺序：先给一个 1-5 的等级(1=极低频仅书面/专业语域, 5=日常必用核心词)，再给使用频率百分数(0-100)。' +
+                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+                    '{"level":4,"spokenPercent":85,"summary":"一句话概括其在口语中的出现情况（中文）",' +
+                    '"example":"一个地道口语例句（含中文翻译）","detail":"一个要点（举例或辨析，中文，说明为何这个等级、如何在口语中高频使用）"}',
+                userPrompt: word => '请判断单词 "' + word + '" 在英语日常口语中的使用频率。',
                 normalize: normalizeFreqLocal,
                 render: renderFreqLocal
             },
@@ -4306,12 +4306,12 @@
                 cacheStore: INFO_CACHE_STORES.etym,
                 loadingText: '⏳ Asking DeepSeek for the etymology story...',
                 label: 'Etymology',
-                systemPrompt: 'You are a senior English etymologist. Tell an interesting, historically accurate etymology story for the given word. ' +
-                    'Cover: the source language (Old English/Latin/Greek/Old French etc.), original meaning and spelling, semantic shift (with key time points), ' +
-                    'interesting related words or cultural references. Explain in English, keep necessary original foreign words. ' +
-                    'Output ONLY a valid JSON object (no markdown code blocks, no extra text), format:' +
-                    '{"word":"the word","origin":"one-sentence etymology summary","story":"full etymology story, split into 2-3 paragraphs with \\n separators"}',
-                userPrompt: word => 'Tell the etymology story of the word "' + word + '".',
+                systemPrompt: '你是资深英语词源学家。为给定单词讲一个有意思且史实准确的词源故事（etymology）。' +
+                    '覆盖：源自何种语言（如古英语/拉丁语/希腊语/古法语）、原始含义与拼写、语义演变（含关键时间点）、' +
+                    '有趣的关联词或文化典故。中文讲解，保留必要的英文原词。' +
+                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+                    '{"word":"英文单词","origin":"一句话概括词源（中文）","story":"完整词源故事（中文，300字左右，分2-3段，用\\n分隔段落）"}',
+                userPrompt: word => '请为单词 "' + word + '" 讲一个词源故事。',
                 normalize: normalizeEtymLocal,
                 render: renderEtymLocal
             },
@@ -4319,12 +4319,12 @@
                 cacheStore: INFO_CACHE_STORES.colloc,
                 loadingText: '⏳ Asking DeepSeek to generate collocations...',
                 label: 'Collocations',
-                systemPrompt: 'You are an English collocation expert. List the most common fixed collocations for the given word (phrasal verbs, prepositional patterns, adjective+noun, verb+object etc.), ' +
-                    'each with an English definition and one natural example sentence (with English translation). Prioritize high-frequency speech/writing usage. ' +
-                    'Output ONLY a valid JSON object (no markdown code blocks, no extra text), format:' +
-                    '{"word":"the word","collocations":[{"phrase":"collocation","meaning":"definition",' +
-                    '"exampleEn":"English example","exampleCn":"Chinese translation"}]}',
-                userPrompt: word => 'List the 5-8 most common collocations for the word "' + word + '".',
+                systemPrompt: '你是英语搭配（collocation）专家。为给定单词列出最常用最常见的固定搭配与常见搭配（含短语动词、介词搭配、形容词+名词、动词+宾语等），' +
+                    '每条搭配附中文释义和一个真实地道的英文例句（附中文翻译）。优先口语/写作高频用例。' +
+                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+                    '{"word":"英文单词","collocations":[{"phrase":"搭配短语","meaning":"中文释义",' +
+                    '"exampleEn":"英文例句","exampleCn":"例句中文翻译"}]}',
+                userPrompt: word => '请为单词 "' + word + '" 列出 5-8 个最常用的固定搭配。',
                 normalize: normalizeCollocLocal,
                 render: renderCollocLocal
             },
@@ -4332,14 +4332,14 @@
                 cacheStore: INFO_CACHE_STORES.root,
                 loadingText: '⏳ Asking DeepSeek to analyze word roots...',
                 label: 'Word roots',
-                systemPrompt: 'You are an English word-formation expert. Break the given word into prefix + root + suffix, ' +
-                    'explain the meaning, source language and function of each morpheme, then summarize in one sentence how the parts combine into the whole meaning. ' +
-                    'If the word has no obvious morphemes (a single root word), say so honestly. ' +
-                    'Output ONLY a valid JSON object (no markdown code blocks, no extra text), format:' +
-                    '{"word":"the word","formula":"construction formula (e.g. un- + break + -able)","parts":[' +
-                    '{"morpheme":"morpheme","type":"prefix/root/suffix/connective","meaning":"meaning and etymology note"}' +
-                    '],"summary":"one-sentence combined meaning summary"}',
-                userPrompt: word => 'Analyze the word roots and affixes of "' + word + '".',
+                systemPrompt: '你是英语构词法专家。对给定单词做词根词缀拆解（前缀 prefix + 词根 root + 后缀 suffix），' +
+                    '解释每个构词成分的含义、词源语言与作用，最后用一句话说明各成分如何组合出单词整体含义。' +
+                    '若单词无明显构词成分（如单一词根词），如实说明"无词缀，单一词根"。' +
+                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+                    '{"word":"英文单词","formula":"构词公式（如 un- + break + -able）","parts":[' +
+                    '{"morpheme":"构词成分","type":"前缀/词根/后缀/连接元音","meaning":"含义与词源说明（中文）"}' +
+                    '],"summary":"组合含义一句话总结（中文）"}',
+                userPrompt: word => '请对单词 "' + word + '" 做词根词缀拆解。',
                 normalize: normalizeRootLocal,
                 render: renderRootLocal
             },
@@ -4347,14 +4347,14 @@
                 cacheStore: INFO_CACHE_STORES.syn,
                 loadingText: '⏳ Asking DeepSeek to compare synonyms...',
                 label: 'Synonym comparison',
-                systemPrompt: 'You are an English synonym expert. Given an English word, find 3-5 words with similar meaning, ' +
-                    'explain the subtle difference of each vs. the target word (register, tone strength, usage context, collocation, formal/spoken etc.), ' +
-                    'and end with a paragraph summarizing how to distinguish and choose among them. Explain in English, keep the original words. ' +
-                    'Output ONLY a valid JSON object (no markdown code blocks, no extra text), format:' +
-                    '{"word":"target word","compareTo":[' +
-                    '{"word":"synonym","meaning":"definition","diff":"difference from target"}' +
-                    '],"contrast":"summary: how to distinguish and choose"}',
-                userPrompt: word => 'Find synonyms of "' + word + '" and compare them.',
+                systemPrompt: '你是英语近义词辨析专家。给定一个英文单词，找出 3-5 个与它词义相近的词（同义词），' +
+                    '逐个说明每个词与目标单词的细微差别（语域、语气强弱、使用场景、搭配对象、正式/口语等）。' +
+                    '最后用一段话总结这几个词如何区分、何时选哪个。用中文讲解，保留英文原词。' +
+                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+                    '{"word":"目标单词","compareTo":[' +
+                    '{"word":"近义词","meaning":"中文释义","diff":"与目标单词的差别（中文）"}' +
+                    '],"contrast":"总结：如何区分与选用（中文）"}',
+                userPrompt: word => '请找出与单词 "' + word + '" 词义相近的词并做辨析。',
                 normalize: normalizeSynLocal,
                 render: renderSynLocal
             },
@@ -4362,15 +4362,15 @@
                 cacheStore: INFO_CACHE_STORES.family,
                 loadingText: '⏳ Asking DeepSeek for the word family...',
                 label: 'Word family',
-                systemPrompt: 'You are an English word-formation expert. Given an English word, find its word family (derived forms from the same root), ' +
-                    'grouped by part of speech: nouns (incl. plurals/gerunds), verbs (incl. past/participles), adjectives (incl. comparatives/superlatives), adverbs etc. ' +
-                    'Give an English definition for each word. Omit groups with no derived words. Explain in English, keep the original words. ' +
-                    'Output ONLY a valid JSON object (no markdown code blocks, no extra text), format:' +
-                    '{"word":"target word","core":"core root and meaning (e.g. act = to do)","groups":[' +
-                    '{"pos":"n.","words":[{"word":"noun form","meaning":"definition"}]},' +
-                    '{"pos":"v.","words":[{"word":"verb form","meaning":"definition"}]}' +
-                    '],"note":"memory tip (optional)"}',
-                userPrompt: word => 'List the word family of "' + word + '".',
+                systemPrompt: '你是英语构词法专家。给定一个英文单词，找出它的同族词（word family，即由同一词根衍生的词形变化），' +
+                    '按词性分组：名词（含单复数/动名词）、动词（含过去式/分词）、形容词（含比较级/最高级）、副词等。' +
+                    '每个词附中文释义。若某词性无衍生词则省略该组。用中文讲解，保留英文原词。' +
+                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
+                    '{"word":"目标单词","core":"核心词根及含义（如 act = 行动）","groups":[' +
+                    '{"pos":"n.","words":[{"word":"名词词形","meaning":"中文释义"}]},' +
+                    '{"pos":"v.","words":[{"word":"动词词形","meaning":"中文释义"}]}' +
+                    '],"note":"记忆要点（中文，如词根提示、易混词提醒，可省略）"}',
+                userPrompt: word => '请列出单词 "' + word + '" 的同族词。',
                 normalize: normalizeFamilyLocal,
                 render: renderFamilyLocal
             }
