@@ -3193,11 +3193,7 @@
         const wrongToastEl = document.getElementById('wrong-toast');
         function showWrongToast(isWrong) {
             if (!wrongToastEl) return;
-            const minimal = document.body.classList.contains('is-minimal');
-            if (!minimal) {
-                // 常规模式：按钮文字/颜色本身已变化，无需常驻提示
-                return;
-            }
+            // 无论是否极简模式都显示 toast（Alt+. / 点击按钮加入或移出错词本时均有明确反馈）
             wrongToastEl.textContent = isWrong ? '✅ Added to wrong list' : '➖ Removed from wrong list';
             wrongToastEl.className = isWrong ? 'is-ok' : 'is-bad';
             wrongToastEl.style.display = 'block';
