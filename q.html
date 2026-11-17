@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>打字-所有</title>
+    <title>qwerty-all</title>
     <style>
         :root {
             --primary: #4A90E2;
@@ -162,7 +162,7 @@
 
         .card__phonetic {
             margin-top: 12px;
-            font-size: 18px;
+            font-size: 13px;
             font-weight: normal;
             color: var(--text-sub);
             letter-spacing: 0.5px;
@@ -1265,33 +1265,33 @@
     <div id="ui-container">
         <div class="top-bar" id="top-bar" style="display: none;">
             <div class="control-row">
-                <select id="dict-select" title="选择当前词库"></select>
-                <button id="btn-dict-manage" class="btn-settings">📚 词库管理</button>
+                <select id="dict-select" title="Select dictionary"></select>
+                <button id="btn-dict-manage" class="btn-settings">📚 Dictionaries</button>
             </div>
 
             <div class="control-row">
                 <select id="mode-select">
-                    <option value="all">📖 当前词库</option>
-                    <option value="wrong">❌ 我的错词本 (0)</option>
-                    <option value="review">🧠 遗忘曲线复习 (0)</option>
+                    <option value="all">📖 Current</option>
+                    <option value="wrong">❌ Wrong List (0)</option>
+                    <option value="review">🧠 Review (0)</option>
                 </select>
-                <div id="status-text">⏳ 加载中...</div>
+                <div id="status-text">⏳ Loading...</div>
             </div>
             
             <div class="control-row">
                 <div>
-                    <span style="font-size: 12px; color: var(--text-label);">每组:</span>
+                    <span style="font-size: 12px; color: var(--text-label);">Per group:</span>
                     <select id="size-select">
-                        <option value="10">10 个</option>
-                        <option value="20" selected>20 个</option>
-                        <option value="50">50 个</option>
-                        <option value="100">100 个</option>
+                        <option value="10">10</option>
+                        <option value="20" selected>20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
                     </select>
                 </div>
                 <div>
-                    <span style="font-size: 12px; color: var(--text-label);">选择组别:</span>
+                    <span style="font-size: 12px; color: var(--text-label);">Group:</span>
                     <select id="group-select">
-                        <option value="0">第 1 组</option>
+                        <option value="0">Group 1</option>
                     </select>
                 </div>
             </div>
@@ -1299,24 +1299,24 @@
             <div class="control-row control-row--flex-end">
                 <label class="switch-label">
                     <input type="checkbox" id="show-meaning-switch">
-                    👀 显示释义
+                    👀 Show Meaning
                 </label>
                 <label class="switch-label">
                     <input type="checkbox" id="auto-speak-switch">
-                    🔊 自动发音
+                    🔊 Auto Speak
                 </label>
-                <button id="btn-theme" class="btn-settings" title="切换日间/灰色/夜间模式">🌙 夜间模式</button>
-                <button id="btn-settings" class="btn-settings">⚙️ 设置</button>
-                <button id="btn-minimal" class="btn-settings" title="极简模式：仅保留释义卡片与输入框 (M)">🎯 极简模式</button>
+                <button id="btn-theme" class="btn-settings" title="Switch light/grey/dark mode">🌙 Night</button>
+                <button id="btn-settings" class="btn-settings">⚙️ Settings</button>
+                <button id="btn-minimal" class="btn-settings" title="Minimal mode: card & input only (M)">🎯 Minimal</button>
             </div>
 
             <div class="control-row control-row--flex-end">
-                <button id="btn-review-stats" class="btn-action btn-audio" style="width:auto; padding: 6px 14px; font-size: 12px;">📊 复习统计</button>
-                <button id="btn-export-wrong" class="btn-action btn-audio" style="width:auto; padding: 6px 14px; font-size: 12px;">📤 导出错词本 (JSON)</button>
+                <button id="btn-review-stats" class="btn-action btn-audio" style="width:auto; padding: 6px 14px; font-size: 12px;">📊 Review Stats</button>
+                <button id="btn-export-wrong" class="btn-action btn-audio" style="width:auto; padding: 6px 14px; font-size: 12px;">📤 Export Wrong (JSON)</button>
             </div>
         </div>
 
-        <div id="init-status-text">⏳ 正在初始化本地数据库...</div>
+        <div id="init-status-text">⏳ Initializing local database...</div>
 
         <!-- 单词操作与深度信息按钮行（DeepSeek 生成，与 typing.html 复用同一套 IndexedDB 缓存） -->
         <div class="info-actions" id="info-actions" style="display: none;">
@@ -1324,25 +1324,25 @@
                 <svg viewBox="0 0 24 24">
                     <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
                 </svg>
-                听音
+                Speak
             </button>
-            <button id="btn-toggle-wrong" class="info-btn btn-add-wrong" title="加入/移出错词本 (Alt+.)" disabled>✨ 加强</button>
-            <button id="btn-example" class="info-btn btn-example" disabled>📖 例句</button>
-            <button id="btn-review-info" class="info-btn btn-audio" title="查看当前词复习进度/重置 (Alt+R)" disabled>🧠 复习</button>
-            <button id="btn-info-freq" class="info-btn" title="查看口语使用频率 (DeepSeek)" disabled>📊 频率</button>
-            <button id="btn-info-etym" class="info-btn" title="查看词源故事 (DeepSeek)" disabled>📜 词源</button>
-            <button id="btn-info-colloc" class="info-btn" title="查看固定搭配 (DeepSeek)" disabled>🔗 搭配</button>
-            <button id="btn-info-root" class="info-btn" title="查看词根拆解 (DeepSeek)" disabled>🧩 词根</button>
-            <button id="btn-info-syn" class="info-btn" title="近义词辨析 (DeepSeek)" disabled>🔀 辨析</button>
-            <button id="btn-info-family" class="info-btn" title="查看同族词 (DeepSeek)" disabled>🏠 同族</button>
+            <button id="btn-toggle-wrong" class="info-btn btn-add-wrong" title="Add/remove from wrong list (Alt+.)" disabled>✨ Reinforce</button>
+            <button id="btn-example" class="info-btn btn-example" disabled>📖 Examples</button>
+            <button id="btn-review-info" class="info-btn btn-audio" title="Review progress/reset of current word (Alt+R)" disabled>🧠 Review</button>
+            <button id="btn-info-freq" class="info-btn" title="Spoken frequency (DeepSeek)" disabled>📊 Freq</button>
+            <button id="btn-info-etym" class="info-btn" title="Etymology story (DeepSeek)" disabled>📜 Etym</button>
+            <button id="btn-info-colloc" class="info-btn" title="Collocations (DeepSeek)" disabled>🔗 Colloc</button>
+            <button id="btn-info-root" class="info-btn" title="Word roots (DeepSeek)" disabled>🧩 Roots</button>
+            <button id="btn-info-syn" class="info-btn" title="Synonym comparison (DeepSeek)" disabled>🔀 Compare</button>
+            <button id="btn-info-family" class="info-btn" title="Word family (DeepSeek)" disabled>🏠 Family</button>
         </div>
 
         <div id="example-area" class="example-area" style="display: none;">
             <div class="example-area__header">
-                <span>📖 例句 (DeepSeek 生成)<span id="example-source-badge" class="example-source-badge" style="display:none;"></span></span>
+                <span>📖 Examples (DeepSeek)<span id="example-source-badge" class="example-source-badge" style="display:none;"></span></span>
                 <span style="display:flex; align-items:center; gap:4px;">
-                    <button id="btn-refresh-example" class="example-refresh" title="重新生成（忽略缓存）">🔄</button>
-                    <button id="btn-close-example" class="example-close" title="关闭">✕</button>
+                    <button id="btn-refresh-example" class="example-refresh" title="Regenerate (ignore cache)">🔄</button>
+                    <button id="btn-close-example" class="example-close" title="Close">✕</button>
                 </span>
             </div>
             <div id="example-content" class="example-area__content"></div>
@@ -1358,14 +1358,14 @@
             <div class="family-reveal" id="reveal-family" hidden></div>
         </div>
         
-        <!-- 释义卡片：默认只显示音标，点击卡片才显示中文释义 -->
-        <div class="meaning-card" id="meaning-card" style="display: none;" title="点击显示/隐藏释义">
-            <div class="card__tap-hint" id="word-cn-hint">点击显示释义</div>
-            <div class="card__meaning is-hidden" id="word-cn">加载中...</div>
+        <!-- Meaning card: phonetic only by default, tap card to show/hide meaning -->
+        <div class="meaning-card" id="meaning-card" style="display: none;" title="Click to show/hide meaning">
+            <div class="card__tap-hint" id="word-cn-hint">Click to show meaning</div>
+            <div class="card__meaning is-hidden" id="word-cn">Loading...</div>
             <div class="card__phonetic" id="word-phonetic"></div>
         </div>
 
-        <!-- 打字区域 -->
+        <!-- Typing area -->
         <div class="typing-area" id="typing-area" style="display: none;">
             <div class="letters" id="letters"></div>
             <input type="text" id="type-input" class="type-input" placeholder="..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" disabled>
@@ -1373,24 +1373,24 @@
         </div>
 
         <div class="controls" id="controls" style="display: none;">
-            <button id="btn-prev" class="btn-nav" disabled>上一词</button>
-            <button id="btn-next" class="btn-nav">下一词</button>
+            <button id="btn-prev" class="btn-nav" disabled>Prev</button>
+            <button id="btn-next" class="btn-nav">Next</button>
         </div>
 
-        <div class="hint" id="hint-text" style="display: none;">💡回车跳下一词 | ←→ 切词(输入为空时) · ↑↓ 切词 | Tab 显示字母与释义 · 点击字母区显示字母 | V / Alt+V 发音 | Alt+/ 例句 | Alt+. 加强/移出错词本 | 空格聚焦输入框</div>
+        <div class="hint" id="hint-text" style="display: none;">💡Enter = next | ←→ switch word (when empty) · ↑↓ switch | Tab show letters & meaning · Click letters to reveal | V / Alt+V speak | Alt+/ examples | Alt+. reinforce/remove | Space focus input</div>
 
         <div class="hint" id="db-stats-bar" style="display: none;">
-            <span id="db-stats-text" title="点击刷新统计" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub);">🗄️ IndexedDB: 词库 0 | 错词本 0 | 语音缓存 0 | 例句缓存 0 | 总占用 0 B</span>
-            <span id="audio-cache-badge" title="点击清空全部本地语音缓存" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub); margin-left: 12px;">🗑️ 清空语音缓存</span>
+            <span id="db-stats-text" title="Click to refresh stats" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub);">🗄️ IndexedDB: Dicts 0 | Wrong list 0 | Audio cache 0 | Example cache 0 | Total 0 B</span>
+            <span id="audio-cache-badge" title="Click to clear all local audio cache" style="cursor: pointer; border-bottom: 1px dashed var(--text-sub); margin-left: 12px;">🗑️ Clear audio cache</span>
         </div>
 
-        <!-- 极简模式底部进度（仅极简模式可见） -->
-        <div id="minimal-progress">第 0/0 词</div>
+        <!-- Minimal mode bottom progress (minimal mode only) -->
+        <div id="minimal-progress">Word 0/0</div>
 
-        <!-- 错词本操作反馈 toast（极简模式下提醒加入/移除结果） -->
+        <!-- Wrong-list action toast (minimal mode) -->
         <div id="wrong-toast"></div>
 
-        <!-- 组切换反馈 toast（极简模式下提醒自动跳转组别） -->
+        <!-- Group switch toast (minimal mode) -->
         <div id="group-toast"></div>
     </div>
 
@@ -1398,8 +1398,8 @@
     <div id="settings-modal" class="modal-overlay" style="display:none;">
         <div class="modal-panel">
             <div class="modal-header">
-                <h3>⚙️ DeepSeek 模型设置</h3>
-                <button id="btn-close-settings" class="modal-close" title="关闭">✕</button>
+                <h3>⚙️ DeepSeek Settings</h3>
+                <button id="btn-close-settings" class="modal-close" title="Close">✕</button>
             </div>
             <div class="modal-body">
                 <div class="form-field">
@@ -1409,100 +1409,100 @@
                 <div class="form-field">
                     <label for="ds-base-url">Base URL</label>
                     <input type="text" id="ds-base-url" placeholder="https://api.deepseek.com" spellcheck="false">
-                    <div class="form-hint">例如 https://api.deepseek.com 或 https://api.deepseek.com/v1</div>
+                    <div class="form-hint">e.g. https://api.deepseek.com or https://api.deepseek.com/v1</div>
                 </div>
                 <div class="form-field">
-                    <label for="ds-model">模型 ID</label>
+                    <label for="ds-model">Model ID</label>
                     <input type="text" id="ds-model" placeholder="deepseek-chat" spellcheck="false">
                     <div class="form-hint">deepseek-chat / deepseek-reasoner</div>
                 </div>
                 <div class="form-field">
-                    <label for="ds-reasoning-effort">Reasoning Effort（推理强度）</label>
+                    <label for="ds-reasoning-effort">Reasoning Effort</label>
                     <select id="ds-reasoning-effort">
-                        <option value="low">低 (low)</option>
-                        <option value="medium" selected>中 (medium)</option>
-                        <option value="high">高 (high)</option>
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
                     </select>
                 </div>
                 <div id="settings-status" class="form-status"></div>
             </div>
             <div class="modal-footer">
-                <button id="btn-cancel-settings" class="btn-nav btn-cancel">取消</button>
-                <button id="btn-save-settings" class="btn-nav">💾 保存</button>
+                <button id="btn-cancel-settings" class="btn-nav btn-cancel">Cancel</button>
+                <button id="btn-save-settings" class="btn-nav">💾 Save</button>
             </div>
         </div>
     </div>
 
-    <!-- 词库管理面板 -->
+    <!-- Dictionary management panel -->
     <div id="dict-modal" class="modal-overlay" style="display:none;">
         <div class="modal-panel">
             <div class="modal-header">
-                <h3>📚 词库管理</h3>
-                <button id="btn-close-dict" class="modal-close" title="关闭">✕</button>
+                <h3>📚 Dictionaries</h3>
+                <button id="btn-close-dict" class="modal-close" title="Close">✕</button>
             </div>
             <div class="modal-body">
                 <div class="form-field">
-                    <label>已安装词库</label>
+                    <label>Installed</label>
                     <div id="dict-list" style="display:flex; flex-direction:column; gap:8px;"></div>
                 </div>
                 <div class="form-field">
-                    <label>在线导入预设词库</label>
+                    <label>Online presets</label>
                     <div id="dict-presets" style="display:flex; flex-direction:column; gap:8px;"></div>
                 </div>
                 <div class="form-field">
-                    <label for="dict-custom-url">自定义 URL 导入</label>
-                    <input type="text" id="dict-custom-name" placeholder="词库名称，如：考研词汇" spellcheck="false">
+                    <label for="dict-custom-url">Import from URL</label>
+                    <input type="text" id="dict-custom-name" placeholder="Dictionary name, e.g. GRE" spellcheck="false">
                     <input type="text" id="dict-custom-url" placeholder="https://.../xxx.json" spellcheck="false">
-                    <div class="form-hint">JSON 需为数组，或含 words/data 字段；词条格式与默认词库一致（word/name + translation/trans）</div>
-                    <button id="btn-dict-import-url" class="btn-nav" style="margin-top:6px; padding:8px 16px; font-size:13px;">⬇️ 从 URL 导入</button>
+                    <div class="form-hint">JSON must be an array, or contain a words/data field; entries use the same format as the default dict (word/name + translation/trans)</div>
+                    <button id="btn-dict-import-url" class="btn-nav" style="margin-top:6px; padding:8px 16px; font-size:13px;">⬇️ Import from URL</button>
                 </div>
                 <div class="form-field">
-                    <label for="dict-file-input">本地 JSON 文件导入</label>
+                    <label for="dict-file-input">Import local JSON file</label>
                     <input type="file" id="dict-file-input" accept=".json,application/json">
                 </div>
                 <div id="dict-status" class="form-status"></div>
             </div>
             <div class="modal-footer">
-                <button id="btn-dict-done" class="btn-nav">完成</button>
+                <button id="btn-dict-done" class="btn-nav">Done</button>
             </div>
         </div>
     </div>
 
-    <!-- 复习统计面板 -->
+    <!-- Review stats panel -->
     <div id="review-stats-modal" class="modal-overlay" style="display:none;">
         <div class="modal-panel">
             <div class="modal-header">
-                <h3>📊 遗忘曲线复习统计</h3>
-                <button id="btn-close-review-stats" class="modal-close" title="关闭">✕</button>
+                <h3>📊 Review Stats</h3>
+                <button id="btn-close-review-stats" class="modal-close" title="Close">✕</button>
             </div>
             <div class="modal-body">
-                <div id="review-stats-content" class="review-stats-content">⏳ 统计中...</div>
+                <div id="review-stats-content" class="review-stats-content">⏳ Calculating...</div>
             </div>
             <div class="modal-footer">
-                <button id="btn-review-stats-done" class="btn-nav">关闭</button>
+                <button id="btn-review-stats-done" class="btn-nav">Close</button>
             </div>
         </div>
     </div>
 
-    <!-- 单词复习进度面板 -->
+    <!-- Word review progress panel -->
     <div id="review-info-modal" class="modal-overlay" style="display:none;">
         <div class="modal-panel">
             <div class="modal-header">
-                <h3>🧠 单词复习进度</h3>
-                <button id="btn-close-review-info" class="modal-close" title="关闭">✕</button>
+                <h3>🧠 Word Review Progress</h3>
+                <button id="btn-close-review-info" class="modal-close" title="Close">✕</button>
             </div>
             <div class="modal-body">
-                <div id="review-info-content" class="review-stats-content">⏳ 读取中...</div>
+                <div id="review-info-content" class="review-stats-content">⏳ Loading...</div>
             </div>
             <div class="modal-footer">
-                <button id="btn-mastered-review" class="btn-nav" title="标记为已掌握后，该词不再出现在遗忘曲线复习中">🎓 标记为已掌握</button>
-                <button id="btn-reset-review" class="btn-nav btn-cancel" title="重置后该词视为未学，1 秒后重新进入复习队列">🔄 重置该词进度</button>
-                <button id="btn-review-info-done" class="btn-nav">关闭</button>
+                <button id="btn-mastered-review" class="btn-nav" title="Mark as mastered: the word no longer appears in spaced review">🎓 Mark as Mastered</button>
+                <button id="btn-reset-review" class="btn-nav btn-cancel" title="Reset: treat as unlearned, re-enter review queue after 1s">🔄 Reset Progress</button>
+                <button id="btn-review-info-done" class="btn-nav">Close</button>
             </div>
         </div>
     </div>
 
-    <button id="btn-exit-minimal" class="btn-settings" title="退出极简模式">✕ 退出极简</button>
+    <button id="btn-exit-minimal" class="btn-settings" title="Exit minimal mode">✕ Exit Minimal</button>
 
     <audio id="global-audio" autoplay></audio>
 
@@ -1577,14 +1577,14 @@
             const SECOND_MS = 1000;
             const REVIEW_INTERVALS_MS = [1 * SECOND_MS, 1 * DAY_MS, 2 * DAY_MS, 4 * DAY_MS, 7 * DAY_MS, 15 * DAY_MS, 30 * DAY_MS];
 
-            // 间隔显示：如 "1 秒" / "1 天" / "30 天"
+            // Interval display: e.g. "1 sec" / "1 day" / "30 days"
             function formatInterval(ms) {
-                if (ms < DAY_MS) return Math.round(ms / 1000) + ' 秒';
+                if (ms < DAY_MS) return Math.round(ms / 1000) + ' sec';
                 const days = ms / DAY_MS;
-                return (Number.isInteger(days) ? days : days.toFixed(1)) + ' 天';
+                return (Number.isInteger(days) ? days : days.toFixed(1)) + ' days';
             }
 
-            // 时长显示：如 "3 分钟后" / "1 天 2 小时后"（负值表示已逾期多少）；不足 1 分钟显示秒
+            // Duration display: e.g. "in 3 min" / "in 1 d 2 h" (negative = overdue by); under 1 min shows seconds
             function formatDuration(ms) {
                 const abs = Math.abs(ms);
                 const days = Math.floor(abs / DAY_MS);
@@ -1592,13 +1592,13 @@
                 const mins = Math.floor((abs % (60 * 60 * 1000)) / MINUTE_MS);
                 const secs = Math.round((abs % MINUTE_MS) / 1000);
                 let s = '';
-                if (days > 0) s += days + ' 天 ';
-                if (hours > 0 || days > 0) s += hours + ' 小时 ';
-                if (mins > 0 || hours > 0 || days > 0) s += mins + ' 分钟';
-                if (secs > 0 || (days === 0 && hours === 0 && mins === 0)) s += secs + ' 秒';
+                if (days > 0) s += days + ' d ';
+                if (hours > 0 || days > 0) s += hours + ' h ';
+                if (mins > 0 || hours > 0 || days > 0) s += mins + ' min';
+                if (secs > 0 || (days === 0 && hours === 0 && mins === 0)) s += secs + ' s';
                 s = s.trim();
-                if (!s) s = '0 秒';
-                return (ms < 0 ? '已逾期 ' : '') + s;
+                if (!s) s = '0 s';
+                return (ms < 0 ? 'overdue by ' : 'in ') + s;
             }
 
             // 更新某个单词行的复习进度（row 需为完整行：id/data/dx/rx/rl）
@@ -1663,7 +1663,7 @@
                 const timer = setTimeout(() => controller.abort(), 90000);
                 try {
                     const response = await fetch(url, { signal: controller.signal });
-                    if (!response.ok) throw new Error('词库下载失败: HTTP ' + response.status);
+                    if (!response.ok) throw new Error('Dictionary download failed: HTTP ' + response.status);
                     if (!response.body) return await response.json();
                     const total = parseInt(response.headers.get('content-length') || '0', 10);
                     const reader = response.body.getReader();
@@ -1679,7 +1679,7 @@
                         if (now - lastReport > 300) {
                             lastReport = now;
                             const pct = total ? Math.round(received * 100 / total) : null;
-                            self.postMessage({ type: 'initProgress', message: '📥 下载词库中 ' + formatBytesLocal(received) + (pct !== null ? ' (' + pct + '%)' : '') + ' ...' });
+                            self.postMessage({ type: 'initProgress', message: '📥 Downloading dictionary ' + formatBytesLocal(received) + (pct !== null ? ' (' + pct + '%)' : '') + ' ...' });
                         }
                     }
                     const all = new Uint8Array(received);
@@ -1687,7 +1687,7 @@
                     for (const c of chunks) { all.set(c, offset); offset += c.length; }
                     return JSON.parse(new TextDecoder('utf-8').decode(all));
                 } catch (e) {
-                    if (e && e.name === 'AbortError') throw new Error('词库下载超时(90s)');
+                    if (e && e.name === 'AbortError') throw new Error('Dictionary download timed out (90s)');
                     throw e;
                 } finally {
                     clearTimeout(timer);
@@ -1741,8 +1741,8 @@
                         store.put({ id: makeWordKey(dictId, j), dictId: dictId, data: list[j] });
                     }
                     tx.oncomplete = () => resolve();
-                    tx.onerror = () => reject(new Error('词库写入失败'));
-                    tx.onabort = () => reject(new Error('词库写入被中止'));
+                    tx.onerror = () => reject(new Error('Dictionary write failed'));
+                    tx.onabort = () => reject(new Error('Dictionary write aborted'));
                 });
             }
 
@@ -1777,29 +1777,29 @@
                     const tx = db.transaction([STORE_ALL], 'readwrite');
                     tx.objectStore(STORE_ALL).clear();
                     tx.oncomplete = () => resolve();
-                    tx.onerror = () => reject(new Error('清空旧词库失败'));
-                    tx.onabort = () => reject(new Error('清空旧词库被中止'));
+                    tx.onerror = () => reject(new Error('Failed to clear old dictionary'));
+                    tx.onabort = () => reject(new Error('Clearing old dictionary aborted'));
                 });
                 await writeDictWords('default', records);
-                await saveDictRecord({ id: 'default', name: '默认词库', count: records.length, ts: Date.now(), isDefault: true });
+                await saveDictRecord({ id: 'default', name: 'Default', count: records.length, ts: Date.now(), isDefault: true });
             }
 
             // 多源依次尝试下载并导入词库（单一源失败/被墙时自动切换下一个）
             async function seedDict(dictId, name, urls) {
-                if (!urls || urls.length === 0) throw new Error('词库地址缺失，无法初始化数据');
-                if (!db || !db.objectStoreNames.contains(STORE_ALL)) throw new Error('词库表不存在，无法导入');
+                if (!urls || urls.length === 0) throw new Error('No dictionary URL provided');
+                if (!db || !db.objectStoreNames.contains(STORE_ALL)) throw new Error('Dictionary store missing, cannot import');
 
                 let lastError = null;
                 for (let i = 0; i < urls.length; i++) {
                     try {
-                        self.postMessage({ type: 'initProgress', message: '📥 正在从源 ' + (i + 1) + '/' + urls.length + ' 下载「' + name + '」...' });
+                        self.postMessage({ type: 'initProgress', message: '📥 Downloading from source ' + (i + 1) + '/' + urls.length + ' ("' + name + '")...' });
                         const payload = await fetchJsonWithProgress(urls[i]);
                         const list = normalizeDictionaryList(payload)
                             .map(normalizeWordItem)
                             .filter(Boolean);
-                        if (list.length === 0) throw new Error('词库文件为空或格式不支持');
+                        if (list.length === 0) throw new Error('Dictionary file empty or unsupported format');
 
-                        self.postMessage({ type: 'initProgress', message: '💾 正在写入本地数据库 (' + list.length + ' 词) ...' });
+                        self.postMessage({ type: 'initProgress', message: '💾 Writing to local database (' + list.length + ' words) ...' });
                         await writeDictWords(dictId, list);
                         await saveDictRecord({ id: dictId, name: name, count: list.length, ts: Date.now(), isDefault: dictId === 'default' });
                         return list.length;
@@ -1807,7 +1807,7 @@
                         lastError = e;
                     }
                 }
-                throw new Error('所有词库下载源均失败: ' + (lastError && lastError.message ? lastError.message : '未知错误'));
+                throw new Error('All dictionary sources failed: ' + (lastError && lastError.message ? lastError.message : 'unknown error'));
             }
 
             function getCount(storeName) {
@@ -2099,12 +2099,12 @@
                         if (dicts.length === 0) {
                             const totalLegacy = await getCount(STORE_ALL);
                             if (totalLegacy > 0) {
-                                // 已有 v5 单库数据：迁移为「默认词库」，不重新下载
-                                self.postMessage({ type: 'initProgress', message: '📦 检测到旧版词库数据，正在迁移 (' + totalLegacy + ' 词) ...' });
+                                // Existing v5 single-dict data: migrate to "default" dict, skip download
+                                self.postMessage({ type: 'initProgress', message: '📦 Legacy dictionary data found, migrating (' + totalLegacy + ' words) ...' });
                                 await migrateLegacyWords();
                             } else {
                                 const urls = (msg.urls && msg.urls.length) ? msg.urls : (msg.url ? [msg.url] : []);
-                                await seedDict('default', '默认词库', urls);
+                                await seedDict('default', 'Default', urls);
                             }
                             await loadDicts();
                         }
@@ -2114,7 +2114,7 @@
                         await cacheWrongWordsKeys();
                         const totalAll = getActiveDictCount();
                         if (totalAll <= 0) {
-                            throw new Error('当前词库为空，请在「词库管理」中导入或删除该词库');
+                            throw new Error('Current dictionary is empty. Import or delete a dictionary in Dictionary Management');
                         }
                         self.postMessage({ type: 'ready', dicts: dicts, activeDictId: activeDictId, totalAll: totalAll, totalWrong: wrongWordIdsSet.size });
                     } catch (error) { self.postMessage({ type: 'error', message: error.message }); }
@@ -2145,7 +2145,7 @@
                 else if (msg.type === 'importDict') {
                     try {
                         if (msg.name && dicts.some((d) => d.name === msg.name)) {
-                            self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId, status: '⚠️ 已存在同名词库「' + msg.name + '」，未重复导入' });
+                            self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId, status: '⚠️ A dictionary named "' + msg.name + '" already exists, skipped' });
                             return;
                         }
                         const id = 'dict_' + Date.now();
@@ -2154,33 +2154,33 @@
                             list = normalizeDictionaryList(msg.list).map(normalizeWordItem).filter(Boolean);
                         } else {
                             const urls = (msg.urls && msg.urls.length) ? msg.urls : (msg.url ? [msg.url] : []);
-                            if (urls.length === 0) throw new Error('未提供词库地址或数据');
+                            if (urls.length === 0) throw new Error('No dictionary URL or data provided');
                             let lastError = null;
                             for (let i = 0; i < urls.length; i++) {
                                 try {
-                                    self.postMessage({ type: 'dictStatus', message: '📥 正在从源 ' + (i + 1) + '/' + urls.length + ' 下载「' + msg.name + '」...' });
+                                    self.postMessage({ type: 'dictStatus', message: '📥 Downloading from source ' + (i + 1) + '/' + urls.length + ' ("' + msg.name + '")...' });
                                     const payload = await fetchJsonWithProgress(urls[i]);
                                     list = normalizeDictionaryList(payload).map(normalizeWordItem).filter(Boolean);
                                     if (list.length > 0) break;
-                                    lastError = new Error('词库文件为空或格式不支持');
+                                    lastError = new Error('Dictionary file empty or unsupported format');
                                 } catch (e) { lastError = e; }
                             }
-                            if (!list || list.length === 0) throw lastError || new Error('词库下载失败');
+                            if (!list || list.length === 0) throw lastError || new Error('Dictionary download failed');
                         }
-                        self.postMessage({ type: 'dictStatus', message: '💾 正在写入「' + msg.name + '」(' + list.length + ' 词) ...' });
+                        self.postMessage({ type: 'dictStatus', message: '💾 Writing "' + msg.name + '" (' + list.length + ' words) ...' });
                         await writeDictWords(id, list);
-                        const rec = { id: id, name: msg.name || ('新词库 ' + (dicts.length + 1)), count: list.length, ts: Date.now() };
+                        const rec = { id: id, name: msg.name || ('Dictionary ' + (dicts.length + 1)), count: list.length, ts: Date.now() };
                         await saveDictRecord(rec);
                         dicts.push(rec);
-                        self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId, status: '✅ 导入成功：' + rec.name + '（' + list.length + ' 词）' });
+                        self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId, status: '✅ Imported: ' + rec.name + ' (' + list.length + ' words)' });
                     } catch (e) {
-                        self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId, status: '❌ 导入失败：' + (e && e.message ? e.message : String(e)) });
+                        self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId, status: '❌ Import failed: ' + (e && e.message ? e.message : String(e)) });
                     }
                 }
 
                 else if (msg.type === 'deleteDict') {
                     if (dicts.length <= 1) {
-                        self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId, status: '❌ 至少需保留一个词库' });
+                        self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId, status: '❌ At least one dictionary must remain' });
                         return;
                     }
                     const target = dicts.find((d) => d.id === msg.id);
@@ -2192,7 +2192,7 @@
                         await buildAllWordsMap();
                         await cacheWrongWordsKeys();
                     }
-                    self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId, status: '🗑️ 已删除「' + (target ? target.name : msg.id) + '」' });
+                    self.postMessage({ type: 'dictsUpdated', dicts: dicts, activeDictId: activeDictId, status: '🗑️ Deleted "' + (target ? target.name : msg.id) + '"' });
                 }
 
                 else if (msg.type === 'getCard') {
@@ -2263,7 +2263,7 @@
                                 stage: stage,
                                 maxStage: maxStage,
                                 mastered: rec.mx === true,
-                                nextIntervalLabel: stage < maxStage ? formatInterval(REVIEW_INTERVALS_MS[stage]) : '已毕业（30 天后复查）',
+                                nextIntervalLabel: stage < maxStage ? formatInterval(REVIEW_INTERVALS_MS[stage]) : 'Graduated (review in 30 days)',
                                 isDue: typeof rec.dx === 'number' && rec.dx <= now,
                                 dueTs: typeof rec.dx === 'number' ? rec.dx : 0,
                                 lastTypedTs: rec.rl || 0,
@@ -2478,6 +2478,17 @@
         const autoSpeakSwitch = document.getElementById('auto-speak-switch');
         const showMeaningSwitch = document.getElementById('show-meaning-switch');
 
+        // 恢复自动发音偏好（localStorage，默认开启：首次访问无记录时视为勾选）
+        try {
+            const savedAutoSpeak = localStorage.getItem('typing_auto_speak_v1');
+            autoSpeakSwitch.checked = savedAutoSpeak === null ? true : savedAutoSpeak === '1';
+        } catch (e) { autoSpeakSwitch.checked = true; }
+
+        // 自动发音开关：切换时持久化偏好
+        autoSpeakSwitch.addEventListener('change', () => {
+            try { localStorage.setItem('typing_auto_speak_v1', autoSpeakSwitch.checked ? '1' : '0'); } catch (e) {}
+        });
+
         // 恢复释义常显偏好（localStorage，默认隐藏）
         try { showMeaningSwitch.checked = localStorage.getItem('typing_show_meaning_v1') === '1'; } catch (e) {}
 
@@ -2684,14 +2695,14 @@
                 }
             }
             else if (msg.type === 'error') {
-                initStatusText.innerText = '⚠️ ' + msg.message + '（点击此处重试）';
+                initStatusText.innerText = '⚠️ ' + msg.message + ' (click to retry)';
                 initStatusText.style.color = '#d9534f';
                 initStatusText.style.cursor = 'pointer';
                 initStatusText.onclick = () => {
                     initStatusText.onclick = null;
                     initStatusText.style.cursor = '';
                     initStatusText.style.color = '';
-                    initStatusText.innerText = '⏳ 正在初始化本地数据库...';
+                    initStatusText.innerText = '⏳ Initializing local database...';
                     worker.postMessage({ type: 'init', urls: JSON_URLS, activeDictId: activeDictId });
                 };
             }
@@ -2787,14 +2798,14 @@
         }
 
         function updateAudioCacheBadge(count) {
-            if (count !== undefined) audioCacheBadge.innerText = '🗑️ 清空语音缓存 (' + count + ')';
+            if (count !== undefined) audioCacheBadge.innerText = '🗑️ Clear audio cache (' + count + ')';
         }
 
-        // 极简模式底部进度：第 absoluteIndex/词库总词数（错词本模式分母为错词总数）
+        // Minimal mode bottom progress: absoluteIndex / total (wrong-list mode denominator = wrong count)
         const minimalProgressEl = document.getElementById('minimal-progress');
         function updateMinimalProgress(current, total) {
             if (!minimalProgressEl) return;
-            minimalProgressEl.textContent = `第 ${current}/${total} 词`;
+            minimalProgressEl.textContent = `Word ${current}/${total}`;
         }
 
         function formatBytes(bytes) {
@@ -2811,12 +2822,12 @@
             const audioStore = stats['audio_cache'] || { count: 0, size: 0 };
             const exampleStore = stats['example_cache'] || { count: 0, size: 0 };
             const totalBytes = (allStore.size || 0) + (wrongStore.size || 0) + (audioStore.size || 0) + (exampleStore.size || 0);
-            dbStatsText.innerText = `🗄️ IndexedDB: 词库 ${allStore.count || 0} | 错词本 ${wrongStore.count || 0} | 语音缓存 ${audioStore.count || 0} | 例句缓存 ${exampleStore.count || 0} | 总占用 ${formatBytes(totalBytes)}`;
+            dbStatsText.innerText = `🗄️ IndexedDB: Dicts ${allStore.count || 0} | Wrong list ${wrongStore.count || 0} | Audio cache ${audioStore.count || 0} | Example cache ${exampleStore.count || 0} | Total ${formatBytes(totalBytes)}`;
         }
 
         function exportWrongWordsAsJSON(data) {
             if (!data || data.length === 0) {
-                alert('错词本当前为空，无需导出。');
+                alert('Wrong list is empty, nothing to export.');
                 return;
             }
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -2842,14 +2853,14 @@
             const currentSelectedValue = groupSelect.value;
             groupSelect.innerHTML = '';
             const totalGroups = Math.ceil(totalCount / pageSize);
-            if (totalGroups === 0) { groupSelect.innerHTML = '<option value="0">无数据</option>'; return; }
+            if (totalGroups === 0) { groupSelect.innerHTML = '<option value="0">No data</option>'; return; }
 
             for (let i = 0; i < totalGroups; i++) {
                 const start = i * pageSize + 1;
                 const end = Math.min((i + 1) * pageSize, totalCount);
                 const option = document.createElement('option');
                 option.value = i;
-                option.text = `第 ${i + 1} 组 (${start}-${end})`;
+                option.text = `Group ${i + 1} (${start}-${end})`;
                 groupSelect.appendChild(option);
             }
             if (currentSelectedValue < totalGroups) groupSelect.value = currentSelectedValue;
@@ -2873,7 +2884,7 @@
             updateWrongButtonUI(isWrong);
             
             setTimeout(() => {
-                let cn = "暂无释义";
+                let cn = "No meaning";
                 if (Array.isArray(wordObj.trans)) cn = wordObj.trans.map((t) => escapeHtml(t)).join('<br>');
                 else if (wordObj.translation) cn = escapeHtml(wordObj.translation);
                 else if (typeof wordObj === 'string') cn = escapeHtml(wordObj);
@@ -2883,12 +2894,12 @@
                 if (showMeaningSwitch.checked) showMeaning();
                 else hideMeaning();
 
-                // 音标展示：优先英/美双音标，其次通用 phonetic 字段
+                // Phonetic: prefer UK/US pair, fall back to generic phonetic field
                 const usPhone = wordObj.usphone || '';
                 const ukPhone = wordObj.ukphone || '';
                 let phoneticText = '';
                 if (usPhone && ukPhone && usPhone !== ukPhone) {
-                    phoneticText = `英 [${ukPhone}]  美 [${usPhone}]`;
+                    phoneticText = `UK [${ukPhone}]  US [${usPhone}]`;
                 } else {
                     phoneticText = usPhone || ukPhone || wordObj.phonetic || '';
                     if (phoneticText) phoneticText = `[${phoneticText}]`;
@@ -2900,7 +2911,7 @@
                     elWordPhonetic.style.display = 'none';
                 }
                 
-                statusText.innerText = `组内: ${relativeIndex + 1}/${totalWordsInGroup} (总第${absoluteIndex}词)`;
+                statusText.innerText = `In group: ${relativeIndex + 1}/${totalWordsInGroup} (total #${absoluteIndex})`;
                 const progressTotal = currentMode() === 'wrong' ? wrongCountLocal
                     : (currentMode() === 'review' ? (lastReviewStats ? lastReviewStats.dueTotal : 0) : activeDictCount);
                 updateMinimalProgress(absoluteIndex, progressTotal);
@@ -2909,12 +2920,12 @@
                 const isFirstInGroup = (relativeIndex === 0);
                 const hasPrevGroup = (parseInt(groupSelect.value) > 0);
                 btnPrev.disabled = isFirstInGroup && !hasPrevGroup;
-                btnPrev.title = isFirstInGroup && hasPrevGroup ? '已是本组第一个词，点击返回上一组' : '';
+                btnPrev.title = isFirstInGroup && hasPrevGroup ? 'First word of the group, click to go back a group' : '';
                 // 当前组最后一个词时不再禁用"下一词"：若后面还有组，点击可自动跳转到下一组
                 const isLastInGroup = (relativeIndex === totalWordsInGroup - 1);
                 const hasNextGroup = (parseInt(groupSelect.value) < groupSelect.options.length - 1);
                 btnNext.disabled = isLastInGroup && !hasNextGroup;
-                btnNext.title = isLastInGroup && hasNextGroup ? '已是本组最后一个词，点击进入下一组' : '';
+                btnNext.title = isLastInGroup && hasNextGroup ? 'Last word of the group, click to go to the next group' : '';
                 btnToggleWrong.disabled = false;
                 btnSpeak.disabled = false;
                 btnExample.disabled = false;
@@ -3049,7 +3060,7 @@
             // 之后在 setTimeout 里 focus() 属于非用户手势，无法重新唤起键盘
             typeInput.readOnly = true;
             meaningCard.classList.add('is-success');
-            typeStatus.textContent = '✅ 正确！即将进入下一词...';
+            typeStatus.textContent = '✅ Correct! Next word...';
             typeStatus.className = 'type-status success';
             setTimeout(() => {
                 if (currentMode() === 'review') {
@@ -3073,7 +3084,7 @@
             meaningCard.classList.remove('is-success');
             void meaningCard.offsetWidth; // 重新触发 shake 动画
             meaningCard.classList.add('is-error');
-            typeStatus.textContent = isReview ? '❌ 拼写有误，已记录复习（1 秒后复查）' : '❌ 字母不对，已清空，请重新输入';
+            typeStatus.textContent = isReview ? '❌ Typo logged for review (retry in 1s)' : '❌ Wrong letter, cleared. Try again';
             typeStatus.className = 'type-status error';
             // 立即清空并允许重打：不等待 600ms 恢复
             resolvingWord = false;
@@ -3097,15 +3108,15 @@
                 // 已到本组最后一个词：自动跳转到下一个组（组选择器 +1 并重新加载）
                 const nextGroup = parseInt(groupSelect.value) + 1;
                 groupSelect.value = String(nextGroup);
-                showGroupToast('⏭️ 已自动进入第 ' + (nextGroup + 1) + ' 组');
+                showGroupToast('⏭️ Entered group ' + (nextGroup + 1));
                 applyFilters(groupSelect.value);
                 saveProgress();
             } else {
                 // 已到最后一组的最后一个词：整组通关
                 typeInput.disabled = true;
-                typeStatus.textContent = '🎉 本组全部完成！选择其他组别继续练习';
+                typeStatus.textContent = '🎉 All done in this group! Pick another group to keep practicing';
                 typeStatus.className = 'type-status success';
-                showGroupToast('🎉 已通关最后一个组！', true);
+                showGroupToast('🎉 Cleared the last group!', true);
             }
         }
 
@@ -3124,12 +3135,12 @@
             // 复习模式空队列：提示如何产生复习词
             if (currentMode() === 'review') {
                 const unlearned = lastReviewStats ? lastReviewStats.unlearnedTotal : 0;
-                elWordCn.innerHTML = "📭 暂无到期复习" +
+                elWordCn.innerHTML = "📭 No reviews due" +
                     `<br><span style="font-size:13px; color:var(--text-sub); line-height:1.8;">` +
-                    `已学 ${lastReviewStats ? lastReviewStats.learnedTotal : 0} 词 · 未学 ${unlearned} 词<br>` +
-                    `去「📖 当前词库」打几个词，1 秒/1 天后会回到这里！</span>`;
+                    `Learned ${lastReviewStats ? lastReviewStats.learnedTotal : 0} · Unlearned ${unlearned}<br>` +
+                    `Type a few words in the "📖 Current" mode and they will come back here in 1s/1 day!</span>`;
             } else {
-                elWordCn.innerHTML = "📭 分组空空";
+                elWordCn.innerHTML = "📭 Empty group";
             }
             showMeaning(); // 空状态提示直接可见，无需点击
             elWordPhonetic.innerText = '';
@@ -3138,7 +3149,7 @@
             letterSpans = [];
             typeInput.value = '';
             typeInput.disabled = true;
-            typeStatus.textContent = "当前选择的分组内没有数据。";
+            typeStatus.textContent = "No data in the selected group.";
             typeStatus.className = 'type-status';
             statusText.innerText = "0 / 0";
             updateMinimalProgress(0, 0, 0);
@@ -3157,10 +3168,10 @@
         function updateWrongCountUI(count, isReviewStat) {
             if (count !== null) {
                 if (isReviewStat) {
-                    modeSelect.options[2].text = `🧠 遗忘曲线复习 (${count})`;
+                    modeSelect.options[2].text = `🧠 Review (${count})`;
                 } else {
                     wrongCountLocal = count;
-                    modeSelect.options[1].text = `❌ 我的错词本 (${count})`;
+                    modeSelect.options[1].text = `❌ Wrong List (${count})`;
                 }
             }
         }
@@ -3169,10 +3180,10 @@
             currentCardIsWrong = isWrong;
             if (isWrong) {
                 btnToggleWrong.className = "btn-action btn-remove-wrong";
-                btnToggleWrong.innerText = "✅ 已掌握";
+                btnToggleWrong.innerText = "✅ Mastered";
             } else {
                 btnToggleWrong.className = "btn-action btn-add-wrong";
-                btnToggleWrong.innerText = "✨ 加强";
+                btnToggleWrong.innerText = "✨ Reinforce";
             }
         }
 
@@ -3187,7 +3198,7 @@
                 // 常规模式：按钮文字/颜色本身已变化，无需常驻提示
                 return;
             }
-            wrongToastEl.textContent = isWrong ? '✅ 已加入错词本' : '➖ 已移出错词本';
+            wrongToastEl.textContent = isWrong ? '✅ Added to wrong list' : '➖ Removed from wrong list';
             wrongToastEl.className = isWrong ? 'is-ok' : 'is-bad';
             wrongToastEl.style.display = 'block';
             if (wrongToastTimer) clearTimeout(wrongToastTimer);
@@ -3229,7 +3240,7 @@
 
             // 进度提示（非统计性质，仅帮助用户感知还剩几个字母）
             if (typed.length < currentWordString.length) {
-                typeStatus.textContent = `已输入 ${typed.length}/${currentWordString.length} 个字母`;
+                typeStatus.textContent = `Typed ${typed.length}/${currentWordString.length} letters`;
                 typeStatus.className = 'type-status';
             }
 
@@ -3313,7 +3324,7 @@
 
         // 点击页脚缓存角标：清空全部语音缓存，并刷新统计
         audioCacheBadge.addEventListener('click', () => {
-            if (confirm('确定清空全部本地语音缓存吗？之后首次播放需要重新下载。')) {
+            if (confirm('Clear all local audio cache? Next play will re-download.')) {
                 worker.postMessage({ type: 'clearAudioCache' });
                 worker.postMessage({ type: 'getDbStats' });
             }
@@ -3357,8 +3368,8 @@
         const btnResetReview = document.getElementById('btn-reset-review');
         const btnMasteredReview = document.getElementById('btn-mastered-review');
 
-        // 阶段名称（与 REVIEW_INTERVALS_MS 对应）
-        const STAGE_LABELS = ['1 秒', '1 天', '2 天', '4 天', '7 天', '15 天', '30 天'];
+        // Stage names (matching REVIEW_INTERVALS_MS)
+        const STAGE_LABELS = ['1 sec', '1 day', '2 days', '4 days', '7 days', '15 days', '30 days'];
 
         function escapeHtmlLocal(s) {
             return String(s == null ? '' : s)
@@ -3377,7 +3388,7 @@
         // 打开复习统计面板：请求最新统计并在面板显示汇总 + 阶段分布
         function openReviewStatsPanel() {
             reviewStatsModal.style.display = 'flex';
-            reviewStatsContent.innerHTML = '⏳ 统计中...';
+            reviewStatsContent.innerHTML = '⏳ Calculating...';
             worker.postMessage({ type: 'getReviewStats' });
         }
 
@@ -3391,30 +3402,30 @@
             const maxStage = STAGE_LABELS.length;
             const segColors = ['#E24A4A', '#E2884A', '#E2B84A', '#9CD24A', '#4AC46F', '#3FA8E2', '#8A5AF9'];
             let html = '<div class="review-stats-rows">';
-            html += `<div class="review-stats-row"><span class="label">📚 词库总词数</span><span class="value">${stats.learnedTotal + stats.unlearnedTotal}</span></div>`;
-            html += `<div class="review-stats-row"><span class="label">🎓 已学（有复习记录）</span><span class="value">${stats.learnedTotal} <span style="font-size:11px;color:var(--text-sub);">(${learnedRate}%)</span></span></div>`;
-            html += `<div class="review-stats-row"><span class="label">� 已掌握（不参与复习）</span><span class="value ok">${stats.masteredTotal || 0}</span></div>`;
-            html += `<div class="review-stats-row"><span class="label">�🆕 未学（打过才会进</span><span class="value">${stats.unlearnedTotal}</span></div>`;
-            html += `<div class="review-stats-row"><span class="label">⏰ 今日到期（待复习）</span><span class="value due">${stats.dueTotal} <span style="font-size:11px;color:var(--text-sub);">占已学 ${dueRate}%</span></span></div>`;
+            html += `<div class="review-stats-row"><span class="label">📚 Total words</span><span class="value">${stats.learnedTotal + stats.unlearnedTotal}</span></div>`;
+            html += `<div class="review-stats-row"><span class="label">🎓 Learned (has record)</span><span class="value">${stats.learnedTotal} <span style="font-size:11px;color:var(--text-sub);">(${learnedRate}%)</span></span></div>`;
+            html += `<div class="review-stats-row"><span class="label">🎓 Mastered (excluded)</span><span class="value ok">${stats.masteredTotal || 0}</span></div>`;
+            html += `<div class="review-stats-row"><span class="label">🆕 Unlearned</span><span class="value">${stats.unlearnedTotal}</span></div>`;
+            html += `<div class="review-stats-row"><span class="label">⏰ Due now</span><span class="value due">${stats.dueTotal} <span style="font-size:11px;color:var(--text-sub);">${dueRate}% of learned</span></span></div>`;
             html += '</div>';
             // 阶段分布
             if (stats.learnedTotal > 0) {
-                html += '<div style="font-size:12px;color:var(--text-label);font-weight:600;margin-top:4px;">📈 各复习阶段分布</div>';
+                html += '<div style="font-size:12px;color:var(--text-label);font-weight:600;margin-top:4px;">📈 Stage distribution</div>';
                 html += '<div class="stage-bar">';
                 for (let i = 0; i < maxStage; i++) {
                     const cnt = (stats.stageDist && stats.stageDist[i]) || 0;
                     if (cnt === 0) continue;
                     const pct = Math.round(cnt / stats.learnedTotal * 100);
-                    html += `<div class="seg" style="width:${pct}%;background:${segColors[i]};" title="阶段${i}（${STAGE_LABELS[i]}）：${cnt} 词"></div>`;
+                    html += `<div class="seg" style="width:${pct}%;background:${segColors[i]};" title="Stage ${i} (${STAGE_LABELS[i]}): ${cnt} words"></div>`;
                 }
                 html += '</div>';
                 html += '<div class="stage-legend">';
                 for (let i = 0; i < maxStage; i++) {
                     const cnt = (stats.stageDist && stats.stageDist[i]) || 0;
-                    html += `<span class="item"><span class="dot" style="background:${segColors[i]}"></span>阶段${i}(${STAGE_LABELS[i]}) ${cnt}</span>`;
+                    html += `<span class="item"><span class="dot" style="background:${segColors[i]}"></span>${i}(${STAGE_LABELS[i]}) ${cnt}</span>`;
                 }
                 html += '</div>';
-                html += '<div style="font-size:11px;color:var(--text-sub);margin-top:10px;line-height:1.6;">💡 打对升级阶段（间隔翻倍），打错回到阶段 0（1 秒后复查）。到期词会自动进入复习队列。</div>';
+                html += '<div style="font-size:11px;color:var(--text-sub);margin-top:10px;line-height:1.6;">💡 Correct = upgrade stage (interval doubles), wrong = back to stage 0 (retry in 1s). Due words auto-enter the review queue.</div>';
             }
             reviewStatsContent.innerHTML = html;
         }
@@ -3435,41 +3446,41 @@
             btnResetReview.style.display = 'inline-block';
             btnMasteredReview.disabled = false;
             btnMasteredReview.style.display = 'inline-block';
-            reviewInfoContent.innerHTML = '⏳ 读取中...';
+            reviewInfoContent.innerHTML = '⏳ Loading...';
             const info = await requestReviewInfo(currentWordData);
             if (!info) {
                 currentMasteredState = false;
                 updateMasteredButtonUI();
                 reviewInfoContent.innerHTML =
-                    `<div class="review-info-detail"><div class="row"><span class="k">📝 单词</span><span class="v">${escapeHtmlLocal(currentWordString)}</span></div>` +
-                    `<div class="row"><span class="k">状态</span><span class="v">🆕 尚未学过</span></div></div>` +
-                    '<div style="font-size:12px;color:var(--text-sub);margin-top:8px;">在「📖 当前词库」/「错词本」模式打过这个词（对或错）后，这里会显示复习进度。<br>也可以直接点击下方「🎓 标记为已掌握」跳过复习。</div>';
+                    `<div class="review-info-detail"><div class="row"><span class="k">📝 Word</span><span class="v">${escapeHtmlLocal(currentWordString)}</span></div>` +
+                    `<div class="row"><span class="k">Status</span><span class="v">🆕 Not studied yet</span></div></div>` +
+                    '<div style="font-size:12px;color:var(--text-sub);margin-top:8px;">Type this word (right or wrong) in the "📖 Current" / "Wrong List" mode and review progress will show here.<br>Or click "🎓 Mark as Mastered" below to skip review.</div>';
                 return;
             }
             currentMasteredState = !!info.mastered;
             updateMasteredButtonUI();
             const stage = info.stage;
-            const stageLabel = stage < STAGE_LABELS.length ? STAGE_LABELS[stage] : '已毕业';
+            const stageLabel = stage < STAGE_LABELS.length ? STAGE_LABELS[stage] : 'Graduated';
             const nextLabel = info.nextIntervalLabel;
             const dueClass = info.isDue ? 'due' : 'ok';
-            const dueText = info.isDue ? '🔴 已到期，可复习' : (info.mastered ? '🛡️ 已掌握，不参与复习' : '⏳ 未到期');
+            const dueText = info.isDue ? '🔴 Due, reviewable' : (info.mastered ? '🛡️ Mastered, no review' : '⏳ Not due yet');
             const lastTyped = fmtTs(info.lastTypedTs);
             // 阶段进度条（0 → 毕业）
             const pct = Math.min(Math.round(stage / info.maxStage * 100), 100);
             reviewInfoContent.innerHTML =
                 `<div class="review-info-detail">` +
-                `<div class="row"><span class="k">📝 单词</span><span class="v">${escapeHtmlLocal(currentWordString)}</span></div>` +
-                `<div class="row"><span class="k">复习阶段</span><span class="v">${stage} / ${info.maxStage}（${stageLabel}）</span></div>` +
-                `<div class="row"><span class="k">🎓 已掌握</span><span class="v ${info.mastered ? 'ok' : ''}">${info.mastered ? '✅ 是（不参与复习）' : '❌ 否'}</span></div>` +
-                `<div class="row"><span class="k">状态</span><span class="v ${dueClass}">${dueText}${info.nextReviewIn ? ' · ' + info.nextReviewIn : ''}</span></div>` +
-                `<div class="row"><span class="k">下一次复习</span><span class="v">${fmtTs(info.dueTs)}</span></div>` +
-                `<div class="row"><span class="k">间隔（打对后）</span><span class="v">${nextLabel}</span></div>` +
-                `<div class="row"><span class="k">最后打字</span><span class="v">${lastTyped}</span></div>` +
+                `<div class="row"><span class="k">📝 Word</span><span class="v">${escapeHtmlLocal(currentWordString)}</span></div>` +
+                `<div class="row"><span class="k">Stage</span><span class="v">${stage} / ${info.maxStage} (${stageLabel})</span></div>` +
+                `<div class="row"><span class="k">🎓 Mastered</span><span class="v ${info.mastered ? 'ok' : ''}">${info.mastered ? '✅ Yes (no review)' : '❌ No'}</span></div>` +
+                `<div class="row"><span class="k">Status</span><span class="v ${dueClass}">${dueText}${info.nextReviewIn ? ' · ' + info.nextReviewIn : ''}</span></div>` +
+                `<div class="row"><span class="k">Next review</span><span class="v">${fmtTs(info.dueTs)}</span></div>` +
+                `<div class="row"><span class="k">Interval (if correct)</span><span class="v">${nextLabel}</span></div>` +
+                `<div class="row"><span class="k">Last typed</span><span class="v">${lastTyped}</span></div>` +
                 `</div>` +
-                `<div style="margin-top:10px;font-size:12px;color:var(--text-label);font-weight:600;">📈 复习进度</div>` +
+                `<div style="margin-top:10px;font-size:12px;color:var(--text-label);font-weight:600;">📈 Review progress</div>` +
                 `<div class="stage-bar"><div class="seg" style="width:${pct}%;background:var(--primary);"></div></div>` +
-                `<div style="font-size:11px;color:var(--text-sub);margin-top:4px;">阶段 ${stage}（${stageLabel}）：打对升级，打错回阶段 0。毕业(阶段 ${info.maxStage})后 30 天复查。</div>` +
-                (info.mastered ? `<div style="font-size:11px;color:var(--success);margin-top:4px;">🎓 该词已标记为已掌握，不会出现在遗忘曲线复习中（保留原复习进度）。</div>` : '');
+                `<div style="font-size:11px;color:var(--text-sub);margin-top:4px;">Stage ${stage} (${stageLabel}): correct upgrades, wrong returns to stage 0. Graduated (stage ${info.maxStage}) = review again in 30 days.</div>` +
+                (info.mastered ? `<div style="font-size:11px;color:var(--success);margin-top:4px;">🎓 Marked as mastered — excluded from spaced review (progress kept).</div>` : '');
         }
 
         // 重置当前词复习进度
@@ -3495,10 +3506,10 @@
             if (!btnMasteredReview) return;
             if (currentMasteredState) {
                 btnMasteredReview.style.background = 'var(--success)';
-                btnMasteredReview.innerText = '✅ 已掌握 · 点击取消';
+                btnMasteredReview.innerText = '✅ Mastered · Click to undo';
             } else {
                 btnMasteredReview.style.background = '';
-                btnMasteredReview.innerText = '🎓 标记为已掌握';
+                btnMasteredReview.innerText = '🎓 Mark as Mastered';
             }
         }
 
@@ -3517,12 +3528,12 @@
             if (!currentWordData) return;
             const willMaster = !currentMasteredState;
             if (willMaster) {
-                if (!confirm('确定将「' + currentWordString + '」标记为已掌握吗？\n已掌握的词不再出现在遗忘曲线复习中（复习进度保留，可随时取消）。')) return;
+                if (!confirm('Mark "' + currentWordString + '" as mastered?\nMastered words no longer appear in spaced review (progress kept, can be undone).')) return;
             } else {
-                if (!confirm('确定取消「' + currentWordString + '」的已掌握标记吗？\n若有复习进度，该词将重新参与遗忘曲线复习。')) return;
+                if (!confirm('Unmark "' + currentWordString + '" as mastered?\nIf it has review progress, the word will re-enter spaced review.')) return;
             }
             btnMasteredReview.disabled = true;
-            btnMasteredReview.innerText = '⏳ 处理中...';
+            btnMasteredReview.innerText = '⏳ Working...';
             const res = await requestSetMastered(currentWordData, willMaster);
             btnMasteredReview.disabled = false;
             currentMasteredState = res.mastered;
@@ -3538,12 +3549,12 @@
         // 重置确认 + 执行
         btnResetReview.addEventListener('click', async () => {
             if (!currentWordData) return;
-            if (!confirm('确定重置「' + currentWordString + '」的复习进度吗？\n重置后该词视为未学（若已掌握将一并取消），1 秒后重新进入复习队列。')) return;
+            if (!confirm('Reset review progress for "' + currentWordString + '"?\nThe word will be treated as unlearned (mastered will be cleared too) and re-enter the queue in 1s.')) return;
             btnResetReview.disabled = true;
-            btnResetReview.innerText = '⏳ 重置中...';
+            btnResetReview.innerText = '⏳ Resetting...';
             const stats = await requestReviewReset(currentWordData);
             btnResetReview.disabled = false;
-            btnResetReview.innerText = '🔄 重置该词进度';
+            btnResetReview.innerText = '🔄 Reset Progress';
             updateReviewStatsUI(stats);
             // 当前在复习模式且该词被重置（回到"未学"）：重建队列让词消失
             if (currentMode() === 'review') {
@@ -3570,7 +3581,7 @@
                 // 已到本组第一个词：自动返回上一个组，并定位到该组最后一个词（与"下一词"跳组形成闭环）
                 const prevGroup = parseInt(groupSelect.value) - 1;
                 groupSelect.value = String(prevGroup);
-                showGroupToast('⏮️ 已返回第 ' + (prevGroup + 1) + ' 组');
+                showGroupToast('⏮️ Back to group ' + (prevGroup + 1));
                 pendingWordIndex = Number.MAX_SAFE_INTEGER; // 由 filterApplied 钳制到上一组最后一个词
                 applyFilters(groupSelect.value);
                 saveProgress();
@@ -3699,8 +3710,8 @@
 
         function applyTheme(theme) {
             document.documentElement.setAttribute('data-theme', theme);
-            // 按钮文字指向下一个主题（方便循环：白天 → 灰色 → 夜间 → 白天）
-            btnTheme.innerText = theme === 'dark' ? '☀️ 日间模式' : (theme === 'grey' ? '🌙 夜间模式' : '⚪ 灰色模式');
+            // Button text points to the NEXT theme (cycle: light -> grey -> dark -> light)
+            btnTheme.innerText = theme === 'dark' ? '☀️ Light' : (theme === 'grey' ? '🌙 Night' : '⚪ Grey');
             try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* 隐私模式写入失败可忽略 */ }
         }
 
@@ -3751,12 +3762,12 @@
                 reasoningEffort: selectEffort.value
             };
             if (!settings.apiKey) {
-                settingsStatus.innerText = '⚠️ API Key 不能为空';
+                settingsStatus.innerText = '⚠️ API Key cannot be empty';
                 settingsStatus.style.color = '#d9534f';
                 return;
             }
             saveDSSettings(settings);
-            settingsStatus.innerText = '✅ 设置已保存';
+            settingsStatus.innerText = '✅ Settings saved';
             settingsStatus.style.color = '#2ea44f';
             setTimeout(closeSettingsPanel, 600);
         });
@@ -3855,13 +3866,13 @@
                     if (cn) html += '<div class="example-cn">🇨🇳 ' + escapeHtml(cn) + '</div>';
                     html += '</div>';
                 } else {
-                    html += '<div class="example-empty">模型未返回有效例句内容。</div>';
+                    html += '<div class="example-empty">The model did not return usable example content.</div>';
                 }
             }
 
             if (explanation) html += '<div class="example-note">💡 ' + escapeHtml(explanation) + '</div>';
             exampleContent.innerHTML = html;
-            setExampleSourceBadge(fromCache ? '📦 缓存 ' + formatTs(ts) : '');
+            setExampleSourceBadge(fromCache ? '📦 Cache ' + formatTs(ts) : '');
         }
 
         // 点击 🔄：跳过本地缓存，强制重新调用 API（成功后覆盖缓存）
@@ -3875,15 +3886,15 @@
 
             const settings = loadDSSettings();
             if (!settings.apiKey) {
-                alert('请先在 ⚙️ 设置 中配置 DeepSeek API Key');
+                alert('Please configure your DeepSeek API Key in ⚙️ Settings first');
                 openSettingsPanel();
                 return;
             }
 
             btnExample.disabled = true;
-            btnExample.innerText = '⏳ 生成中...';
+            btnExample.innerText = '⏳ Generating...';
             exampleArea.style.display = 'block';
-            exampleContent.innerHTML = '<div class="example-loading">⏳ 正在请求 DeepSeek ...<br><span>为 "' + escapeHtml(currentWordString) + '" 生成多词性例句中</span></div>';
+            exampleContent.innerHTML = '<div class="example-loading">⏳ Requesting DeepSeek ...<br><span>Generating examples for "' + escapeHtml(currentWordString) + '"</span></div>';
             setExampleSourceBadge('');
 
             const exampleWord = currentWordString;
@@ -3904,14 +3915,14 @@
                 //   -H "Authorization: Bearer <API Key>"
                 //   -d '{"model":...,"messages":[...],"stream":false, "response_format":{"type":"json_object"}}'
                 const url = settings.baseUrl.replace(/\/+$/, '') + '/chat/completions';
-                const systemPrompt = '你是一个专业的英语学习助手。请为给定的英文单词生成地道例句。' +
-                    '必须考虑该单词不同的词性和含义，为每个主要词性各生成 1 个例句。' +
-                    '你必须只输出一个合法的 JSON 对象（不要输出 markdown 代码块、不要输出任何解释文字）。JSON 格式如下：' +
-                    '{"word":"英文单词","phonetic":"音标(可省略该字段)","examples":[' +
-                    '{"partOfSpeech":"n.","meaning":"该词性下的中文释义","exampleEnglish":"英文例句","exampleChinese":"例句中文翻译"},' +
-                    '{"partOfSpeech":"v.","meaning":"动词释义","exampleEnglish":"英文例句","exampleChinese":"例句中文翻译"}' +
+                const systemPrompt = 'You are a professional English learning assistant. Generate natural example sentences for the given English word. ' +
+                    'Consider the word\'s different parts of speech and meanings, and generate 1 example per major part of speech. ' +
+                    'Output ONLY a valid JSON object (no markdown code blocks, no extra text). JSON format:' +
+                    '{"word":"the word","phonetic":"(optional)","examples":[' +
+                    '{"partOfSpeech":"n.","meaning":"Chinese meaning for this POS","exampleEnglish":"English sentence","exampleChinese":"Chinese translation"},' +
+                    '{"partOfSpeech":"v.","meaning":"verb meaning","exampleEnglish":"English sentence","exampleChinese":"Chinese translation"}' +
                     ']}';
-                const userPrompt = '请为单词 "' + currentWordString + '" 生成每个主要词性（如 n./v./adj./adv. 等）各 1 个地道实用例句，每个例句附中文翻译与释义。';
+                const userPrompt = 'For the word "' + currentWordString + '", generate 1 natural, practical example for each major part of speech (n./v./adj./adv. etc.), each with a Chinese translation and meaning.';
 
                 const response = await fetch(url, {
                     method: 'POST',
@@ -3947,18 +3958,18 @@
 
                 // 解析并渲染模型返回的 JSON：先写入 IndexedDB 本地缓存，下次直接读取
                 const parsed = extractJSON(content);
-                if (!parsed) throw new Error('模型未返回有效的 JSON 内容');
+                if (!parsed) throw new Error('The model did not return valid JSON');
                 worker.postMessage({ type: 'saveExampleCache', word: exampleWord, data: parsed });
                 renderExampleParsed(parsed, false, null);
             } catch (err) {
                 let msg = err && err.message ? err.message : String(err);
                 if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
-                    msg += '<br><span style="font-size:12px;">提示：浏览器直连 API 可能受 CORS 限制，可改用本地代理 / 在线代理转发请求。</span>';
+                    msg += '<br><span style="font-size:12px;">Tip: direct browser calls may be blocked by CORS — use a local/online proxy to forward the request.</span>';
                 }
-                exampleContent.innerHTML = '<div class="example-error">❌ 请求失败: ' + msg + '</div>';
+                exampleContent.innerHTML = '<div class="example-error">❌ Request failed: ' + msg + '</div>';
             } finally {
                 btnExample.disabled = false;
-                btnExample.innerText = '📖 例句 (DeepSeek)';
+                btnExample.innerText = '📖 Examples (DeepSeek)';
             }
         });
 
@@ -4014,10 +4025,10 @@
         // 发起 DeepSeek 请求（与 typing.html 相同的请求格式：JSON 输出 + 缓存写回）
         // config: { cacheStore, systemPrompt, userPrompt }
         async function fetchWordInfoFromModel(key, config) {
-            if (!currentWordString) return { error: '（当前单词无效）' };
+            if (!currentWordString) return { error: '(invalid word)' };
             const settings = loadDSSettings();
             if (!settings.apiKey) {
-                return { error: '⚠️ 未配置 DeepSeek API Key，请先在 ⚙️ 设置 中配置后再使用。' };
+                return { error: '⚠️ DeepSeek API Key not configured. Configure it in ⚙️ Settings first.' };
             }
             // 1) 优先读缓存（与 typing.html / fc.html 共用同一套 IndexedDB 缓存）
             const cached = await requestInfoCache(config.cacheStore, currentWordString);
@@ -4050,23 +4061,23 @@
                         const err = await response.json();
                         if (err.error && err.error.message) errMsg = err.error.message;
                     } catch (e) { /* 非 JSON 错误体 */ }
-                    return { error: '❌ 请求失败: ' + errMsg };
+                    return { error: '❌ Request failed: ' + errMsg };
                 }
                 const data = await response.json();
                 const content = data.choices && data.choices[0] && data.choices[0].message
                     ? (data.choices[0].message.content || '')
                     : '';
                 const parsed = extractJSON(content);
-                if (!parsed) return { error: '❌ 模型未返回有效的 JSON 内容' };
+                if (!parsed) return { error: '❌ The model did not return valid JSON' };
                 // 3) 写入 IndexedDB 缓存（下次 typing.html / q.html 直接读取）
                 worker.postMessage({ type: 'saveInfoCache', store: config.cacheStore, word: currentWordString, data: parsed });
                 return { data: parsed, fromCache: false };
             } catch (err) {
                 let msg = err && err.message ? err.message : String(err);
                 if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
-                    msg += '（浏览器直连 API 可能受 CORS 限制，可改用本地代理转发请求）';
+                    msg += ' (browser direct calls may be blocked by CORS — use a local proxy to forward)';
                 }
-                return { error: '❌ 请求失败: ' + msg };
+                return { error: '❌ Request failed: ' + msg };
             }
         }
 
@@ -4083,21 +4094,21 @@
                 example: parsed.example || parsed.口语例句 || '',
                 detail: parsed.detail || parsed.说明 || '',
                 emoji: level >= 5 ? '🔥' : level >= 4 ? '💬' : level >= 3 ? '🗣' : level >= 2 ? '🤏' : '📚',
-                badge: level >= 5 ? '日常核心' : level >= 4 ? '高频常用' : level >= 3 ? '中等常用' : level >= 2 ? '低频' : '极低频',
-                desc: level >= 5 ? '口语必用词' : level >= 4 ? '口语高频词' : level >= 3 ? '日常偶尔出现' : level >= 2 ? '口语很少出现' : '几乎不说',
+                badge: level >= 5 ? 'Core' : level >= 4 ? 'High' : level >= 3 ? 'Medium' : level >= 2 ? 'Low' : 'Very low',
+                desc: level >= 5 ? 'Essential in speech' : level >= 4 ? 'Frequent in speech' : level >= 3 ? 'Occasional in daily chat' : level >= 2 ? 'Rare in speech' : 'Almost never spoken',
                 segs: Math.max(1, Math.min(5, level))
             };
         }
         function renderFreqLocal(r) {
             return `<div class="freq-head"><span class="freq-emoji">${r.emoji}</span>` +
                 `<span class="freq-badge ${r.level >= 4 ? 'high' : r.level >= 3 ? 'mid' : 'low'}">${r.badge}</span>` +
-                (r.fromCache ? '<span class="example-cache-tip" style="margin:0;">📦 已加载本地缓存频率</span>' : '') +
+                (r.fromCache ? '<span class="example-cache-tip" style="margin:0;">📦 Loaded from local cache</span>' : '') +
                 `</div>` +
                 `<div class="freq-desc">${escapeHtml(r.summary || r.desc)}</div>` +
                 `<div class="freq-segs">${'<div class="freq-seg on"></div>'.repeat(r.segs) + '<div class="freq-seg"></div>'.repeat(5 - r.segs)}</div>` +
-                `<div class="freq-detail">口语使用：约 <b>${r.spokenPercent || '?'}%</b> · 等级 <b>${r.level}/5</b>（${escapeHtml(r.desc)}）</div>` +
+                `<div class="freq-detail">Spoken usage: about <b>${r.spokenPercent || '?'}%</b> · Level <b>${r.level}/5</b> (${escapeHtml(r.desc)})</div>` +
                 (r.example
-                    ? `<div class="freq-detail" style="margin-top:4px;">💬 <b>口语示例：</b>${escapeHtml(r.example)}</div>`
+                    ? `<div class="freq-detail" style="margin-top:4px;">💬 <b>Spoken example:</b> ${escapeHtml(r.example)}</div>`
                     : '') +
                 (r.detail ? `<div class="freq-detail" style="margin-top:4px;">💡 ${escapeHtml(r.detail)}</div>` : '');
         }
@@ -4118,11 +4129,11 @@
         function renderEtymLocal(e) {
             return `<div class="etym-head">` +
                 `<span>📜</span>` +
-                `<span class="etym-title">词源故事${e.title ? '：' + escapeHtml(e.title) : ''}</span>` +
-                (e.fromCache ? '<span class="example-cache-tip" style="margin:0;">📦 已加载本地缓存词源</span>' : '') +
+                `<span class="etym-title">Etymology${e.title ? ': ' + escapeHtml(e.title) : ''}</span>` +
+                (e.fromCache ? '<span class="example-cache-tip" style="margin:0;">📦 Loaded from local cache</span>' : '') +
                 `</div>` +
                 (e.origin ? `<div class="etym-origin">🌍 ${escapeHtml(e.origin)}</div>` : '') +
-                (e.storyHtml ? `<div class="etym-story">${e.storyHtml}</div>` : '<div class="etym-story">（模型未返回词源故事）</div>');
+                (e.storyHtml ? `<div class="etym-story">${e.storyHtml}</div>` : '<div class="etym-story">(The model did not return an etymology story)</div>');
         }
 
         // ---------- 搭配 ----------
@@ -4144,8 +4155,8 @@
             return out;
         }
         function renderCollocLocal(r) {
-            const cacheTip = r.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存搭配</span>' : '';
-            return `<div class="colloc-head">🔗 <span class="colloc-title">固定搭配（${escapeHtml(r.word)}）</span></div>` +
+            const cacheTip = r.fromCache ? '<span class="example-cache-tip">📦 Loaded from local cache</span>' : '';
+            return `<div class="colloc-head">🔗 <span class="colloc-title">Collocations (${escapeHtml(r.word)})</span></div>` +
                 cacheTip +
                 `<div class="colloc-list">` +
                 r.list.map((it) =>
@@ -4178,8 +4189,8 @@
             return { word: parsed.word || '', formula: formula, parts: parts, summary: summary };
         }
         function renderRootLocal(r) {
-            const cacheTip = r.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存词根</span>' : '';
-            return `<div class="root-head">🧩 <span class="root-title">词根拆解（${escapeHtml(r.word || '')}）</span></div>` +
+            const cacheTip = r.fromCache ? '<span class="example-cache-tip">📦 Loaded from local cache</span>' : '';
+            return `<div class="root-head">🧩 <span class="root-title">Word roots (${escapeHtml(r.word || '')})</span></div>` +
                 cacheTip +
                 (r.formula ? `<div class="root-formula">${escapeHtml(r.formula)}</div>` : '') +
                 (r.parts.length > 0
@@ -4215,12 +4226,12 @@
             };
         }
         function renderSynLocal(s) {
-            const cacheTip = s.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存辨析</span>' : '';
+            const cacheTip = s.fromCache ? '<span class="example-cache-tip">📦 Loaded from local cache</span>' : '';
             const rows = [];
             rows.push(
                 `<div class="syn-row main">` +
                 `<span class="syn-word main-word">${escapeHtml(s.word || '')}</span>` +
-                `<span class="syn-meaning">本词</span>` +
+                `<span class="syn-meaning">This word</span>` +
                 `</div>`
             );
             rows.push(s.list.map((it) =>
@@ -4230,10 +4241,10 @@
                 (it.diff ? `<span class="syn-diff">↳ ${escapeHtml(it.diff)}</span>` : '') +
                 `</div>`
             ).join(''));
-            return `<div class="syn-head">🔀 <span class="syn-title">近义词辨析（${escapeHtml(s.word || '')}）</span></div>` +
+            return `<div class="syn-head">🔀 <span class="syn-title">Synonym comparison (${escapeHtml(s.word || '')})</span></div>` +
                 cacheTip +
                 `<div class="syn-table">${rows.join('')}</div>` +
-                (s.contrast ? `<div class="syn-contrast">💡 <b>辨析：</b>${escapeHtml(s.contrast)}</div>` : '');
+                (s.contrast ? `<div class="syn-contrast">💡 <b>Summary:</b> ${escapeHtml(s.contrast)}</div>` : '');
         }
 
         // ---------- 同族词 ----------
@@ -4261,8 +4272,8 @@
             return { word: parsed.word || '', core: core, note: note, groups: groups };
         }
         function renderFamilyLocal(f) {
-            const cacheTip = f.fromCache ? '<span class="example-cache-tip">📦 已加载本地缓存同族词</span>' : '';
-            return `<div class="family-head">🏠 <span class="family-title">同族词（${escapeHtml(f.word || '')}）</span></div>` +
+            const cacheTip = f.fromCache ? '<span class="example-cache-tip">📦 Loaded from local cache</span>' : '';
+            return `<div class="family-head">🏠 <span class="family-title">Word family (${escapeHtml(f.word || '')})</span></div>` +
                 cacheTip +
                 (f.core ? `<div class="family-core">${escapeHtml(f.core)}</div>` : '') +
                 (f.groups.length > 0
@@ -4284,86 +4295,86 @@
         const WORD_INFO_DEFS = {
             freq: {
                 cacheStore: INFO_CACHE_STORES.freq,
-                loadingText: '⏳ 正在请求 DeepSeek 分析口语使用频率...',
-                label: '口语使用频率',
-                systemPrompt: '你是英语口语教学助手。判断给定单词在英语日常口语（conversational English）中的使用频率。' +
-                    '输出顺序：先给一个 1-5 的等级(1=极低频仅书面/专业语域, 5=日常必用核心词)，再给使用频率百分数(0-100)。' +
-                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
-                    '{"level":4,"spokenPercent":85,"summary":"一句话概括其在口语中的出现情况（中文）",' +
-                    '"example":"一个地道口语例句（含中文翻译）","detail":"一个要点（举例或辨析，中文，说明为何这个等级、如何在口语中高频使用）"}',
-                userPrompt: word => '请判断单词 "' + word + '" 在英语日常口语中的使用频率。',
+                loadingText: '⏳ Asking DeepSeek to analyze spoken frequency...',
+                label: 'Spoken frequency',
+                systemPrompt: 'You are an English conversation teaching assistant. Judge how often the given word is used in everyday conversational English. ' +
+                    'First give a level from 1-5 (1 = very rare, written/professional register only; 5 = essential core daily word), then a usage percentage (0-100). ' +
+                    'Output ONLY a valid JSON object (no markdown code blocks, no extra text), format:' +
+                    '{"level":4,"spokenPercent":85,"summary":"one sentence summary (English)",' +
+                    '"example":"a natural conversational example sentence (with English translation)","detail":"one key point (examples or comparison, English, why this level and how to use it frequently in speech)"}',
+                userPrompt: word => 'Judge how often the word "' + word + '" is used in everyday conversational English.',
                 normalize: normalizeFreqLocal,
                 render: renderFreqLocal
             },
             etym: {
                 cacheStore: INFO_CACHE_STORES.etym,
-                loadingText: '⏳ 正在请求 DeepSeek 讲词源故事...',
-                label: '词源故事',
-                systemPrompt: '你是资深英语词源学家。为给定单词讲一个有意思且史实准确的词源故事（etymology）。' +
-                    '覆盖：源自何种语言（如古英语/拉丁语/希腊语/古法语）、原始含义与拼写、语义演变（含关键时间点）、' +
-                    '有趣的关联词或文化典故。中文讲解，保留必要的英文原词。' +
-                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
-                    '{"word":"英文单词","origin":"一句话概括词源（中文）","story":"完整词源故事（中文，300字左右，分2-3段，用\\n分隔段落）"}',
-                userPrompt: word => '请为单词 "' + word + '" 讲一个词源故事。',
+                loadingText: '⏳ Asking DeepSeek for the etymology story...',
+                label: 'Etymology',
+                systemPrompt: 'You are a senior English etymologist. Tell an interesting, historically accurate etymology story for the given word. ' +
+                    'Cover: the source language (Old English/Latin/Greek/Old French etc.), original meaning and spelling, semantic shift (with key time points), ' +
+                    'interesting related words or cultural references. Explain in English, keep necessary original foreign words. ' +
+                    'Output ONLY a valid JSON object (no markdown code blocks, no extra text), format:' +
+                    '{"word":"the word","origin":"one-sentence etymology summary","story":"full etymology story, split into 2-3 paragraphs with \\n separators"}',
+                userPrompt: word => 'Tell the etymology story of the word "' + word + '".',
                 normalize: normalizeEtymLocal,
                 render: renderEtymLocal
             },
             colloc: {
                 cacheStore: INFO_CACHE_STORES.colloc,
-                loadingText: '⏳ 正在请求 DeepSeek 生成固定搭配...',
-                label: '固定搭配',
-                systemPrompt: '你是英语搭配（collocation）专家。为给定单词列出最常用最常见的固定搭配与常见搭配（含短语动词、介词搭配、形容词+名词、动词+宾语等），' +
-                    '每条搭配附中文释义和一个真实地道的英文例句（附中文翻译）。优先口语/写作高频用例。' +
-                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
-                    '{"word":"英文单词","collocations":[{"phrase":"搭配短语","meaning":"中文释义",' +
-                    '"exampleEn":"英文例句","exampleCn":"例句中文翻译"}]}',
-                userPrompt: word => '请为单词 "' + word + '" 列出 5-8 个最常用的固定搭配。',
+                loadingText: '⏳ Asking DeepSeek to generate collocations...',
+                label: 'Collocations',
+                systemPrompt: 'You are an English collocation expert. List the most common fixed collocations for the given word (phrasal verbs, prepositional patterns, adjective+noun, verb+object etc.), ' +
+                    'each with an English definition and one natural example sentence (with English translation). Prioritize high-frequency speech/writing usage. ' +
+                    'Output ONLY a valid JSON object (no markdown code blocks, no extra text), format:' +
+                    '{"word":"the word","collocations":[{"phrase":"collocation","meaning":"definition",' +
+                    '"exampleEn":"English example","exampleCn":"Chinese translation"}]}',
+                userPrompt: word => 'List the 5-8 most common collocations for the word "' + word + '".',
                 normalize: normalizeCollocLocal,
                 render: renderCollocLocal
             },
             root: {
                 cacheStore: INFO_CACHE_STORES.root,
-                loadingText: '⏳ 正在请求 DeepSeek 拆解词根...',
-                label: '词根拆解',
-                systemPrompt: '你是英语构词法专家。对给定单词做词根词缀拆解（前缀 prefix + 词根 root + 后缀 suffix），' +
-                    '解释每个构词成分的含义、词源语言与作用，最后用一句话说明各成分如何组合出单词整体含义。' +
-                    '若单词无明显构词成分（如单一词根词），如实说明"无词缀，单一词根"。' +
-                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
-                    '{"word":"英文单词","formula":"构词公式（如 un- + break + -able）","parts":[' +
-                    '{"morpheme":"构词成分","type":"前缀/词根/后缀/连接元音","meaning":"含义与词源说明（中文）"}' +
-                    '],"summary":"组合含义一句话总结（中文）"}',
-                userPrompt: word => '请对单词 "' + word + '" 做词根词缀拆解。',
+                loadingText: '⏳ Asking DeepSeek to analyze word roots...',
+                label: 'Word roots',
+                systemPrompt: 'You are an English word-formation expert. Break the given word into prefix + root + suffix, ' +
+                    'explain the meaning, source language and function of each morpheme, then summarize in one sentence how the parts combine into the whole meaning. ' +
+                    'If the word has no obvious morphemes (a single root word), say so honestly. ' +
+                    'Output ONLY a valid JSON object (no markdown code blocks, no extra text), format:' +
+                    '{"word":"the word","formula":"construction formula (e.g. un- + break + -able)","parts":[' +
+                    '{"morpheme":"morpheme","type":"prefix/root/suffix/connective","meaning":"meaning and etymology note"}' +
+                    '],"summary":"one-sentence combined meaning summary"}',
+                userPrompt: word => 'Analyze the word roots and affixes of "' + word + '".',
                 normalize: normalizeRootLocal,
                 render: renderRootLocal
             },
             syn: {
                 cacheStore: INFO_CACHE_STORES.syn,
-                loadingText: '⏳ 正在请求 DeepSeek 做近义词辨析...',
-                label: '近义词辨析',
-                systemPrompt: '你是英语近义词辨析专家。给定一个英文单词，找出 3-5 个与它词义相近的词（同义词），' +
-                    '逐个说明每个词与目标单词的细微差别（语域、语气强弱、使用场景、搭配对象、正式/口语等）。' +
-                    '最后用一段话总结这几个词如何区分、何时选哪个。用中文讲解，保留英文原词。' +
-                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
-                    '{"word":"目标单词","compareTo":[' +
-                    '{"word":"近义词","meaning":"中文释义","diff":"与目标单词的差别（中文）"}' +
-                    '],"contrast":"总结：如何区分与选用（中文）"}',
-                userPrompt: word => '请找出与单词 "' + word + '" 词义相近的词并做辨析。',
+                loadingText: '⏳ Asking DeepSeek to compare synonyms...',
+                label: 'Synonym comparison',
+                systemPrompt: 'You are an English synonym expert. Given an English word, find 3-5 words with similar meaning, ' +
+                    'explain the subtle difference of each vs. the target word (register, tone strength, usage context, collocation, formal/spoken etc.), ' +
+                    'and end with a paragraph summarizing how to distinguish and choose among them. Explain in English, keep the original words. ' +
+                    'Output ONLY a valid JSON object (no markdown code blocks, no extra text), format:' +
+                    '{"word":"target word","compareTo":[' +
+                    '{"word":"synonym","meaning":"definition","diff":"difference from target"}' +
+                    '],"contrast":"summary: how to distinguish and choose"}',
+                userPrompt: word => 'Find synonyms of "' + word + '" and compare them.',
                 normalize: normalizeSynLocal,
                 render: renderSynLocal
             },
             family: {
                 cacheStore: INFO_CACHE_STORES.family,
-                loadingText: '⏳ 正在请求 DeepSeek 查询同族词...',
-                label: '同族词',
-                systemPrompt: '你是英语构词法专家。给定一个英文单词，找出它的同族词（word family，即由同一词根衍生的词形变化），' +
-                    '按词性分组：名词（含单复数/动名词）、动词（含过去式/分词）、形容词（含比较级/最高级）、副词等。' +
-                    '每个词附中文释义。若某词性无衍生词则省略该组。用中文讲解，保留英文原词。' +
-                    '只需输出一个合法 JSON 对象（不要 markdown 代码块、不要解释文字），格式：' +
-                    '{"word":"目标单词","core":"核心词根及含义（如 act = 行动）","groups":[' +
-                    '{"pos":"n.","words":[{"word":"名词词形","meaning":"中文释义"}]},' +
-                    '{"pos":"v.","words":[{"word":"动词词形","meaning":"中文释义"}]}' +
-                    '],"note":"记忆要点（中文，如词根提示、易混词提醒，可省略）"}',
-                userPrompt: word => '请列出单词 "' + word + '" 的同族词。',
+                loadingText: '⏳ Asking DeepSeek for the word family...',
+                label: 'Word family',
+                systemPrompt: 'You are an English word-formation expert. Given an English word, find its word family (derived forms from the same root), ' +
+                    'grouped by part of speech: nouns (incl. plurals/gerunds), verbs (incl. past/participles), adjectives (incl. comparatives/superlatives), adverbs etc. ' +
+                    'Give an English definition for each word. Omit groups with no derived words. Explain in English, keep the original words. ' +
+                    'Output ONLY a valid JSON object (no markdown code blocks, no extra text), format:' +
+                    '{"word":"target word","core":"core root and meaning (e.g. act = to do)","groups":[' +
+                    '{"pos":"n.","words":[{"word":"noun form","meaning":"definition"}]},' +
+                    '{"pos":"v.","words":[{"word":"verb form","meaning":"definition"}]}' +
+                    '],"note":"memory tip (optional)"}',
+                userPrompt: word => 'List the word family of "' + word + '".',
                 normalize: normalizeFamilyLocal,
                 render: renderFamilyLocal
             }
@@ -4409,7 +4420,7 @@
             const norm = def.normalize(result.data);
             if (!norm || (Array.isArray(norm) && norm.length === 0)) {
                 infoLoadingKey = null;
-                setInfoContent(key, 'error', '<div class="info-error">❌ 模型未返回有效数据</div>');
+                setInfoContent(key, 'error', '<div class="info-error">❌ The model did not return valid data</div>');
                 return;
             }
             infoLoadingKey = null;
@@ -4440,14 +4451,14 @@
         // 预设词库（与默认词库同源：GitHub raw → jsDelivr 镜像依次尝试）
         const PRESET_DICTS = [
             {
-                name: '四级词汇 (CET-4)',
+                name: 'CET-4 Vocabulary',
                 urls: [
                     'https://raw.githubusercontent.com/mouxie/qwerty-learner/refs/heads/master/public/dicts/CET4_T.json',
                     'https://cdn.jsdelivr.net/gh/mouxie/qwerty-learner@master/public/dicts/CET4_T.json'
                 ]
             },
             {
-                name: '六级词汇 (CET-6)',
+                name: 'CET-6 Vocabulary',
                 urls: [
                     'https://raw.githubusercontent.com/mouxie/qwerty-learner/refs/heads/master/public/dicts/CET6_T.json',
                     'https://cdn.jsdelivr.net/gh/mouxie/qwerty-learner@master/public/dicts/CET6_T.json'
@@ -4460,13 +4471,23 @@
             dictStatusEl.style.color = color || '';
         }
 
+        // 历史中文词库名 → 英文显示（兼容旧版本已存入 IndexedDB 的库名）
+        const DICT_NAME_EN = {
+            '默认词库': 'Default',
+            '四级词汇 (CET-4)': 'CET-4 Vocabulary',
+            '六级词汇 (CET-6)': 'CET-6 Vocabulary'
+        };
+        function displayDictName(name) {
+            return DICT_NAME_EN[name] || name;
+        }
+
         // 顶部词库下拉框
         function renderDictSelect() {
             dictSelect.innerHTML = '';
             dictList.forEach((d) => {
                 const opt = document.createElement('option');
                 opt.value = d.id;
-                opt.text = '📚 ' + d.name + ' (' + (d.count || 0) + ')';
+                opt.text = '📚 ' + displayDictName(d.name) + ' (' + (d.count || 0) + ')';
                 dictSelect.appendChild(opt);
             });
             dictSelect.value = activeDictId;
@@ -4484,23 +4505,23 @@
                 const row = document.createElement('div');
                 row.className = 'dict-item' + (d.id === activeDictId ? ' is-active' : '');
                 const info = document.createElement('div');
-                info.innerHTML = '<div class="dict-item__name">' + escapeHtml(d.name) +
-                    (d.id === activeDictId ? ' <span style="color:var(--primary); font-size:11px;">● 当前</span>' : '') +
-                    '</div><div class="dict-item__meta">' + (d.count || 0) + ' 词 · ' + formatTs(d.ts) + ' 导入</div>';
+                info.innerHTML = '<div class="dict-item__name">' + escapeHtml(displayDictName(d.name)) +
+                    (d.id === activeDictId ? ' <span style="color:var(--primary); font-size:11px;">● Active</span>' : '') +
+                    '</div><div class="dict-item__meta">' + (d.count || 0) + ' words · imported ' + formatTs(d.ts) + '</div>';
                 const actions = document.createElement('div');
                 actions.className = 'dict-item__actions';
                 if (d.id !== activeDictId) {
                     const btnUse = document.createElement('button');
                     btnUse.className = 'btn-mini btn-mini--primary';
-                    btnUse.textContent = '切换';
+                    btnUse.textContent = 'Switch';
                     btnUse.onclick = () => worker.postMessage({ type: 'setDict', id: d.id });
                     actions.appendChild(btnUse);
                 }
                 const btnDel = document.createElement('button');
                 btnDel.className = 'btn-mini btn-mini--danger';
-                btnDel.textContent = '删除';
+                btnDel.textContent = 'Delete';
                 btnDel.onclick = () => {
-                    if (confirm('确定删除词库「' + d.name + '」及其全部 ' + (d.count || 0) + ' 个单词吗？（错词本不受影响）')) {
+                    if (confirm('Delete dictionary "' + d.name + '" and all its ' + (d.count || 0) + ' words? (wrong list is unaffected)')) {
                         worker.postMessage({ type: 'deleteDict', id: d.id });
                     }
                 };
@@ -4523,9 +4544,9 @@
                 actions.className = 'dict-item__actions';
                 const btn = document.createElement('button');
                 btn.className = 'btn-mini btn-mini--primary';
-                btn.textContent = '⬇️ 导入';
+                btn.textContent = '⬇️ Import';
                 btn.onclick = () => {
-                    setDictStatus('⏳ 正在导入「' + p.name + '」，请勿关闭...', '');
+                    setDictStatus('⏳ Importing "' + p.name + '", please wait...', '');
                     worker.postMessage({ type: 'importDict', name: p.name, urls: p.urls });
                 };
                 actions.appendChild(btn);
@@ -4552,9 +4573,9 @@
         btnDictImportUrl.addEventListener('click', () => {
             const name = inputDictName.value.trim();
             const url = inputDictUrl.value.trim();
-            if (!name) { setDictStatus('⚠️ 请填写词库名称', '#d9534f'); return; }
-            if (!/^https?:\/\//i.test(url)) { setDictStatus('⚠️ 请填写合法的 http(s) URL', '#d9534f'); return; }
-            setDictStatus('⏳ 正在导入「' + name + '」，请勿关闭...', '');
+            if (!name) { setDictStatus('⚠️ Please enter a dictionary name', '#d9534f'); return; }
+            if (!/^https?:\/\//i.test(url)) { setDictStatus('⚠️ Please enter a valid http(s) URL', '#d9534f'); return; }
+            setDictStatus('⏳ Importing "' + name + '", please wait...', '');
             worker.postMessage({ type: 'importDict', name: name, urls: [url] });
         });
 
@@ -4567,15 +4588,15 @@
             reader.onload = () => {
                 try {
                     const parsed = JSON.parse(reader.result);
-                    setDictStatus('⏳ 正在写入「' + name + '」...', '');
+                    setDictStatus('⏳ Writing "' + name + '"...', '');
                     worker.postMessage({ type: 'importDict', name: name, list: parsed });
                 } catch (e) {
-                    setDictStatus('❌ JSON 解析失败：' + e.message, '#d9534f');
+                    setDictStatus('❌ JSON parse failed: ' + e.message, '#d9534f');
                 } finally {
                     dictFileInput.value = ''; // 允许重复选同一文件
                 }
             };
-            reader.onerror = () => setDictStatus('❌ 文件读取失败', '#d9534f');
+            reader.onerror = () => setDictStatus('❌ File read failed', '#d9534f');
             reader.readAsText(file, 'utf-8');
         });
     </script>
