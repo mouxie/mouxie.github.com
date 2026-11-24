@@ -3051,16 +3051,13 @@
             worker.postMessage({ type: 'logTyping', data: currentWordData, correct: correct });
         }
 
-        // 输入完成且完全正确：成功反馈，短暂延迟后自动进入下一词
+        // 输入完成且完全正确：无动画/文字提醒，短暂延迟后自动进入下一词
         function onWordCorrect() {
             resolvingWord = true;
             reportTyping(true);
             // 用 readOnly 而非 disabled：iOS Safari 上 disabled 会立即收起键盘并丢失焦点，
             // 之后在 setTimeout 里 focus() 属于非用户手势，无法重新唤起键盘
             typeInput.readOnly = true;
-            meaningCard.classList.add('is-success');
-            typeStatus.textContent = '✅ Correct! Next word...';
-            typeStatus.className = 'type-status success';
             setTimeout(() => {
                 if (currentMode() === 'review') {
                     // 复习模式：打对的词已在 worker 中标记为未来到期，重建队列把它移除，原地续接下一个
